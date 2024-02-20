@@ -5,13 +5,14 @@ import (
 	"net/http"
 
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
+	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	"github.com/gin-gonic/gin"
 )
 
 func (h *HttpEndpoints) AddManagementAuthAPI(rg *gin.RouterGroup) {
 	auth := rg.Group("/auth")
 	auth.POST("/signin-with-idp", mw.RequirePayload(), h.signInWithIdP)
-	// auth.GET("/renew-token", mw.GetAndValidateJWT(), h.getRenewToken)
+	auth.GET("/renew-token", mw.GetAndValidateManagementUserJWT(h.tokenSignKey), h.getRenewToken)
 }
 
 type SignInRequest struct {
@@ -42,9 +43,11 @@ func (h *HttpEndpoints) signInWithIdP(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "unimplemented"})
 }
 
-/*func (h *HttpEndpoints) getRenewToken(c *gin.Context) {
+func (h *HttpEndpoints) getRenewToken(c *gin.Context) {
 	// TODO: get user id from jwt
 	// TODO: look up if user has a valid renew token
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	slog.Info("getRenewToken called with ", slog.String("id", token.ID))
 
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "unimplemented"})
-}*/
+}

@@ -18,11 +18,15 @@ func HealthCheckHandle(c *gin.Context) {
 
 type HttpEndpoints struct {
 	// db connections
+	tokenSignKey string
 }
 
 func NewHTTPHandler(
-// db connections
+	tokenSignKey string,
+	// db connections
 ) *HttpEndpoints {
 
-	return &HttpEndpoints{}
+	return &HttpEndpoints{
+		tokenSignKey: tokenSignKey,
+	}
 }

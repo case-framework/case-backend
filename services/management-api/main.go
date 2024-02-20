@@ -52,7 +52,9 @@ func main() {
 	router.GET("/", apihandlers.HealthCheckHandle)
 	v1Root := router.Group("/v1")
 
-	v1APIHandlers := apihandlers.NewHTTPHandler()
+	v1APIHandlers := apihandlers.NewHTTPHandler(
+		"tokenSignKey",
+	)
 	v1APIHandlers.AddManagementAuthAPI(v1Root)
 
 	// Start the server
