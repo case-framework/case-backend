@@ -79,10 +79,6 @@ func (dbService *ManagementUserDBService) collectionPermissions(instanceID strin
 	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(Permissions)
 }
 
-func (dbService *ManagementUserDBService) collectionSessions(instanceID string) *mongo.Collection {
-	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(Sessions)
-}
-
 func (dbService *ManagementUserDBService) getContext() (ctx context.Context, cancel context.CancelFunc) {
 	return context.WithTimeout(context.Background(), time.Duration(dbService.timeout)*time.Second)
 }

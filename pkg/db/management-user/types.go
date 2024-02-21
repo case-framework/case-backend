@@ -33,7 +33,7 @@ type ManagementUser struct {
 
 type Session struct {
 	ID         primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
-	UserID     primitive.ObjectID `json:"userId,omitempty" bson:"userId,omitempty"`
+	UserID     string             `json:"userId,omitempty" bson:"userId,omitempty"`
 	RenewToken string             `json:"renewToken,omitempty" bson:"renewToken,omitempty"`
 	CreatedAt  time.Time          `json:"createdAt,omitempty" bson:"createdAt,omitempty"`
 }
