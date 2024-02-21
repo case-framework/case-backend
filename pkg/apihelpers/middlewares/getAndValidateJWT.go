@@ -15,7 +15,7 @@ func GetAndValidateManagementUserJWT(tokenSignKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token, err := extractToken(c)
 		if err != nil {
-			slog.Debug("GetAndValidateJWT Middleware: no Authorization token found")
+			slog.Warn("GetAndValidateJWT Middleware: no Authorization token found")
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			c.Abort()
 			return
@@ -24,7 +24,7 @@ func GetAndValidateManagementUserJWT(tokenSignKey string) gin.HandlerFunc {
 		// Parse and validate token
 		parsedToken, ok, err := jwthandling.ValidateManagementUserToken(token, tokenSignKey)
 		if err != nil || !ok {
-			slog.Debug("GetAndValidateJWT Middleware: token validation failed")
+			slog.Warn("GetAndValidateJWT Middleware: token validation failed")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "error during token validation"})
 			c.Abort()
 			return
