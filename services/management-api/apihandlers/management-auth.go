@@ -129,10 +129,24 @@ func (h *HttpEndpoints) getRenewToken(c *gin.Context) {
 		return
 	}
 
-	// TODO: get user id from jwt
-	// TODO: look up if user has a valid renew token
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
-	slog.Info("getRenewToken called with ", slog.String("id", token.ID))
+	existingSession, err := h.muDBConn.GetSession(token.InstanceID, sessionID)
+	if err != nil {
+		slog.Error("getRenewToken: could not get session", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not get session"})
+		return
+	}
+	if existingSession.UserID != token.ID {
+		slog.Warn("getRenewToken: user not allowed to get renew token", slog.String("userID", token.ID), slog.String("sessionUserID", existingSession.UserID))
+		c.JSON(http.StatusForbidden, gin.H{"error": "user not allowed to get renew token"})
+		return
+	}
 
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "unimplemented"})
+	// delete the session
+	err = h.muDBConn.DeleteSession(token.InstanceID, sessionID)
+	if err != nil {
+		slog.Error("getRenewToken: could not delete session", slog.String("error", err.Error()))
+	}
+
+	c.JSON(http.StatusOK, gin.H{"renewToken": existingSession.RenewToken})
 }
