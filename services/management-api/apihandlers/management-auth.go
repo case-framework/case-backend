@@ -13,7 +13,7 @@ import (
 func (h *HttpEndpoints) AddManagementAuthAPI(rg *gin.RouterGroup) {
 	auth := rg.Group("/auth")
 	auth.POST("/signin-with-idp", mw.RequirePayload(), h.signInWithIdP)
-	auth.GET("/renew-token", mw.GetAndValidateManagementUserJWT(h.tokenSignKey), h.getRenewToken)
+	auth.GET("/renew-token/:sessionID", mw.GetAndValidateManagementUserJWT(h.tokenSignKey), h.getRenewToken)
 }
 
 // SignInRequest is the request body for the signin-with-idp endpoint
@@ -34,16 +34,31 @@ func (h *HttpEndpoints) signInWithIdP(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	slog.Info("signInWithIdP called with ", slog.String("sub", req.Sub))
-
-	for _, role := range req.Roles {
-		slog.Info("Role: ", slog.String("role", role))
-	}
 
 	if !h.isInstanceAllowed(req.InstanceID) {
 		slog.Warn("signInWithIdP: instance not allowed", slog.String("instanceID", req.InstanceID))
 		c.JSON(http.StatusForbidden, gin.H{"error": "instance not allowed"})
 		return
+	}
+
+	if req.Sub == "" {
+		slog.Warn("signInWithIdP: no sub")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing sub"})
+		return
+	}
+
+	isAdmin := false
+	for _, role := range req.Roles {
+		if role == "admin" {
+			isAdmin = true
+			break
+		}
+	}
+
+	slog.Info("signInWithIdP called with ", slog.String("sub", req.Sub))
+
+	for _, role := range req.Roles {
+		slog.Info("Role: ", slog.String("role", role))
 	}
 
 	session, err := h.muDBConn.CreateSession(req.InstanceID, "testUserID", "renewToken")
@@ -60,10 +75,10 @@ func (h *HttpEndpoints) signInWithIdP(c *gin.Context) {
 
 	// TODO: generate new JWT token
 	token, err := jwthandling.GenerateNewManagementUserToken(
-		5*time.Minute,
+		h.tokenExpiresIn,
 		"testUserID",
 		"testInstanceID",
-		false,
+		isAdmin,
 		map[string]string{},
 		h.tokenSignKey,
 	)
@@ -77,11 +92,24 @@ func (h *HttpEndpoints) signInWithIdP(c *gin.Context) {
 	// Use req to access the request body data
 	// ...
 
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "unimplemented"})
+	// c.JSON(http.StatusNotImplemented, gin.H{"error": "unimplemented"})
+	c.JSON(http.StatusOK, gin.H{
+		"accessToken": token,
+		"sessionID":   session.ID.Hex(),
+		"expiresAt":   time.Now().Add(h.tokenExpiresIn).Unix(),
+		"isAdmin":     isAdmin,
+	})
 }
 
 // getRenewToken to get a the renew token for the user
 func (h *HttpEndpoints) getRenewToken(c *gin.Context) {
+	sessionID := c.Param("sessionID")
+	if sessionID == "" {
+		slog.Warn("getRenewToken: no sessionID")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no sessionID"})
+		return
+	}
+
 	// TODO: get user id from jwt
 	// TODO: look up if user has a valid renew token
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)

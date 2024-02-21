@@ -6,9 +6,11 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/case-framework/case-backend/pkg/apihelpers"
 	"github.com/case-framework/case-backend/pkg/db"
+	"github.com/case-framework/case-backend/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -19,7 +21,8 @@ const (
 	ENV_MANAGEMENT_API_LISTEN_PORT = "MANAGEMENT_API_LISTEN_PORT"
 	ENV_CORS_ALLOW_ORIGINS         = "CORS_ALLOW_ORIGINS"
 
-	ENV_MANAGEMENT_USER_JWT_SIGN_KEY = "MANAGEMENT_USER_JWT_SIGN_KEY"
+	ENV_MANAGEMENT_USER_JWT_SIGN_KEY   = "MANAGEMENT_USER_JWT_SIGN_KEY"
+	ENV_MANAGEMENT_USER_JWT_EXPIRES_IN = "MANAGEMENT_USER_JWT_EXPIRES_IN"
 
 	ENV_REQUIRE_MUTUAL_TLS     = "REQUIRE_MUTUAL_TLS"
 	ENV_MUTUAL_TLS_SERVER_CERT = "MUTUAL_TLS_SERVER_CERT"
@@ -46,7 +49,8 @@ type Config struct {
 	Port         string   `json:"port"`
 
 	// JWT configs
-	ManagementUserJWTSignKey string `json:"management_user_jwt_sign_key"`
+	ManagementUserJWTSignKey   string        `json:"management_user_jwt_sign_key"`
+	ManagementUserJWTExpiresIn time.Duration `json:"management_user_jwt_expires_in"`
 
 	AllowedInstanceIDs []string `json:"allowed_instance_ids"`
 
@@ -80,6 +84,13 @@ func initConfig() Config {
 
 	// JWT configs
 	conf.ManagementUserJWTSignKey = os.Getenv(ENV_MANAGEMENT_USER_JWT_SIGN_KEY)
+	expInVal := os.Getenv(ENV_MANAGEMENT_USER_JWT_EXPIRES_IN)
+	var err error
+	conf.ManagementUserJWTExpiresIn, err = utils.ParseDurationString(expInVal)
+	if err != nil {
+		slog.Error("error during initConfig", slog.String("err", err.Error()), ENV_MANAGEMENT_USER_JWT_EXPIRES_IN, expInVal)
+		panic(err)
+	}
 
 	// Mutual TLS configs
 	conf.UseMTLS = os.Getenv(ENV_REQUIRE_MUTUAL_TLS) == "true"
@@ -111,20 +122,20 @@ func readManagementUserDBConfig() db.DBConfig {
 	var err error
 	Timeout, err := strconv.Atoi(os.Getenv(ENV_MANAGEMENT_USER_DB_TIMEOUT))
 	if err != nil {
-		slog.Error("error during initConfig", err, ENV_MANAGEMENT_USER_DB_TIMEOUT, os.Getenv(ENV_MANAGEMENT_USER_DB_TIMEOUT))
+		slog.Error("error during initConfig", slog.String("err", err.Error()), ENV_MANAGEMENT_USER_DB_TIMEOUT, os.Getenv(ENV_MANAGEMENT_USER_DB_TIMEOUT))
 		panic(err)
 	}
 
 	IdleConnTimeout, err := strconv.Atoi(os.Getenv(ENV_MANAGEMENT_USER_DB_IDLE_CONN_TIMEOUT))
 	if err != nil {
-		slog.Error("error during initConfig", err, ENV_MANAGEMENT_USER_DB_IDLE_CONN_TIMEOUT, os.Getenv(ENV_MANAGEMENT_USER_DB_IDLE_CONN_TIMEOUT))
+		slog.Error("error during initConfig", slog.String("err", err.Error()), ENV_MANAGEMENT_USER_DB_IDLE_CONN_TIMEOUT, os.Getenv(ENV_MANAGEMENT_USER_DB_IDLE_CONN_TIMEOUT))
 		panic(err)
 	}
 
 	mps, err := strconv.Atoi(os.Getenv(ENV_MANAGEMENT_USER_DB_MAX_POOL_SIZE))
 	MaxPoolSize := uint64(mps)
 	if err != nil {
-		slog.Error("error during initConfig", err, ENV_MANAGEMENT_USER_DB_MAX_POOL_SIZE, os.Getenv(ENV_MANAGEMENT_USER_DB_MAX_POOL_SIZE))
+		slog.Error("error during initConfig", slog.String("err", err.Error()), ENV_MANAGEMENT_USER_DB_MAX_POOL_SIZE, os.Getenv(ENV_MANAGEMENT_USER_DB_MAX_POOL_SIZE))
 		panic(err)
 	}
 
