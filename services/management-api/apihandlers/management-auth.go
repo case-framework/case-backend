@@ -14,7 +14,11 @@ import (
 func (h *HttpEndpoints) AddManagementAuthAPI(rg *gin.RouterGroup) {
 	auth := rg.Group("/auth")
 	auth.POST("/signin-with-idp", mw.RequirePayload(), h.signInWithIdP)
-	auth.GET("/renew-token/:sessionID", mw.GetAndValidateManagementUserJWT(h.tokenSignKey), h.getRenewToken)
+	auth.GET("/renew-token/:sessionID",
+		mw.GetAndValidateManagementUserJWT(h.tokenSignKey),
+		mw.IsInstanceIDInJWTAllowed(h.allowedInstanceIDs),
+		h.getRenewToken,
+	)
 }
 
 // SignInRequest is the request body for the signin-with-idp endpoint
