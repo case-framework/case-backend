@@ -13,12 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type Config struct {
-	AllowOrigins     []string                    `json:"allow_origins"`
-	Port             string                      `json:"port"`
-	UseMTLS          bool                        `json:"use_mtls"`
-	CertificatePaths apihelpers.CertificatePaths `json:"certificate_paths"`
-}
+var conf Config
 
 func main() {
 	opts := &slog.HandlerOptions{
@@ -28,12 +23,6 @@ func main() {
 	handler := slog.NewJSONHandler(os.Stdout, opts)
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
-
-	conf := Config{
-		AllowOrigins: []string{"*"},
-		Port:         "8080",
-		UseMTLS:      false,
-	}
 
 	apihandlers.HandlerTest()
 	// Start webserver
@@ -53,7 +42,7 @@ func main() {
 	v1Root := router.Group("/v1")
 
 	v1APIHandlers := apihandlers.NewHTTPHandler(
-		"tokenSignKey",
+		conf.ManagementUserJWTSignKey,
 	)
 	v1APIHandlers.AddManagementAuthAPI(v1Root)
 
