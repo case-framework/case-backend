@@ -40,6 +40,20 @@ func (h *HttpEndpoints) signInWithIdP(c *gin.Context) {
 		slog.Info("Role: ", slog.String("role", role))
 	}
 
+	if !h.isInstanceAllowed(req.InstanceID) {
+		slog.Warn("signInWithIdP: instance not allowed", slog.String("instanceID", req.InstanceID))
+		c.JSON(http.StatusForbidden, gin.H{"error": "instance not allowed"})
+		return
+	}
+
+	session, err := h.muDBConn.CreateSession(req.InstanceID, "testUserID", "renewToken")
+	if err != nil {
+		slog.Error("signInWithIdP: ", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	slog.Info("signInWithIdP: created session ", "sessionID", session.ID.Hex())
+
 	// TODO: look up user in database by instanceID and sub
 	// TODO: if user exists, update user with new token, email, and name
 	// TODO: if user does not exist, create new user with token, email, name

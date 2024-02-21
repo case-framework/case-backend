@@ -48,6 +48,8 @@ type Config struct {
 	// JWT configs
 	ManagementUserJWTSignKey string `json:"management_user_jwt_sign_key"`
 
+	AllowedInstanceIDs []string `json:"allowed_instance_ids"`
+
 	// Mutual TLS configs
 	UseMTLS          bool                        `json:"use_mtls"`
 	CertificatePaths apihelpers.CertificatePaths `json:"certificate_paths"`
@@ -56,6 +58,14 @@ type Config struct {
 }
 
 func init() {
+	opts := &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}
+
+	handler := slog.NewJSONHandler(os.Stdout, opts)
+	logger := slog.New(handler)
+	slog.SetDefault(logger)
+
 	conf = initConfig()
 	if !conf.GinDebugMode {
 		gin.SetMode(gin.ReleaseMode)
@@ -81,6 +91,9 @@ func initConfig() Config {
 
 	// Management user db configs
 	conf.ManagementUserDBConfig = readManagementUserDBConfig()
+
+	// Allowed instance IDs
+	conf.AllowedInstanceIDs = strings.Split(os.Getenv(ENV_INSTANCE_IDS), ",")
 	return conf
 }
 

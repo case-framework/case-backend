@@ -3,10 +3,10 @@ package main
 import (
 	"log/slog"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/apihelpers"
+	muDB "github.com/case-framework/case-backend/pkg/db/management-user"
 	"github.com/case-framework/case-backend/services/management-api/apihandlers"
 
 	"github.com/gin-contrib/cors"
@@ -16,15 +16,13 @@ import (
 var conf Config
 
 func main() {
-	opts := &slog.HandlerOptions{
-		Level: slog.LevelDebug,
+	// Connect to DBs
+	muDBService, err := muDB.NewManagementUserDBService(conf.ManagementUserDBConfig)
+	if err != nil {
+		slog.Error("Error connecting to Management User DB", err)
+		return
 	}
 
-	handler := slog.NewJSONHandler(os.Stdout, opts)
-	logger := slog.New(handler)
-	slog.SetDefault(logger)
-
-	apihandlers.HandlerTest()
 	// Start webserver
 	router := gin.Default()
 	router.Use(cors.New(cors.Config{
@@ -43,6 +41,8 @@ func main() {
 
 	v1APIHandlers := apihandlers.NewHTTPHandler(
 		conf.ManagementUserJWTSignKey,
+		muDBService,
+		conf.AllowedInstanceIDs,
 	)
 	v1APIHandlers.AddManagementAuthAPI(v1Root)
 

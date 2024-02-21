@@ -1,32 +1,30 @@
 package apihandlers
 
 import (
-	"log/slog"
 	"net/http"
 
+	muDB "github.com/case-framework/case-backend/pkg/db/management-user"
 	"github.com/gin-gonic/gin"
 )
-
-func HandlerTest() {
-	// ...
-	slog.Info("HandlerTest called")
-}
 
 func HealthCheckHandle(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
 type HttpEndpoints struct {
-	// db connections
-	tokenSignKey string
+	muDBConn           *muDB.ManagementUserDBService
+	tokenSignKey       string
+	allowedInstanceIDs []string
 }
 
 func NewHTTPHandler(
 	tokenSignKey string,
-	// db connections
+	muDBConn *muDB.ManagementUserDBService,
+	allowedInstanceIDs []string,
 ) *HttpEndpoints {
-
 	return &HttpEndpoints{
-		tokenSignKey: tokenSignKey,
+		tokenSignKey:       tokenSignKey,
+		muDBConn:           muDBConn,
+		allowedInstanceIDs: allowedInstanceIDs,
 	}
 }
