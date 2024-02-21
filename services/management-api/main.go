@@ -19,7 +19,7 @@ func main() {
 	// Connect to DBs
 	muDBService, err := muDB.NewManagementUserDBService(conf.ManagementUserDBConfig)
 	if err != nil {
-		slog.Error("Error connecting to Management User DB", slog.String("err", err.Error()))
+		slog.Error("Error connecting to Management User DB", slog.String("error", err.Error()))
 		return
 	}
 
@@ -52,14 +52,14 @@ func main() {
 		slog.Info("Starting Management API on port " + conf.Port)
 		err := router.Run(":" + conf.Port)
 		if err != nil {
-			slog.Error("Exited Management API", slog.String("err", err.Error()))
+			slog.Error("Exited Management API", slog.String("error", err.Error()))
 			return
 		}
 	} else {
 		// Create tls config for mutual TLS
 		tlsConfig, err := apihelpers.LoadTLSConfig(conf.CertificatePaths)
 		if err != nil {
-			slog.Error("Error loading TLS config.", slog.String("err", err.Error()))
+			slog.Error("Error loading TLS config.", slog.String("error", err.Error()))
 			return
 		}
 
@@ -71,7 +71,7 @@ func main() {
 
 		err = server.ListenAndServeTLS(conf.CertificatePaths.ServerCertPath, conf.CertificatePaths.ServerKeyPath)
 		if err != nil {
-			slog.Error("Exited Management API", slog.String("err", err.Error()))
+			slog.Error("Exited Management API", slog.String("error", err.Error()))
 			return
 		}
 	}

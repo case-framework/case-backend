@@ -88,7 +88,7 @@ func initConfig() Config {
 	var err error
 	conf.ManagementUserJWTExpiresIn, err = utils.ParseDurationString(expInVal)
 	if err != nil {
-		slog.Error("error during initConfig", slog.String("err", err.Error()), ENV_MANAGEMENT_USER_JWT_EXPIRES_IN, expInVal)
+		slog.Error("error during initConfig", slog.String("error", err.Error()), ENV_MANAGEMENT_USER_JWT_EXPIRES_IN, expInVal)
 		panic(err)
 	}
 
@@ -122,20 +122,20 @@ func readManagementUserDBConfig() db.DBConfig {
 	var err error
 	Timeout, err := strconv.Atoi(os.Getenv(ENV_MANAGEMENT_USER_DB_TIMEOUT))
 	if err != nil {
-		slog.Error("error during initConfig", slog.String("err", err.Error()), ENV_MANAGEMENT_USER_DB_TIMEOUT, os.Getenv(ENV_MANAGEMENT_USER_DB_TIMEOUT))
+		slog.Error("error during initConfig", slog.String("error", err.Error()), ENV_MANAGEMENT_USER_DB_TIMEOUT, os.Getenv(ENV_MANAGEMENT_USER_DB_TIMEOUT))
 		panic(err)
 	}
 
 	IdleConnTimeout, err := strconv.Atoi(os.Getenv(ENV_MANAGEMENT_USER_DB_IDLE_CONN_TIMEOUT))
 	if err != nil {
-		slog.Error("error during initConfig", slog.String("err", err.Error()), ENV_MANAGEMENT_USER_DB_IDLE_CONN_TIMEOUT, os.Getenv(ENV_MANAGEMENT_USER_DB_IDLE_CONN_TIMEOUT))
+		slog.Error("error during initConfig", slog.String("error", err.Error()), ENV_MANAGEMENT_USER_DB_IDLE_CONN_TIMEOUT, os.Getenv(ENV_MANAGEMENT_USER_DB_IDLE_CONN_TIMEOUT))
 		panic(err)
 	}
 
 	mps, err := strconv.Atoi(os.Getenv(ENV_MANAGEMENT_USER_DB_MAX_POOL_SIZE))
 	MaxPoolSize := uint64(mps)
 	if err != nil {
-		slog.Error("error during initConfig", slog.String("err", err.Error()), ENV_MANAGEMENT_USER_DB_MAX_POOL_SIZE, os.Getenv(ENV_MANAGEMENT_USER_DB_MAX_POOL_SIZE))
+		slog.Error("error during initConfig", slog.String("error", err.Error()), ENV_MANAGEMENT_USER_DB_MAX_POOL_SIZE, os.Getenv(ENV_MANAGEMENT_USER_DB_MAX_POOL_SIZE))
 		panic(err)
 	}
 

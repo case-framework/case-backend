@@ -6,6 +6,7 @@ import (
 	"time"
 
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
+	mUserDB "github.com/case-framework/case-backend/pkg/db/management-user"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	"github.com/gin-gonic/gin"
 )
@@ -55,47 +56,65 @@ func (h *HttpEndpoints) signInWithIdP(c *gin.Context) {
 		}
 	}
 
-	slog.Info("signInWithIdP called with ", slog.String("sub", req.Sub))
-
-	for _, role := range req.Roles {
-		slog.Info("Role: ", slog.String("role", role))
+	// Find user in database
+	existingUser, err := h.muDBConn.GetUserBySub(req.InstanceID, req.Sub)
+	if err != nil || existingUser == nil {
+		slog.Info("sign up with a new management user", slog.String("sub", req.Sub), slog.String("instanceID", req.InstanceID), slog.String("name", req.Name), slog.String("email", req.Email))
+		// Create new user
+		existingUser, err = h.muDBConn.CreateUser(req.InstanceID, &mUserDB.ManagementUser{
+			Sub:         req.Sub,
+			Username:    req.Name,
+			Email:       req.Email,
+			IsAdmin:     isAdmin,
+			LastLoginAt: time.Now(),
+		})
+		if err != nil {
+			slog.Error("could not create new user", slog.String("sub", req.Sub), slog.String("instanceID", req.InstanceID), slog.String("name", req.Name), slog.String("email", req.Email), slog.String("error", err.Error()))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not create new user"})
+			return
+		}
+	} else {
+		slog.Info("sign in with an existing management user", slog.String("sub", req.Sub), slog.String("instanceID", req.InstanceID), slog.String("name", req.Name), slog.String("email", req.Email))
+		// Update existing user
+		err = h.muDBConn.UpdateUser(req.InstanceID, existingUser.ID.Hex(), req.Email, req.Name, isAdmin, time.Now())
+		if err != nil {
+			slog.Error("could not update existing user", slog.String("sub", req.Sub), slog.String("instanceID", req.InstanceID), slog.String("name", req.Name), slog.String("email", req.Email), slog.String("error", err.Error()))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not update existing user"})
+			return
+		}
 	}
 
-	session, err := h.muDBConn.CreateSession(req.InstanceID, "testUserID", "renewToken")
-	if err != nil {
-		slog.Error("signInWithIdP: ", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+	sessionId := ""
+
+	// Create new session
+	if req.RenewToken != "" {
+		session, err := h.muDBConn.CreateSession(req.InstanceID, existingUser.ID.Hex(), req.RenewToken)
+		if err != nil {
+			slog.Error("could not create session", slog.String("error", err.Error()))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not create session"})
+			return
+		}
+		sessionId = session.ID.Hex()
 	}
-	slog.Info("signInWithIdP: created session ", "sessionID", session.ID.Hex())
 
-	// TODO: look up user in database by instanceID and sub
-	// TODO: if user exists, update user with new token, email, and name
-	// TODO: if user does not exist, create new user with token, email, name
-
-	// TODO: generate new JWT token
+	// generate new JWT token
 	token, err := jwthandling.GenerateNewManagementUserToken(
 		h.tokenExpiresIn,
-		"testUserID",
-		"testInstanceID",
+		existingUser.ID.Hex(),
+		req.InstanceID,
 		isAdmin,
 		map[string]string{},
 		h.tokenSignKey,
 	)
 	if err != nil {
-		slog.Error("signInWithIdP: ", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.Error("signInWithIdP: could not generate token", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not generate token"})
 		return
 	}
-	slog.Info("signInWithIdP: generated token ", slog.String("token", token))
 
-	// Use req to access the request body data
-	// ...
-
-	// c.JSON(http.StatusNotImplemented, gin.H{"error": "unimplemented"})
 	c.JSON(http.StatusOK, gin.H{
 		"accessToken": token,
-		"sessionID":   session.ID.Hex(),
+		"sessionID":   sessionId,
 		"expiresAt":   time.Now().Add(h.tokenExpiresIn).Unix(),
 		"isAdmin":     isAdmin,
 	})
