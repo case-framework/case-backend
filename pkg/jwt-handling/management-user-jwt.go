@@ -9,7 +9,6 @@ import (
 
 // Information a token enocodes
 type ManagementUserClaims struct {
-	ID         string            `json:"id,omitempty"`
 	InstanceID string            `json:"instance_id,omitempty"`
 	IsAdmin    bool              `json:"is_admin,omitempty"`
 	Payload    map[string]string `json:"payload,omitempty"`
@@ -18,13 +17,13 @@ type ManagementUserClaims struct {
 
 func GenerateNewManagementUserToken(expiresIn time.Duration, id string, instanceID string, isAdmin bool, payload map[string]string, secretKey string) (tokenString string, err error) {
 	claims := ManagementUserClaims{
-		id,
 		instanceID,
 		isAdmin,
 		payload,
 		jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiresIn)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Subject:   id,
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

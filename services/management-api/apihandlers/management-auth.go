@@ -13,7 +13,16 @@ import (
 
 func (h *HttpEndpoints) AddManagementAuthAPI(rg *gin.RouterGroup) {
 	auth := rg.Group("/auth")
+
 	auth.POST("/signin-with-idp", mw.RequirePayload(), h.signInWithIdP)
+
+	auth.POST("/extend-session",
+		mw.RequirePayload(),
+		mw.GetAndValidateManagementUserJWT(h.tokenSignKey),
+		mw.IsInstanceIDInJWTAllowed(h.allowedInstanceIDs),
+		h.extendSession,
+	)
+
 	auth.GET("/renew-token/:sessionID",
 		mw.GetAndValidateManagementUserJWT(h.tokenSignKey),
 		mw.IsInstanceIDInJWTAllowed(h.allowedInstanceIDs),
@@ -54,7 +63,7 @@ func (h *HttpEndpoints) signInWithIdP(c *gin.Context) {
 
 	isAdmin := false
 	for _, role := range req.Roles {
-		if role == "admin" {
+		if role == "ADMIN" {
 			isAdmin = true
 			break
 		}
@@ -124,6 +133,64 @@ func (h *HttpEndpoints) signInWithIdP(c *gin.Context) {
 	})
 }
 
+// ExtendSessionRequest is the request body for the extend-session endpoint
+type ExtendSessionRequest struct {
+	RenewToken string `json:"renewToken"`
+}
+
+// singInWithIdP to generate a new token and update the user in the database
+func (h *HttpEndpoints) extendSession(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	var req ExtendSessionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("extendSession: ", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if !h.isInstanceAllowed(token.InstanceID) {
+		slog.Warn("extendSession: instance not allowed", slog.String("instanceID", token.InstanceID))
+		c.JSON(http.StatusForbidden, gin.H{"error": "instance not allowed"})
+		return
+	}
+
+	sessionId := ""
+
+	// Create new session
+	if req.RenewToken != "" {
+		session, err := h.muDBConn.CreateSession(token.InstanceID, token.Subject, req.RenewToken)
+		if err != nil {
+			slog.Error("could not create session", slog.String("error", err.Error()))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not create session"})
+			return
+		}
+		sessionId = session.ID.Hex()
+	}
+
+	// generate new JWT token
+	newAccessToken, err := jwthandling.GenerateNewManagementUserToken(
+		h.tokenExpiresIn,
+		token.Subject,
+		token.InstanceID,
+		token.IsAdmin,
+		map[string]string{},
+		h.tokenSignKey,
+	)
+	if err != nil {
+		slog.Error("extendSession: could not generate token", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not generate token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"accessToken": newAccessToken,
+		"sessionID":   sessionId,
+		"expiresAt":   time.Now().Add(h.tokenExpiresIn).Unix(),
+		"isAdmin":     token.IsAdmin,
+	})
+}
+
 // getRenewToken to get a the renew token for the user
 func (h *HttpEndpoints) getRenewToken(c *gin.Context) {
 	sessionID := c.Param("sessionID")
@@ -136,21 +203,21 @@ func (h *HttpEndpoints) getRenewToken(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 	existingSession, err := h.muDBConn.GetSession(token.InstanceID, sessionID)
 	if err != nil {
-		slog.Error("getRenewToken: could not get session", slog.String("error", err.Error()))
+		slog.Debug("getRenewToken: could not get session", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not get session"})
 		return
 	}
-	if existingSession.UserID != token.ID {
-		slog.Warn("getRenewToken: user not allowed to get renew token", slog.String("userID", token.ID), slog.String("sessionUserID", existingSession.UserID))
+	if existingSession.UserID != token.Subject {
+		slog.Warn("getRenewToken: user not allowed to get renew token", slog.String("userID", token.Subject), slog.String("sessionUserID", existingSession.UserID))
 		c.JSON(http.StatusForbidden, gin.H{"error": "user not allowed to get renew token"})
 		return
 	}
 
 	// delete the session
-	err = h.muDBConn.DeleteSession(token.InstanceID, sessionID)
+	/*err = h.muDBConn.DeleteSession(token.InstanceID, sessionID)
 	if err != nil {
 		slog.Error("getRenewToken: could not delete session", slog.String("error", err.Error()))
-	}
+	}*/
 
 	c.JSON(http.StatusOK, gin.H{"renewToken": existingSession.RenewToken})
 }
