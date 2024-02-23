@@ -65,6 +65,7 @@ func (dbService *ManagementUserDBService) UpdateUser(
 	username string,
 	isAdmin bool,
 	lastLogin time.Time,
+	imageURL string,
 ) error {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
@@ -81,6 +82,7 @@ func (dbService *ManagementUserDBService) UpdateUser(
 				"username":    username,
 				"isAdmin":     isAdmin,
 				"lastLoginAt": lastLogin,
+				"imageUrl":    imageURL,
 			},
 		},
 	)
@@ -119,6 +121,7 @@ func (dbService *ManagementUserDBService) GetAllUsers(
 			{Key: "email", Value: 1},
 			{Key: "username", Value: 1},
 			{Key: "isAdmin", Value: 1},
+			{Key: "imageUrl", Value: 1},
 		})
 	}
 

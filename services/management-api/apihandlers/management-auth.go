@@ -36,6 +36,7 @@ type SignInRequest struct {
 	Roles      []string `json:"roles"`
 	Name       string   `json:"name"`
 	Email      string   `json:"email"`
+	ImageURL   string   `json:"imageUrl"`
 	RenewToken string   `json:"renewToken"`
 	InstanceID string   `json:"instanceId"`
 }
@@ -78,6 +79,7 @@ func (h *HttpEndpoints) signInWithIdP(c *gin.Context) {
 			Sub:         req.Sub,
 			Username:    req.Name,
 			Email:       req.Email,
+			ImageURL:    req.ImageURL,
 			IsAdmin:     isAdmin,
 			LastLoginAt: time.Now(),
 		})
@@ -89,7 +91,7 @@ func (h *HttpEndpoints) signInWithIdP(c *gin.Context) {
 	} else {
 		slog.Info("sign in with an existing management user", slog.String("sub", req.Sub), slog.String("instanceID", req.InstanceID), slog.String("name", req.Name), slog.String("email", req.Email))
 		// Update existing user
-		err = h.muDBConn.UpdateUser(req.InstanceID, existingUser.ID.Hex(), req.Email, req.Name, isAdmin, time.Now())
+		err = h.muDBConn.UpdateUser(req.InstanceID, existingUser.ID.Hex(), req.Email, req.Name, isAdmin, time.Now(), req.ImageURL)
 		if err != nil {
 			slog.Error("could not update existing user", slog.String("sub", req.Sub), slog.String("instanceID", req.InstanceID), slog.String("name", req.Name), slog.String("email", req.Email), slog.String("error", err.Error()))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not update existing user"})
