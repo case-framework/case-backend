@@ -68,3 +68,15 @@ func (dbService *ManagementUserDBService) DeleteSession(
 	_, err = dbService.collectionSessions(instanceID).DeleteOne(ctx, primitive.M{"_id": objID})
 	return err
 }
+
+// DeleteSessionsByUserID deletes all sessions for the given user
+func (dbService *ManagementUserDBService) DeleteSessionsByUserID(
+	instanceID string,
+	userID string,
+) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	_, err := dbService.collectionSessions(instanceID).DeleteMany(ctx, primitive.M{"userId": userID})
+	return err
+}
