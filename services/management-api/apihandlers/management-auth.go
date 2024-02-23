@@ -213,11 +213,5 @@ func (h *HttpEndpoints) getRenewToken(c *gin.Context) {
 		return
 	}
 
-	// delete the session
-	/*err = h.muDBConn.DeleteSession(token.InstanceID, sessionID)
-	if err != nil {
-		slog.Error("getRenewToken: could not delete session", slog.String("error", err.Error()))
-	}*/
-
 	c.JSON(http.StatusOK, gin.H{"renewToken": existingSession.RenewToken})
 }
