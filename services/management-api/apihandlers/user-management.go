@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
+	mUserDB "github.com/case-framework/case-backend/pkg/db/management-user"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	"github.com/gin-gonic/gin"
 )
@@ -22,6 +23,7 @@ func (h *HttpEndpoints) AddUserManagementAPI(rg *gin.RouterGroup) {
 	onlyAdminGroup.Use(mw.IsAdminUser())
 	{
 		umGroup.GET("/management-users/:userID", h.getManagementUser)
+		umGroup.GET("/management-users/:userID/permissions", h.getManagementUserPermissions)
 	}
 
 }
@@ -55,4 +57,20 @@ func (h *HttpEndpoints) getManagementUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"user": user})
+}
+
+func (h *HttpEndpoints) getManagementUserPermissions(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	userID := c.Param("userID")
+
+	slog.Info("getManagementUserPermissions: getting user permissions", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("requestedUserID", userID))
+
+	permissions, err := h.muDBConn.GetPermissionBySubject(token.InstanceID, userID, mUserDB.ManagementUserSubject)
+	if err != nil {
+		slog.Error("getManagementUserPermissions: error retrieving user permissions", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting user permissions"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"permissions": permissions})
 }
