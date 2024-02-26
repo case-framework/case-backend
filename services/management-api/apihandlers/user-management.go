@@ -127,6 +127,7 @@ func (h *HttpEndpoints) createManagementUserPermission(c *gin.Context) {
 	slog.Info("createManagementUserPermission: creating user permission", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("requestedUserID", userID))
 
 	newPerm.SubjectType = mUserDB.ManagementUserSubject
+	newPerm.SubjectID = userID
 
 	permission, err := h.muDBConn.CreatePermission(
 		token.InstanceID,
