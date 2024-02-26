@@ -8,10 +8,10 @@ import (
 
 type Permission struct {
 	ID           primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
-	SubjectID    string             `json:"subject_id,omitempty" bson:"subjectId,omitempty"`
-	SubjectType  string             `json:"subject_type,omitempty" bson:"subjectType,omitempty"`
-	ResourceType string             `json:"resource_type,omitempty" bson:"resourceType,omitempty"`
-	ResourceKey  string             `json:"resource_key,omitempty" bson:"resourceKey,omitempty"`
+	SubjectID    string             `json:"subjectId,omitempty" bson:"subjectId,omitempty"`
+	SubjectType  string             `json:"subjectType,omitempty" bson:"subjectType,omitempty"`
+	ResourceType string             `json:"resourceType,omitempty" bson:"resourceType,omitempty"`
+	ResourceKey  string             `json:"resourceKey,omitempty" bson:"resourceKey,omitempty"`
 	Action       string             `json:"action,omitempty" bson:"action,omitempty"`
 	Limiter      string             `json:"limiter,omitempty" bson:"limiter,omitempty"`
 }
