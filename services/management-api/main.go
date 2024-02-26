@@ -46,6 +46,7 @@ func main() {
 		conf.AllowedInstanceIDs,
 	)
 	v1APIHandlers.AddManagementAuthAPI(v1Root)
+	v1APIHandlers.AddUserManagementAPI(v1Root)
 
 	// Start the server
 	if !conf.UseMTLS {

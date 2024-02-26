@@ -6,6 +6,13 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+// enum for the subject type
+
+const (
+	ManagementUserSubject = "management-user"
+	ServiceAccountSubject = "service-account"
+)
+
 type Permission struct {
 	ID           primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
 	SubjectID    string             `json:"subjectId,omitempty" bson:"subjectId,omitempty"`
@@ -27,6 +34,7 @@ type ManagementUser struct {
 	Sub         string             `json:"sub,omitempty" bson:"sub,omitempty"`
 	Email       string             `json:"email,omitempty" bson:"email,omitempty"`
 	Username    string             `json:"username,omitempty" bson:"username,omitempty"`
+	ImageURL    string             `json:"imageUrl,omitempty" bson:"imageUrl,omitempty"`
 	IsAdmin     bool               `json:"isAdmin,omitempty" bson:"isAdmin,omitempty"`
 	LastLoginAt time.Time          `json:"lastLoginAt,omitempty" bson:"lastLoginAt,omitempty"`
 	CreatedAt   time.Time          `json:"createdAt,omitempty" bson:"createdAt,omitempty"`

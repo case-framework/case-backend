@@ -8,7 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// GetAndValidateJWT is a middleware that extracts the JWT from the request and validates it
 func IsInstanceIDInJWTAllowed(allowedInstanceIDs []string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get the validated token from the context

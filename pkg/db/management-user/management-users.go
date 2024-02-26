@@ -5,6 +5,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func (dbService *ManagementUserDBService) CreateUser(
@@ -64,6 +65,7 @@ func (dbService *ManagementUserDBService) UpdateUser(
 	username string,
 	isAdmin bool,
 	lastLogin time.Time,
+	imageURL string,
 ) error {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
@@ -80,6 +82,7 @@ func (dbService *ManagementUserDBService) UpdateUser(
 				"username":    username,
 				"isAdmin":     isAdmin,
 				"lastLoginAt": lastLogin,
+				"imageUrl":    imageURL,
 			},
 		},
 	)
@@ -99,4 +102,88 @@ func (dbService *ManagementUserDBService) DeleteUser(
 	}
 	_, err = dbService.collectionManagementUsers(instanceID).DeleteOne(ctx, bson.M{"_id": objID})
 	return err
+}
+
+// get all management users
+func (dbService *ManagementUserDBService) GetAllUsers(
+	instanceID string,
+	returnFullObject bool,
+) ([]*ManagementUser, error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	filter := bson.D{}
+
+	opts := options.Find()
+	if !returnFullObject {
+		opts = options.Find().SetProjection(bson.D{
+			{Key: "_id", Value: 1},
+			{Key: "email", Value: 1},
+			{Key: "username", Value: 1},
+			{Key: "isAdmin", Value: 1},
+			{Key: "imageUrl", Value: 1},
+		})
+	}
+
+	var users []*ManagementUser
+	cursor, err := dbService.collectionManagementUsers(instanceID).Find(ctx, filter, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	for cursor.Next(ctx) {
+		var user ManagementUser
+		if err := cursor.Decode(&user); err != nil {
+			return nil, err
+		}
+		users = append(users, &user)
+	}
+	return users, nil
+}
+
+// Get users by ids
+func (dbService *ManagementUserDBService) GetUsersByIDs(
+	instanceID string,
+	ids []string,
+	returnFullObject bool,
+) ([]*ManagementUser, error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	var objIDs []primitive.ObjectID
+	for _, id := range ids {
+		objID, err := primitive.ObjectIDFromHex(id)
+		if err != nil {
+			return nil, err
+		}
+		objIDs = append(objIDs, objID)
+	}
+
+	filter := bson.M{"_id": bson.M{"$in": objIDs}}
+
+	opts := options.Find()
+	if !returnFullObject {
+		opts = options.Find().SetProjection(bson.D{
+			{Key: "_id", Value: 1},
+			{Key: "email", Value: 1},
+			{Key: "username", Value: 1},
+			{Key: "isAdmin", Value: 1},
+			{Key: "imageUrl", Value: 1},
+		})
+	}
+
+	var users []*ManagementUser
+	cursor, err := dbService.collectionManagementUsers(instanceID).Find(ctx, filter, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	for cursor.Next(ctx) {
+		var user ManagementUser
+		if err := cursor.Decode(&user); err != nil {
+			return nil, err
+		}
+		users = append(users, &user)
+	}
+	return users, nil
 }

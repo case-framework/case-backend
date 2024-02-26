@@ -149,3 +149,16 @@ func (dbService *ManagementUserDBService) DeletePermission(
 	_, err = dbService.collectionPermissions(instanceID).DeleteOne(ctx, bson.M{"_id": objID})
 	return err
 }
+
+// Delete permissions by subject id and type
+func (dbService *ManagementUserDBService) DeletePermissionsBySubject(
+	instanceID string,
+	subjectID string,
+	subjectType string,
+) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	_, err := dbService.collectionPermissions(instanceID).DeleteMany(ctx, bson.M{"subjectId": subjectID, "subjectType": subjectType})
+	return err
+}
