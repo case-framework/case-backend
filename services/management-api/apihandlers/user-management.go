@@ -25,8 +25,10 @@ func (h *HttpEndpoints) AddUserManagementAPI(rg *gin.RouterGroup) {
 		umGroup.GET("/management-users/:userID", h.getManagementUser)
 		umGroup.DELETE("/management-users/:userID", h.deleteManagementUser)
 		umGroup.GET("/management-users/:userID/permissions", h.getManagementUserPermissions)
+		umGroup.POST("/management-users/:userID/permissions", mw.RequirePayload(), h.createManagementUserPermission)
+		umGroup.DELETE("/management-users/:userID/permissions/:permissionID", h.deleteManagementUserPermission)
+		umGroup.PUT("/management-users/:userID/permissions/:permissionID/limiter", mw.RequirePayload(), h.updateManagementUserPermissionLimiter)
 	}
-
 }
 
 func (h *HttpEndpoints) getAllManagementUsers(c *gin.Context) {
@@ -109,4 +111,78 @@ func (h *HttpEndpoints) getManagementUserPermissions(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"permissions": permissions})
+}
+
+func (h *HttpEndpoints) createManagementUserPermission(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	userID := c.Param("userID")
+
+	var newPerm mUserDB.Permission
+	if err := c.ShouldBindJSON(&newPerm); err != nil {
+		slog.Error("createManagementUserPermission: error binding permission", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "error parsing payload"})
+		return
+	}
+
+	slog.Info("createManagementUserPermission: creating user permission", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("requestedUserID", userID))
+
+	newPerm.SubjectType = mUserDB.ManagementUserSubject
+
+	permission, err := h.muDBConn.CreatePermission(
+		token.InstanceID,
+		newPerm.SubjectID,
+		newPerm.SubjectType,
+		newPerm.ResourceType,
+		newPerm.ResourceKey,
+		newPerm.Action,
+		newPerm.Limiter,
+	)
+	if err != nil {
+		slog.Error("createManagementUserPermission: error creating user permission", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error creating user permission"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"permission": permission})
+}
+
+func (h *HttpEndpoints) deleteManagementUserPermission(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	userID := c.Param("userID")
+	permissionID := c.Param("permissionID")
+
+	slog.Info("deleteManagementUserPermission: deleting user permission", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("permissionForUser", userID), slog.String("permissionID", permissionID))
+
+	err := h.muDBConn.DeletePermission(token.InstanceID, permissionID)
+	if err != nil {
+		slog.Error("deleteManagementUserPermission: error deleting user permission", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error deleting user permission"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "permission deleted"})
+}
+
+func (h *HttpEndpoints) updateManagementUserPermissionLimiter(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	userID := c.Param("userID")
+	permissionID := c.Param("permissionID")
+
+	var newLimiter mUserDB.Permission
+	if err := c.ShouldBindJSON(&newLimiter); err != nil {
+		slog.Error("updateManagementUserPermissionLimiter: error binding permission", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "error parsing payload"})
+		return
+	}
+
+	slog.Info("updateManagementUserPermissionLimiter: updating user permission limiter", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("permissionForUser", userID), slog.String("permissionID", permissionID))
+
+	err := h.muDBConn.UpdatePermissionLimiter(token.InstanceID, permissionID, newLimiter.Limiter)
+	if err != nil {
+		slog.Error("updateManagementUserPermissionLimiter: error updating user permission limiter", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error updating user permission limiter"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "permission limiter updated"})
 }
