@@ -23,6 +23,7 @@ func (h *HttpEndpoints) AddUserManagementAPI(rg *gin.RouterGroup) {
 	onlyAdminGroup.Use(mw.IsAdminUser())
 	{
 		umGroup.GET("/management-users/:userID", h.getManagementUser)
+		umGroup.DELETE("/management-users/:userID", h.deleteManagementUser)
 		umGroup.GET("/management-users/:userID/permissions", h.getManagementUserPermissions)
 	}
 
@@ -57,6 +58,41 @@ func (h *HttpEndpoints) getManagementUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"user": user})
+}
+
+func (h *HttpEndpoints) deleteManagementUser(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	userID := c.Param("userID")
+
+	if token.Subject == userID {
+		slog.Error("deleteManagementUser: user cannot delete itself", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("requestedUserID", userID))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user cannot delete itself"})
+		return
+	}
+
+	slog.Info("deleteManagementUser: deleting user", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("requestedUserID", userID))
+
+	// delete sessions
+	err := h.muDBConn.DeleteSessionsByUserID(token.InstanceID, userID)
+	if err != nil {
+		slog.Error("deleteManagementUser: error deleting sessions", slog.String("error", err.Error()))
+	}
+
+	// delete permissions
+	err = h.muDBConn.DeletePermissionsBySubject(token.InstanceID, userID, mUserDB.ManagementUserSubject)
+	if err != nil {
+		slog.Error("deleteManagementUser: error deleting permissions", slog.String("error", err.Error()))
+	}
+
+	// delete user
+	err = h.muDBConn.DeleteUser(token.InstanceID, userID)
+	if err != nil {
+		slog.Error("deleteManagementUser: error deleting user", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error deleting user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "user deleted"})
 }
 
 func (h *HttpEndpoints) getManagementUserPermissions(c *gin.Context) {
