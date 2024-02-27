@@ -37,15 +37,7 @@ func TestIsAuthorized(t *testing.T) {
 				ResourceType: "3",
 				ResourceKey:  "4",
 				Action:       "5",
-				Limiter:      "",
-			},
-			{
-				SubjectID:    "sub2",
-				SubjectType:  "2",
-				ResourceType: "3",
-				ResourceKey:  "4",
-				Action:       "5",
-				Limiter:      "[{\"a \"1\", \"b\": \"2\"}]",
+				Limiter:      nil,
 			},
 			{
 				SubjectID:    "sub3",
@@ -53,7 +45,9 @@ func TestIsAuthorized(t *testing.T) {
 				ResourceType: "3",
 				ResourceKey:  "4",
 				Action:       "5",
-				Limiter:      "[{\"a\": \"1\", \"b\": \"2\"}]",
+				Limiter: []map[string]string{
+					{"a": "1", "b": "2"},
+				},
 			},
 			{
 				SubjectID:    "sub4",
@@ -61,7 +55,9 @@ func TestIsAuthorized(t *testing.T) {
 				ResourceType: "3",
 				ResourceKey:  "4",
 				Action:       "5",
-				Limiter:      "[{\"a\": \"1\", \"b\": \"2\"}]",
+				Limiter: []map[string]string{
+					{"a": "1", "b": "2"},
+				},
 			},
 			{
 				SubjectID:    "sub4",
@@ -69,7 +65,7 @@ func TestIsAuthorized(t *testing.T) {
 				ResourceType: "3",
 				ResourceKey:  "*",
 				Action:       "5",
-				Limiter:      "",
+				Limiter:      nil,
 			},
 		},
 	}
@@ -116,17 +112,6 @@ func TestIsAuthorized(t *testing.T) {
 			action:         "5",
 			infoForLimiter: map[string]string{"key": "ignored"},
 			expected:       true,
-		},
-		// isAdmin = false, has permissions with wrong formatted limiter:
-		{
-			isAdmin:        false,
-			subjectID:      "sub2",
-			subjectType:    "2",
-			resourceType:   "3",
-			resourceKeys:   []string{"4"},
-			action:         "5",
-			infoForLimiter: map[string]string{"key": "ignored"},
-			expected:       false,
 		},
 		// isAdmin = false, has permissions with correct limiter format but not matching limiter info
 		{
@@ -182,28 +167,34 @@ func TestCheckLimiter(t *testing.T) {
 		{
 			infoForLimiter: map[string]string{"a": "1", "b": "2"},
 			permission: &muDB.Permission{
-				Limiter: "[{\"a\": \"1\", \"b\": \"2\"}]",
+				Limiter: []map[string]string{
+					{"a": "1", "b": "2"},
+				},
 			},
 			expected: true,
 		},
 		{
 			infoForLimiter: nil,
 			permission: &muDB.Permission{
-				Limiter: "[{\"a\": \"1\", \"b\": \"2\"}]",
+				Limiter: []map[string]string{
+					{"a": "1", "b": "2"},
+				},
 			},
 			expected: true,
 		},
 		{
 			infoForLimiter: map[string]string{"a": "1", "b": "2"},
 			permission: &muDB.Permission{
-				Limiter: "",
+				Limiter: nil,
 			},
 			expected: true,
 		},
 		{
 			infoForLimiter: map[string]string{"a": "1", "b": "2"},
 			permission: &muDB.Permission{
-				Limiter: "[{\"a\": \"1\", \"b\": \"3\"}]",
+				Limiter: []map[string]string{
+					{"a": "1", "b": "3"},
+				},
 			},
 			expected: false,
 		},
@@ -215,36 +206,6 @@ func TestCheckLimiter(t *testing.T) {
 			t.Errorf("expected %t for input %v, %v but got %t", test.expected, test.infoForLimiter, test.permission, result)
 		}
 	}
-}
-
-func TestParseLimiter(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		input       string
-		expectError bool
-	}{
-		{"", true},
-		{"{}", true},
-		{"{\"a\": \"1\"}", true},
-		{"[{a\" \"1\"}]", true},
-		{"[{\"a\": \"1\"}]", false},
-	}
-
-	for _, test := range tests {
-		var limiters []map[string]string
-		err := parseLimiter(test.input, &limiters)
-		if test.expectError {
-			if err == nil {
-				t.Errorf("expected error for input %s, but got nil", test.input)
-			}
-		} else {
-			if err != nil {
-				t.Errorf("expected no error for input %s, but got %s", test.input, err)
-			}
-		}
-	}
-
 }
 
 func TestCompareLimiter(t *testing.T) {
