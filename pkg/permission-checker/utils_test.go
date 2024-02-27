@@ -180,6 +180,13 @@ func TestCheckLimiter(t *testing.T) {
 					{"a": "1", "b": "2"},
 				},
 			},
+			expected: false,
+		},
+		{
+			infoForLimiter: nil,
+			permission: &muDB.Permission{
+				Limiter: nil,
+			},
 			expected: true,
 		},
 		{

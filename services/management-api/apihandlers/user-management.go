@@ -82,7 +82,7 @@ func (h *HttpEndpoints) deleteManagementUser(c *gin.Context) {
 	}
 
 	// delete permissions
-	err = h.muDBConn.DeletePermissionsBySubject(token.InstanceID, userID, pc.ManagementUserSubject)
+	err = h.muDBConn.DeletePermissionsBySubject(token.InstanceID, userID, pc.SUBJECT_TYPE_MANAGEMENT_USER)
 	if err != nil {
 		slog.Error("deleteManagementUser: error deleting permissions", slog.String("error", err.Error()))
 	}
@@ -104,7 +104,7 @@ func (h *HttpEndpoints) getManagementUserPermissions(c *gin.Context) {
 
 	slog.Info("getManagementUserPermissions: getting user permissions", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("requestedUserID", userID))
 
-	permissions, err := h.muDBConn.GetPermissionBySubject(token.InstanceID, userID, pc.ManagementUserSubject)
+	permissions, err := h.muDBConn.GetPermissionBySubject(token.InstanceID, userID, pc.SUBJECT_TYPE_MANAGEMENT_USER)
 	if err != nil {
 		slog.Error("getManagementUserPermissions: error retrieving user permissions", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting user permissions"})
@@ -127,7 +127,7 @@ func (h *HttpEndpoints) createManagementUserPermission(c *gin.Context) {
 
 	slog.Info("createManagementUserPermission: creating user permission", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("requestedUserID", userID))
 
-	newPerm.SubjectType = pc.ManagementUserSubject
+	newPerm.SubjectType = pc.SUBJECT_TYPE_MANAGEMENT_USER
 	newPerm.SubjectID = userID
 
 	permission, err := h.muDBConn.CreatePermission(

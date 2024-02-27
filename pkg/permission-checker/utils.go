@@ -4,25 +4,12 @@ import (
 	muDB "github.com/case-framework/case-backend/pkg/db/management-user"
 )
 
-const (
-	ManagementUserSubject = "management-user"
-	ServiceAccountSubject = "service-account"
-)
-
-const (
-	RESOURCE_STUDY     = "study"
-	RESOURCE_MESSAGING = "messaging"
-)
-
-const (
-	ACTION_CREATE_STUDY = "create-study"
-)
-
 type MuDBConnector interface {
 	GetPermissionBySubjectAndResourceForAction(instanceID string, subjectID string, subjectType string, resourceType string, resourceKeys []string, action string) ([]*muDB.Permission, error)
 }
 
-func IsAuthorized(db MuDBConnector,
+func IsAuthorized(
+	db MuDBConnector,
 	isAdmin bool,
 	instanceID string,
 	subjectID string,
@@ -66,8 +53,12 @@ func getRelevantPermissions(db MuDBConnector, instanceID string, subjectID strin
 
 func checkLimiter(permission *muDB.Permission, infoForLimiter map[string]string) bool {
 	// if the limiter is empty or action does not use a limiter, then it is not limited
-	if permission.Limiter == nil || infoForLimiter == nil {
+	if permission.Limiter == nil {
 		return true
+	}
+
+	if infoForLimiter == nil {
+		return false
 	}
 
 	// iterate over the limiters and compare with the infoForLimiter
