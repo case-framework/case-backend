@@ -13,7 +13,7 @@ func (dbService *ManagementUserDBService) CreatePermission(
 	resourceType string,
 	resourceKey string,
 	action string,
-	limiter string,
+	limiter []map[string]string,
 ) (*Permission, error) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
@@ -119,7 +119,7 @@ func (dbService *ManagementUserDBService) GetPermissionByResource(
 func (dbService *ManagementUserDBService) UpdatePermissionLimiter(
 	instanceID string,
 	permissionID string,
-	limiter string,
+	limiter []map[string]string,
 ) error {
 	ctx, cancel := dbService.getContext()
 	defer cancel()

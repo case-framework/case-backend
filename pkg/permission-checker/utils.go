@@ -1,8 +1,6 @@
 package permissionchecker
 
 import (
-	"encoding/json"
-
 	muDB "github.com/case-framework/case-backend/pkg/db/management-user"
 )
 
@@ -68,34 +66,18 @@ func getRelevantPermissions(db MuDBConnector, instanceID string, subjectID strin
 
 func checkLimiter(permission *muDB.Permission, infoForLimiter map[string]string) bool {
 	// if the limiter is empty or action does not use a limiter, then it is not limited
-	if permission.Limiter == "" || infoForLimiter == nil {
+	if permission.Limiter == nil || infoForLimiter == nil {
 		return true
 	}
 
-	// parse the limiter string into a map
-	var limiters []map[string]string
-	err := parseLimiter(permission.Limiter, &limiters)
-	if err != nil {
-		return false
-	}
-
 	// iterate over the limiters and compare with the infoForLimiter
-	for _, limiter := range limiters {
+	for _, limiter := range permission.Limiter {
 		if compareLimiter(infoForLimiter, limiter) {
 			return true
 		}
 	}
 
 	return false
-}
-
-func parseLimiter(limiter string, limiterMap *[]map[string]string) error {
-	// parse the string into a map
-	err := json.Unmarshal([]byte(limiter), limiterMap)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func compareLimiter(infoForLimiter map[string]string, limiter map[string]string) bool {
