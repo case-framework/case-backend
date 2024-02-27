@@ -109,6 +109,8 @@ func (dbService *ManagementUserDBService) ensureIndexes() error {
 					{Key: "subjectID", Value: 1},
 					{Key: "subjectType", Value: 1},
 					{Key: "resourceType", Value: 1},
+					{Key: "resourceID", Value: 1},
+					{Key: "action", Value: 1},
 				},
 			},
 		)

@@ -61,17 +61,21 @@ func (dbService *ManagementUserDBService) GetPermissionBySubject(
 }
 
 // Find permissions by subject id and type and resource type
-func (dbService *ManagementUserDBService) GetPermissionBySubjectAndResourceType(
+func (dbService *ManagementUserDBService) GetPermissionBySubjectAndResourceForAction(
 	instanceID string,
 	subjectID string,
 	subjectType string,
 	resourceType string,
+	resourceKey []string,
+	action string,
 ) ([]*Permission, error) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
 	var permissions []*Permission
-	cursor, err := dbService.collectionPermissions(instanceID).Find(ctx, bson.M{"subjectId": subjectID, "subjectType": subjectType, "resourceType": resourceType})
+	cursor, err := dbService.collectionPermissions(instanceID).Find(ctx,
+		bson.M{"subjectId": subjectID, "subjectType": subjectType, "resourceType": resourceType,
+			"resourceKey": bson.M{"$in": resourceKey}, "action": action})
 	if err != nil {
 		return nil, err
 	}

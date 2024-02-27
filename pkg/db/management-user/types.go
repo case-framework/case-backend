@@ -8,11 +8,6 @@ import (
 
 // enum for the subject type
 
-const (
-	ManagementUserSubject = "management-user"
-	ServiceAccountSubject = "service-account"
-)
-
 type Permission struct {
 	ID           primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
 	SubjectID    string             `json:"subjectId,omitempty" bson:"subjectId,omitempty"`

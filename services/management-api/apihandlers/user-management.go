@@ -7,6 +7,8 @@ import (
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
 	mUserDB "github.com/case-framework/case-backend/pkg/db/management-user"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
+	pc "github.com/case-framework/case-backend/pkg/permission-checker"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,7 +18,6 @@ func (h *HttpEndpoints) AddUserManagementAPI(rg *gin.RouterGroup) {
 	umGroup.Use(mw.IsInstanceIDInJWTAllowed(h.allowedInstanceIDs))
 	{
 		umGroup.GET("/management-users", h.getAllManagementUsers)
-
 	}
 
 	onlyAdminGroup := umGroup.Group("/")
@@ -81,7 +82,7 @@ func (h *HttpEndpoints) deleteManagementUser(c *gin.Context) {
 	}
 
 	// delete permissions
-	err = h.muDBConn.DeletePermissionsBySubject(token.InstanceID, userID, mUserDB.ManagementUserSubject)
+	err = h.muDBConn.DeletePermissionsBySubject(token.InstanceID, userID, pc.ManagementUserSubject)
 	if err != nil {
 		slog.Error("deleteManagementUser: error deleting permissions", slog.String("error", err.Error()))
 	}
@@ -103,7 +104,7 @@ func (h *HttpEndpoints) getManagementUserPermissions(c *gin.Context) {
 
 	slog.Info("getManagementUserPermissions: getting user permissions", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("requestedUserID", userID))
 
-	permissions, err := h.muDBConn.GetPermissionBySubject(token.InstanceID, userID, mUserDB.ManagementUserSubject)
+	permissions, err := h.muDBConn.GetPermissionBySubject(token.InstanceID, userID, pc.ManagementUserSubject)
 	if err != nil {
 		slog.Error("getManagementUserPermissions: error retrieving user permissions", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting user permissions"})
@@ -126,7 +127,7 @@ func (h *HttpEndpoints) createManagementUserPermission(c *gin.Context) {
 
 	slog.Info("createManagementUserPermission: creating user permission", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("requestedUserID", userID))
 
-	newPerm.SubjectType = mUserDB.ManagementUserSubject
+	newPerm.SubjectType = pc.ManagementUserSubject
 	newPerm.SubjectID = userID
 
 	permission, err := h.muDBConn.CreatePermission(
