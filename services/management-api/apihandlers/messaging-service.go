@@ -113,8 +113,16 @@ func getStudyKeyLimiterFromContext(c *gin.Context) map[string]string {
 }
 
 func (h *HttpEndpoints) getGlobalMessageTemplates(c *gin.Context) {
-	// TODO
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	slog.Info("getGlobalMessageTemplates: getting global message templates", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+
+	messages, err := h.messagingDBConn.GetEmailTemplatesForAllStudies(token.InstanceID)
+	if err != nil {
+		slog.Error("getGlobalMessageTemplates: error getting global message templates", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting global message templates"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"templates": messages})
 }
 
 func (h *HttpEndpoints) saveGlobalMessageTemplate(c *gin.Context) {
