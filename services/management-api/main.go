@@ -7,6 +7,7 @@ import (
 
 	"github.com/case-framework/case-backend/pkg/apihelpers"
 	muDB "github.com/case-framework/case-backend/pkg/db/management-user"
+	"github.com/case-framework/case-backend/pkg/db/messaging"
 	"github.com/case-framework/case-backend/services/management-api/apihandlers"
 
 	"github.com/gin-contrib/cors"
@@ -20,6 +21,11 @@ func main() {
 	muDBService, err := muDB.NewManagementUserDBService(conf.ManagementUserDBConfig)
 	if err != nil {
 		slog.Error("Error connecting to Management User DB", slog.String("error", err.Error()))
+		return
+	}
+	messagingDBService, err := messaging.NewMessagingDBService(conf.MessagingDBConfig)
+	if err != nil {
+		slog.Error("Error connecting to Messaging DB", slog.String("error", err.Error()))
 		return
 	}
 
@@ -43,10 +49,12 @@ func main() {
 		conf.ManagementUserJWTSignKey,
 		conf.ManagementUserJWTExpiresIn,
 		muDBService,
+		messagingDBService,
 		conf.AllowedInstanceIDs,
 	)
 	v1APIHandlers.AddManagementAuthAPI(v1Root)
 	v1APIHandlers.AddUserManagementAPI(v1Root)
+	v1APIHandlers.AddMessagingServiceAPI(v1Root)
 
 	// Start the server
 	if !conf.UseMTLS {

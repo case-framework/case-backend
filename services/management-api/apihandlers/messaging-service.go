@@ -1,9 +1,11 @@
 package apihandlers
 
 import (
+	"log/slog"
 	"net/http"
 
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
+	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	"github.com/gin-gonic/gin"
 
 	pc "github.com/case-framework/case-backend/pkg/permission-checker"
@@ -121,7 +123,13 @@ func (h *HttpEndpoints) saveGlobalMessageTemplate(c *gin.Context) {
 	// TODO: check if templates are valid
 
 func (h *HttpEndpoints) getGlobalMessageTemplate(c *gin.Context) {
-	// TODO
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	messageType := c.Param("messageType")
+
+	slog.Info("getGlobalMessageTemplate: getting global message template", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("messageType", messageType))
+
+	// TOOD: message DB find message template with message type and empty study key
+
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
 
