@@ -6,6 +6,7 @@ import (
 
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
 	messagingDB "github.com/case-framework/case-backend/pkg/db/messaging"
+	emailtemplates "github.com/case-framework/case-backend/pkg/email-templates"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	"github.com/gin-gonic/gin"
 
@@ -135,9 +136,33 @@ func (h *HttpEndpoints) getGlobalMessageTemplates(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) saveGlobalMessageTemplate(c *gin.Context) {
-	// TODO
-	// TODO: check if templates are valid
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	// parse body
+	var template messagingDB.EmailTemplate
+
+	if err := c.ShouldBind(&template); err != nil {
+		slog.Error("saveGlobalMessageTemplate: error parsing request body", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "error parsing request body"})
+		return
+	}
+
+	err := emailtemplates.CheckAllTranslationsParsable(template)
+	if err != nil {
+		slog.Error("saveGlobalMessageTemplate: error parsing template", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "error while checking template validity"})
+		return
+	}
+
+	slog.Info("saveGlobalMessageTemplate: saving global message template", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+
+	savedTemplate, err := h.messagingDBConn.SaveEmailTemplate(token.InstanceID, template)
+	if err != nil {
+		slog.Error("saveGlobalMessageTemplate: error saving global message template", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error saving global message template"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"template": savedTemplate})
 }
 
 func (h *HttpEndpoints) getGlobalMessageTemplate(c *gin.Context) {
@@ -210,9 +235,34 @@ func (h *HttpEndpoints) getStudyMessageTemplates(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) saveStudyMessageTemplate(c *gin.Context) {
-	// TODO: check if templates are valid
-	// TODO
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	studyKey := c.Param("studyKey")
+
+	// parse body
+	var template messagingDB.EmailTemplate
+	if err := c.ShouldBindJSON(&template); err != nil {
+		slog.Error("saveStudyMessageTemplate: error parsing request body", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "error parsing request body"})
+		return
+	}
+	template.StudyKey = studyKey
+
+	err := emailtemplates.CheckAllTranslationsParsable(template)
+	if err != nil {
+		slog.Error("saveStudyMessageTemplate: error parsing template", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "error while checking template validity"})
+		return
+	}
+
+	slog.Info("saveStudyMessageTemplate: saving study message template", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	savedTemplate, err := h.messagingDBConn.SaveEmailTemplate(token.InstanceID, template)
+	if err != nil {
+		slog.Error("saveStudyMessageTemplate: error saving study message template", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error saving study message template"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"template": savedTemplate})
 }
 
 func (h *HttpEndpoints) getStudyMessageTemplate(c *gin.Context) {
