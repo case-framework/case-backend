@@ -73,9 +73,14 @@ func (dbService *ManagementUserDBService) GetPermissionBySubjectAndResourceForAc
 	defer cancel()
 
 	var permissions []*Permission
+
+	actions := []string{action}
+	if action != "*" {
+		actions = append(actions, "*")
+	}
 	cursor, err := dbService.collectionPermissions(instanceID).Find(ctx,
 		bson.M{"subjectId": subjectID, "subjectType": subjectType, "resourceType": resourceType,
-			"resourceKey": bson.M{"$in": resourceKey}, "action": action})
+			"resourceKey": bson.M{"$in": resourceKey}, "action": bson.M{"$in": actions}})
 	if err != nil {
 		return nil, err
 	}

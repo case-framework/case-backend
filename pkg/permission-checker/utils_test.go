@@ -13,12 +13,21 @@ type mockMuDBConnector struct {
 func (m *mockMuDBConnector) GetPermissionBySubjectAndResourceForAction(instanceID string, subjectID string, subjectType string, resourceType string, resourceKeys []string, action string) ([]*muDB.Permission, error) {
 	// return permissions after filtering
 	filteredPermissions := make([]*muDB.Permission, 0)
+	actions := []string{action}
+	if action != "*" {
+		actions = append(actions, "*")
+	}
+
 	for _, p := range m.permissions {
-		if p.SubjectID == subjectID && p.SubjectType == subjectType && p.ResourceType == resourceType && p.Action == action {
-			for _, key := range resourceKeys {
-				if p.ResourceKey == key {
-					filteredPermissions = append(filteredPermissions, p)
-					break
+		if p.SubjectID == subjectID && p.SubjectType == subjectType && p.ResourceType == resourceType {
+			for _, a := range actions {
+				if p.Action == a {
+					for _, key := range resourceKeys {
+						if p.ResourceKey == key {
+							filteredPermissions = append(filteredPermissions, p)
+							break
+						}
+					}
 				}
 			}
 		}
@@ -179,6 +188,13 @@ func TestCheckLimiter(t *testing.T) {
 				Limiter: []map[string]string{
 					{"a": "1", "b": "2"},
 				},
+			},
+			expected: false,
+		},
+		{
+			infoForLimiter: nil,
+			permission: &muDB.Permission{
+				Limiter: nil,
 			},
 			expected: true,
 		},
