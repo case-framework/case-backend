@@ -140,8 +140,7 @@ func (h *HttpEndpoints) saveGlobalMessageTemplate(c *gin.Context) {
 
 	// parse body
 	var template messagingDB.EmailTemplate
-
-	if err := c.ShouldBind(&template); err != nil {
+	if err := c.ShouldBindJSON(&template); err != nil {
 		slog.Error("saveGlobalMessageTemplate: error parsing request body", slog.String("error", err.Error()))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "error parsing request body"})
 		return
