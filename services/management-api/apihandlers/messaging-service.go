@@ -232,6 +232,18 @@ func (h *HttpEndpoints) getStudyMessageTemplate(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) deleteStudyMessageTemplate(c *gin.Context) {
-	// TODO
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	studyKey := c.Param("studyKey")
+	messageType := c.Param("messageType")
+
+	slog.Info("deleteStudyMessageTemplate: deleting study message template", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("messageType", messageType))
+
+	err := h.messagingDBConn.DeleteEmailTemplate(token.InstanceID, messageType, studyKey)
+	if err != nil {
+		slog.Error("deleteStudyMessageTemplate: error deleting study message template", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error deleting study message template"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "template deleted"})
 }
