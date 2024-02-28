@@ -157,9 +157,19 @@ func (h *HttpEndpoints) getGlobalMessageTemplate(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) deleteGlobalMessageTemplate(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	messageType := c.Param("messageType")
 
-	// TODO
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	slog.Info("deleteGlobalMessageTemplate: deleting global message template", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("messageType", messageType))
+
+	err := h.messagingDBConn.DeleteEmailTemplate(token.InstanceID, messageType, "")
+	if err != nil {
+		slog.Error("deleteGlobalMessageTemplate: error deleting global message template", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error deleting global message template"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "template deleted"})
 }
 
 func (h *HttpEndpoints) getStudyMessageTemplates(c *gin.Context) {
