@@ -45,7 +45,7 @@ func (h *HttpEndpoints) addMessagingGlobalEmailTemplatesAPI(rg *gin.RouterGroup)
 		nil,
 		h.saveGlobalMessageTemplate,
 	))
-	rg.GET("/global-templates/:templateID", h.useAuthorisedHandler(
+	rg.GET("/global-templates/:messageType", h.useAuthorisedHandler(
 		RequiredPermission{
 			ResourceType: pc.RESOURCE_TYPE_MESSAGING,
 			ResourceKeys: []string{pc.RESOURCE_KEY_MESSAGING_GLOBAL_EMAIL_TEMPLATES},
@@ -55,7 +55,7 @@ func (h *HttpEndpoints) addMessagingGlobalEmailTemplatesAPI(rg *gin.RouterGroup)
 		h.getGlobalMessageTemplate,
 	))
 
-	rg.DELETE("/global-templates/:templateID", h.useAuthorisedHandler(
+	rg.DELETE("/global-templates/:messageType", h.useAuthorisedHandler(
 		RequiredPermission{
 			ResourceType: pc.RESOURCE_TYPE_MESSAGING,
 			ResourceKeys: []string{pc.RESOURCE_KEY_MESSAGING_GLOBAL_EMAIL_TEMPLATES},
@@ -85,7 +85,7 @@ func (h *HttpEndpoints) addMessagingStudyEmailTemplatesAPI(rg *gin.RouterGroup) 
 		getStudyKeyLimiterFromContext,
 		h.saveStudyMessageTemplate,
 	))
-	rg.GET("/study-templates/:studyKey/:templateID", h.useAuthorisedHandler(
+	rg.GET("/study-templates/:studyKey/:messageType", h.useAuthorisedHandler(
 		RequiredPermission{
 			ResourceType: pc.RESOURCE_TYPE_MESSAGING,
 			ResourceKeys: []string{pc.RESOURCE_KEY_MESSAGING_STUDY_EMAIL_TEMPLATES},
@@ -94,7 +94,7 @@ func (h *HttpEndpoints) addMessagingStudyEmailTemplatesAPI(rg *gin.RouterGroup) 
 		getStudyKeyLimiterFromContext,
 		h.getStudyMessageTemplate,
 	))
-	rg.DELETE("/study-templates/:studyKey/:templateID", h.useAuthorisedHandler(
+	rg.DELETE("/study-templates/:studyKey/:messageType", h.useAuthorisedHandler(
 		RequiredPermission{
 			ResourceType: pc.RESOURCE_TYPE_MESSAGING,
 			ResourceKeys: []string{pc.RESOURCE_KEY_MESSAGING_STUDY_EMAIL_TEMPLATES},
