@@ -118,6 +118,7 @@ func (h *HttpEndpoints) saveGlobalMessageTemplate(c *gin.Context) {
 	// TODO
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
+	// TODO: check if templates are valid
 
 func (h *HttpEndpoints) getGlobalMessageTemplate(c *gin.Context) {
 	// TODO
@@ -148,3 +149,4 @@ func (h *HttpEndpoints) deleteStudyMessageTemplate(c *gin.Context) {
 	// TODO
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
+	// TODO: check if templates are valid

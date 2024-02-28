@@ -8,7 +8,7 @@ import (
 )
 
 func (dbService *ManagementUserDBService) collectionSessions(instanceID string) *mongo.Collection {
-	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(Sessions)
+	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_SESSIONS)
 }
 
 // Session represents a user session, created when a user logs in

@@ -13,9 +13,9 @@ import (
 
 // collection names
 const (
-	ManagementUsers = "management_users"
-	Permissions     = "permissions"
-	Sessions        = "management_user_sessions"
+	COLLECTION_NAME_MANAGEMENT_USERS = "management_users"
+	COLLECTION_NAME_PERMISSIONS      = "permissions"
+	COLLECTION_NAME_SESSIONS         = "management_user_sessions"
 )
 
 const (
@@ -72,11 +72,11 @@ func (dbService *ManagementUserDBService) getDBName(instanceID string) string {
 }
 
 func (dbService *ManagementUserDBService) collectionManagementUsers(instanceID string) *mongo.Collection {
-	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(ManagementUsers)
+	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_MANAGEMENT_USERS)
 }
 
 func (dbService *ManagementUserDBService) collectionPermissions(instanceID string) *mongo.Collection {
-	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(Permissions)
+	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_PERMISSIONS)
 }
 
 func (dbService *ManagementUserDBService) getContext() (ctx context.Context, cancel context.CancelFunc) {

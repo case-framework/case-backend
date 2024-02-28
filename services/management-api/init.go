@@ -40,6 +40,16 @@ const (
 	ENV_MANAGEMENT_USER_DB_IDLE_CONN_TIMEOUT     = "MANAGEMENT_USER_DB_IDLE_CONN_TIMEOUT"
 	ENV_MANAGEMENT_USER_DB_USE_NO_CURSOR_TIMEOUT = "MANAGEMENT_USER_DB_USE_NO_CURSOR_TIMEOUT"
 	ENV_MANAGEMENT_USER_DB_MAX_POOL_SIZE         = "MANAGEMENT_USER_DB_MAX_POOL_SIZE"
+
+	ENV_MESSAGING_DB_CONNECTION_STR        = "MESSAGING_DB_CONNECTION_STR"
+	ENV_MESSAGING_DB_USERNAME              = "MESSAGING_DB_USERNAME"
+	ENV_MESSAGING_DB_PASSWORD              = "MESSAGING_DB_PASSWORD"
+	ENV_MESSAGING_DB_CONNECTION_PREFIX     = "MESSAGING_DB_CONNECTION_PREFIX"
+	ENV_MESSAGING_DB_NAME_PREFIX           = "MESSAGING_DB_NAME_PREFIX"
+	ENV_MESSAGING_DB_TIMEOUT               = "MESSAGING_DB_TIMEOUT"
+	ENV_MESSAGING_DB_IDLE_CONN_TIMEOUT     = "MESSAGING_DB_IDLE_CONN_TIMEOUT"
+	ENV_MESSAGING_DB_USE_NO_CURSOR_TIMEOUT = "MESSAGING_DB_USE_NO_CURSOR_TIMEOUT"
+	ENV_MESSAGING_DB_MAX_POOL_SIZE         = "MESSAGING_DB_MAX_POOL_SIZE"
 )
 
 type Config struct {
@@ -59,6 +69,7 @@ type Config struct {
 	CertificatePaths apihelpers.CertificatePaths `json:"certificate_paths"`
 
 	ManagementUserDBConfig db.DBConfig `json:"management_user_db_config"`
+	MessagingDBConfig      db.DBConfig `json:"messaging_db_config"`
 }
 
 func init() {
@@ -103,9 +114,16 @@ func initConfig() Config {
 	// Management user db configs
 	conf.ManagementUserDBConfig = readManagementUserDBConfig()
 
+	// Messaging db configs
+	conf.MessagingDBConfig = readMessagingDBConfig()
+
 	// Allowed instance IDs
-	conf.AllowedInstanceIDs = strings.Split(os.Getenv(ENV_INSTANCE_IDS), ",")
+	conf.AllowedInstanceIDs = readInstaceIDs()
 	return conf
+}
+
+func readInstaceIDs() []string {
+	return strings.Split(os.Getenv(ENV_INSTANCE_IDS), ",")
 }
 
 func readManagementUserDBConfig() db.DBConfig {
@@ -141,7 +159,53 @@ func readManagementUserDBConfig() db.DBConfig {
 
 	noCursorTimeout := os.Getenv(ENV_MANAGEMENT_USER_DB_USE_NO_CURSOR_TIMEOUT) == "true"
 	DBNamePrefix := os.Getenv(ENV_MANAGEMENT_USER_DB_NAME_PREFIX)
-	InstanceIDs := strings.Split(os.Getenv(ENV_INSTANCE_IDS), ",")
+	InstanceIDs := readInstaceIDs()
+
+	return db.DBConfig{
+		URI:             URI,
+		Timeout:         Timeout,
+		IdleConnTimeout: IdleConnTimeout,
+		MaxPoolSize:     MaxPoolSize,
+		NoCursorTimeout: noCursorTimeout,
+		DBNamePrefix:    DBNamePrefix,
+		InstanceIDs:     InstanceIDs,
+	}
+}
+
+func readMessagingDBConfig() db.DBConfig {
+	connStr := os.Getenv(ENV_MESSAGING_DB_CONNECTION_STR)
+	username := os.Getenv(ENV_MESSAGING_DB_USERNAME)
+	password := os.Getenv(ENV_MESSAGING_DB_PASSWORD)
+	prefix := os.Getenv(ENV_MESSAGING_DB_CONNECTION_PREFIX) // Used in test mode
+	if connStr == "" || username == "" || password == "" {
+		slog.Error("Couldn't read DB credentials for messaging DB.")
+		panic("Couldn't read DB credentials for messaging DB.")
+	}
+	URI := fmt.Sprintf(`mongodb%s://%s:%s@%s`, prefix, username, password, connStr)
+
+	var err error
+	Timeout, err := strconv.Atoi(os.Getenv(ENV_MESSAGING_DB_TIMEOUT))
+	if err != nil {
+		slog.Error("error during initConfig", slog.String("error", err.Error()), ENV_MESSAGING_DB_TIMEOUT, os.Getenv(ENV_MESSAGING_DB_TIMEOUT))
+		panic(err)
+	}
+
+	IdleConnTimeout, err := strconv.Atoi(os.Getenv(ENV_MESSAGING_DB_IDLE_CONN_TIMEOUT))
+	if err != nil {
+		slog.Error("error during initConfig", slog.String("error", err.Error()), ENV_MESSAGING_DB_IDLE_CONN_TIMEOUT, os.Getenv(ENV_MESSAGING_DB_IDLE_CONN_TIMEOUT))
+		panic(err)
+	}
+
+	mps, err := strconv.Atoi(os.Getenv(ENV_MESSAGING_DB_MAX_POOL_SIZE))
+	MaxPoolSize := uint64(mps)
+	if err != nil {
+		slog.Error("error during initConfig", slog.String("error", err.Error()), ENV_MESSAGING_DB_MAX_POOL_SIZE, os.Getenv(ENV_MESSAGING_DB_MAX_POOL_SIZE))
+		panic(err)
+	}
+
+	noCursorTimeout := os.Getenv(ENV_MESSAGING_DB_USE_NO_CURSOR_TIMEOUT) == "true"
+	DBNamePrefix := os.Getenv(ENV_MESSAGING_DB_NAME_PREFIX)
+	InstanceIDs := readInstaceIDs()
 
 	return db.DBConfig{
 		URI:             URI,
