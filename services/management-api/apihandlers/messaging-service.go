@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
+	messagingDB "github.com/case-framework/case-backend/pkg/db/messaging"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	"github.com/gin-gonic/gin"
 
@@ -118,9 +119,9 @@ func (h *HttpEndpoints) getGlobalMessageTemplates(c *gin.Context) {
 
 func (h *HttpEndpoints) saveGlobalMessageTemplate(c *gin.Context) {
 	// TODO
+	// TODO: check if templates are valid
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
-	// TODO: check if templates are valid
 
 func (h *HttpEndpoints) getGlobalMessageTemplate(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
@@ -128,12 +129,27 @@ func (h *HttpEndpoints) getGlobalMessageTemplate(c *gin.Context) {
 
 	slog.Info("getGlobalMessageTemplate: getting global message template", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("messageType", messageType))
 
-	// TOOD: message DB find message template with message type and empty study key
+	message, err := h.messagingDBConn.GetGlobalEmailTemplateByMessageType(token.InstanceID, messageType)
+	if err != nil {
+		if err.Error() == "mongo: no documents in result" {
+			dummyTemplate := messagingDB.EmailTemplate{
+				MessageType:  messageType,
+				Translations: []messagingDB.LocalizedTemplate{},
+			}
+			c.JSON(http.StatusOK, gin.H{"template": dummyTemplate})
+			return
+		}
 
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+		slog.Error("getGlobalMessageTemplate: error getting global message template", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting global message template"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"template": message})
 }
 
 func (h *HttpEndpoints) deleteGlobalMessageTemplate(c *gin.Context) {
+
 	// TODO
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
@@ -144,6 +160,7 @@ func (h *HttpEndpoints) getStudyMessageTemplates(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) saveStudyMessageTemplate(c *gin.Context) {
+	// TODO: check if templates are valid
 	// TODO
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
@@ -157,4 +174,3 @@ func (h *HttpEndpoints) deleteStudyMessageTemplate(c *gin.Context) {
 	// TODO
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
-	// TODO: check if templates are valid
