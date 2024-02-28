@@ -70,6 +70,15 @@ func (h *HttpEndpoints) addMessagingGlobalEmailTemplatesAPI(rg *gin.RouterGroup)
 }
 
 func (h *HttpEndpoints) addMessagingStudyEmailTemplatesAPI(rg *gin.RouterGroup) {
+	rg.GET("/study-templates", h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType: pc.RESOURCE_TYPE_MESSAGING,
+			ResourceKeys: []string{pc.RESOURCE_KEY_MESSAGING_STUDY_EMAIL_TEMPLATES},
+			Action:       pc.ACTION_ALL,
+		},
+		nil,
+		h.getStudyMessageTemplatesForAllStudies,
+	))
 	rg.GET("/study-templates/:studyKey", h.useAuthorisedHandler(
 		RequiredPermission{
 			ResourceType: pc.RESOURCE_TYPE_MESSAGING,
@@ -172,9 +181,32 @@ func (h *HttpEndpoints) deleteGlobalMessageTemplate(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "template deleted"})
 }
 
+func (h *HttpEndpoints) getStudyMessageTemplatesForAllStudies(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	slog.Info("getStudyMessageTemplatesForAllStudies: getting study message templates", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+
+	messages, err := h.messagingDBConn.GetEmailTemplatesForAllStudies(token.InstanceID)
+	if err != nil {
+		slog.Error("getStudyMessageTemplatesForAllStudies: error getting study message templates", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting study message templates"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"templates": messages})
+}
+
 func (h *HttpEndpoints) getStudyMessageTemplates(c *gin.Context) {
-	// TODO
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	studyKey := c.Param("studyKey")
+
+	slog.Info("getStudyMessageTemplates: getting study message templates", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	messages, err := h.messagingDBConn.GetStudyEmailTemplates(token.InstanceID, studyKey)
+	if err != nil {
+		slog.Error("getStudyMessageTemplates: error getting study message templates", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting study message templates"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"templates": messages})
 }
 
 func (h *HttpEndpoints) saveStudyMessageTemplate(c *gin.Context) {
