@@ -216,8 +216,19 @@ func (h *HttpEndpoints) saveStudyMessageTemplate(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getStudyMessageTemplate(c *gin.Context) {
-	// TODO
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	studyKey := c.Param("studyKey")
+	messageType := c.Param("messageType")
+
+	slog.Info("getStudyMessageTemplate: getting study message template", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("messageType", messageType))
+
+	message, err := h.messagingDBConn.GetStudyEmailTemplateByMessageType(token.InstanceID, studyKey, messageType)
+	if err != nil {
+		slog.Error("getStudyMessageTemplate: error getting study message template", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting study message template"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"template": message})
 }
 
 func (h *HttpEndpoints) deleteStudyMessageTemplate(c *gin.Context) {
