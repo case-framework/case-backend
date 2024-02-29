@@ -25,5 +25,10 @@ const (
 	ACTION_UPDATE_STUDY_STATUS = "update-study-status"
 	ACTION_DELETE_STUDY        = "delete-study"
 
+	ACTION_CREATE_SURVEY         = "create-survey"
+	ACTION_UPDATE_SURVEY         = "update-survey"
+	ACTION_UNPUBLISH_SURVEY      = "unpublish-survey"
+	ACTION_DELETE_SURVEY_VERSION = "delete-survey-version"
+
 	ACTION_ALL = "*"
 )
