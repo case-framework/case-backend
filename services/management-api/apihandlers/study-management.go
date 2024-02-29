@@ -267,15 +267,66 @@ func (h *HttpEndpoints) addStudyConfigEndpoints(rg *gin.RouterGroup) {
 }
 
 func (h *HttpEndpoints) addStudyRuleEndpoints(rg *gin.RouterGroup) {
-	// get current rules
+	rulesGroup := rg.Group("/rules")
 
-	// update rules
+	rulesGroup.GET("/", h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType:        pc.RESOURCE_TYPE_STUDY,
+			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+			ExtractResourceKeys: getStudyKeyFromParams,
+			Action:              pc.ACTION_READ_STUDY_CONFIG,
+		},
+		nil,
+		h.getStudyRules,
+	))
+
+	rulesGroup.POST("/", mw.RequirePayload(), h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType:        pc.RESOURCE_TYPE_STUDY,
+			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+			ExtractResourceKeys: getStudyKeyFromParams,
+			Action:              pc.ACTION_UPDATE_STUDY_RULES,
+		},
+		nil,
+		h.updateStudyRules,
+	))
 
 	// get rule history
+	rulesGroup.GET("/versions", h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType:        pc.RESOURCE_TYPE_STUDY,
+			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+			ExtractResourceKeys: getStudyKeyFromParams,
+			Action:              pc.ACTION_READ_STUDY_CONFIG,
+		},
+		nil,
+		h.getStudyRuleVersions,
+	))
 
 	// get specific rule version
+	rulesGroup.GET("/versions/:versionID", h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType:        pc.RESOURCE_TYPE_STUDY,
+			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+			ExtractResourceKeys: getStudyKeyFromParams,
+			Action:              pc.ACTION_READ_STUDY_CONFIG,
+		},
+		nil,
+		h.getStudyRuleVersion,
+	))
 
 	// delete rule version
+	rulesGroup.DELETE("/versions/:versionID", h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType:        pc.RESOURCE_TYPE_STUDY,
+			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+			ExtractResourceKeys: getStudyKeyFromParams,
+			Action:              pc.ACTION_UPDATE_STUDY_RULES,
+		},
+		nil,
+		h.deleteStudyRuleVersion,
+	))
+
 }
 
 func (h *HttpEndpoints) getAllStudies(c *gin.Context) {
@@ -374,6 +425,31 @@ func (h *HttpEndpoints) getNotificationSubscriptions(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) updateNotificationSubscriptions(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) getStudyRules(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) updateStudyRules(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) getStudyRuleVersions(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) getStudyRuleVersion(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) deleteStudyRuleVersion(c *gin.Context) {
 	// TODO: implement
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
