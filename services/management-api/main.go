@@ -56,6 +56,10 @@ func main() {
 	v1APIHandlers.AddUserManagementAPI(v1Root)
 	v1APIHandlers.AddMessagingServiceAPI(v1Root)
 
+	if conf.GinDebugMode {
+		apihelpers.WriteRoutesToFile(router, "management-api-routes.txt")
+	}
+
 	// Start the server
 	if !conf.UseMTLS {
 		slog.Info("Starting Management API on port " + conf.Port)
