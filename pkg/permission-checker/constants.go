@@ -19,7 +19,11 @@ const (
 )
 
 const (
-	ACTION_CREATE_STUDY = "create-study"
+	ACTION_CREATE_STUDY        = "create-study"
+	ACTION_READ_STUDY_CONFIG   = "read-study-config"
+	ACTION_UPDATE_STUDY_PROPS  = "update-study-props"
+	ACTION_UPDATE_STUDY_STATUS = "update-study-status"
+	ACTION_DELETE_STUDY        = "delete-study"
 
 	ACTION_ALL = "*"
 )
