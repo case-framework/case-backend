@@ -47,6 +47,22 @@ func getSurveyKeyLimiterFromContext(c *gin.Context) map[string]string {
 	return map[string]string{"surveyKey": c.Param("surveyKey")}
 }
 
+func getSurveyKeyLimiterFromQuery(c *gin.Context) map[string]string {
+	sk := c.DefaultQuery("surveyKey", "")
+	if sk == "" {
+		return nil
+	}
+	return map[string]string{"surveyKey": sk}
+}
+
+func getReportKeyLimiterFromQuery(c *gin.Context) map[string]string {
+	rk := c.DefaultQuery("reportKey", "")
+	if rk == "" {
+		return nil
+	}
+	return map[string]string{"reportKey": rk}
+}
+
 func (h *HttpEndpoints) addGeneralStudyEndpoints(rg *gin.RouterGroup) {
 	rg.GET("/", h.useAuthorisedHandler(
 		RequiredPermission{
@@ -441,7 +457,7 @@ func (h *HttpEndpoints) addStudyDataExporterEndpoints(rg *gin.RouterGroup) {
 				ExtractResourceKeys: getStudyKeyFromParams,
 				Action:              pc.ACTION_GET_RESPONSES,
 			},
-			nil,
+			getSurveyKeyLimiterFromQuery,
 			h.getResponsesCount,
 		))
 
@@ -453,7 +469,7 @@ func (h *HttpEndpoints) addStudyDataExporterEndpoints(rg *gin.RouterGroup) {
 				ExtractResourceKeys: getStudyKeyFromParams,
 				Action:              pc.ACTION_GET_RESPONSES,
 			},
-			nil,
+			getSurveyKeyLimiterFromQuery,
 			h.generateResponsesExport,
 		))
 
@@ -543,7 +559,7 @@ func (h *HttpEndpoints) addStudyDataExporterEndpoints(rg *gin.RouterGroup) {
 				ExtractResourceKeys: getStudyKeyFromParams,
 				Action:              pc.ACTION_GET_REPORTS,
 			},
-			nil,
+			getReportKeyLimiterFromQuery,
 			h.getReportsCount,
 		))
 
@@ -555,7 +571,7 @@ func (h *HttpEndpoints) addStudyDataExporterEndpoints(rg *gin.RouterGroup) {
 				ExtractResourceKeys: getStudyKeyFromParams,
 				Action:              pc.ACTION_GET_REPORTS,
 			},
-			nil,
+			getReportKeyLimiterFromQuery,
 			h.generateReportsExport,
 		))
 
@@ -649,7 +665,7 @@ func (h *HttpEndpoints) addStudyDataExplorerEndpoints(rg *gin.RouterGroup) {
 				ExtractResourceKeys: getStudyKeyFromParams,
 				Action:              pc.ACTION_GET_RESPONSES,
 			},
-			nil,
+			getSurveyKeyLimiterFromQuery,
 			h.getStudyResponses,
 		))
 
@@ -703,7 +719,7 @@ func (h *HttpEndpoints) addStudyDataExplorerEndpoints(rg *gin.RouterGroup) {
 				ExtractResourceKeys: getStudyKeyFromParams,
 				Action:              pc.ACTION_GET_REPORTS,
 			},
-			nil,
+			getReportKeyLimiterFromQuery,
 			h.getStudyReports,
 		))
 
