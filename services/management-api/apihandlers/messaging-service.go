@@ -26,6 +26,10 @@ func (h *HttpEndpoints) AddMessagingServiceAPI(rg *gin.RouterGroup) {
 
 	// Add study email templates
 	h.addMessagingStudyEmailTemplatesAPI(emailTemplatesGroup)
+
+	// Scheduled emails
+	scheduledEmailsGroup := messagingGroup.Group("/scheduled-emails")
+	h.addMessagingScheduledEmailsAPI(scheduledEmailsGroup)
 }
 
 func (h *HttpEndpoints) addMessagingGlobalEmailTemplatesAPI(rg *gin.RouterGroup) {
@@ -120,6 +124,48 @@ func (h *HttpEndpoints) addMessagingStudyEmailTemplatesAPI(rg *gin.RouterGroup) 
 
 func getStudyKeyLimiterFromContext(c *gin.Context) map[string]string {
 	return map[string]string{"studyKey": c.Param("studyKey")}
+}
+
+func (h *HttpEndpoints) addMessagingScheduledEmailsAPI(rg *gin.RouterGroup) {
+	rg.GET("/", h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType: pc.RESOURCE_TYPE_MESSAGING,
+			ResourceKeys: []string{pc.RESOURCE_KEY_MESSAGING_SCHEDULED_EMAILS},
+			Action:       pc.ACTION_ALL,
+		},
+		nil,
+		h.getScheduledEmails,
+	))
+
+	rg.POST("/", mw.RequirePayload(), h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType: pc.RESOURCE_TYPE_MESSAGING,
+			ResourceKeys: []string{pc.RESOURCE_KEY_MESSAGING_SCHEDULED_EMAILS},
+			Action:       pc.ACTION_ALL,
+		},
+		nil,
+		h.SaveScheduledEmail,
+	))
+
+	rg.GET("/:id", h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType: pc.RESOURCE_TYPE_MESSAGING,
+			ResourceKeys: []string{pc.RESOURCE_KEY_MESSAGING_SCHEDULED_EMAILS},
+			Action:       pc.ACTION_ALL,
+		},
+		nil,
+		h.getScheduledEmail,
+	))
+
+	rg.DELETE("/:id", h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType: pc.RESOURCE_TYPE_MESSAGING,
+			ResourceKeys: []string{pc.RESOURCE_KEY_MESSAGING_SCHEDULED_EMAILS},
+			Action:       pc.ACTION_ALL,
+		},
+		nil,
+		h.deleteScheduledEmail,
+	))
 }
 
 func (h *HttpEndpoints) getGlobalMessageTemplates(c *gin.Context) {
@@ -295,4 +341,24 @@ func (h *HttpEndpoints) deleteStudyMessageTemplate(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "template deleted"})
+}
+
+func (h *HttpEndpoints) getScheduledEmails(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) SaveScheduledEmail(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) getScheduledEmail(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) deleteScheduledEmail(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }

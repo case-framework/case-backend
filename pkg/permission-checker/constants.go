@@ -15,6 +15,7 @@ const (
 
 	RESOURCE_KEY_MESSAGING_GLOBAL_EMAIL_TEMPLATES = "global-email-templates"
 	RESOURCE_KEY_MESSAGING_STUDY_EMAIL_TEMPLATES  = "study-email-templates"
+	RESOURCE_KEY_MESSAGING_SCHEDULED_EMAILS       = "scheduled-emails"
 )
 
 const (
