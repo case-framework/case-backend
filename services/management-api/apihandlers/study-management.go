@@ -34,7 +34,7 @@ func (h *HttpEndpoints) AddStudyManagementAPI(rg *gin.RouterGroup) {
 		h.addStudyRuleEndpoints(studyGroup)
 		h.addSurveyEndpoints(studyGroup)
 		h.addStudyActionEndpoints(studyGroup)
-		// h.addStudyDataExporterEndpoints(studyGroup)
+		h.addStudyDataExporterEndpoints(studyGroup)
 		// h.addStudyDataExplorerEndpoints(studyGroup)
 	}
 }
@@ -428,6 +428,214 @@ func (h *HttpEndpoints) addStudyActionEndpoints(rg *gin.RouterGroup) {
 	}
 }
 
+func (h *HttpEndpoints) addStudyDataExporterEndpoints(rg *gin.RouterGroup) {
+	exporterGroup := rg.Group("/data-exporter")
+
+	responsesGroup := exporterGroup.Group("/responses")
+	{
+		// count responses
+		responsesGroup.GET("/count", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_RESPONSES,
+			},
+			nil,
+			h.getResponsesCount,
+		))
+
+		// start export generation for responses
+		responsesGroup.GET("/", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_RESPONSES,
+			},
+			nil,
+			h.generateResponsesExport,
+		))
+
+		// get export status
+		responsesGroup.GET("/task/:taskID", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_RESPONSES,
+			},
+			nil,
+			h.getExportTaskStatus,
+		))
+
+		// get export result
+		responsesGroup.GET("/task/:taskID/result", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_RESPONSES,
+			},
+			nil,
+			h.getExportTaskResult,
+		))
+	}
+
+	participantsGroup := exporterGroup.Group("/participants")
+	{
+		// count participants of the query
+		participantsGroup.GET("/count", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_PARTICIPANT_STATES,
+			},
+			nil,
+			h.getParticipantsCount,
+		))
+
+		// start export generation for participants
+		participantsGroup.GET("/", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_PARTICIPANT_STATES,
+			},
+			nil,
+			h.generateParticipantsExport,
+		))
+
+		// get export status
+		participantsGroup.GET("/task/:taskID", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_PARTICIPANT_STATES,
+			},
+			nil,
+			h.getExportTaskStatus,
+		))
+
+		// get export result
+		participantsGroup.GET("/task/:taskID/result", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_PARTICIPANT_STATES,
+			},
+			nil,
+			h.getExportTaskResult,
+		))
+	}
+
+	reportsGroup := exporterGroup.Group("/reports")
+	{
+		// count reports
+		reportsGroup.GET("/count", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_REPORTS,
+			},
+			nil,
+			h.getReportsCount,
+		))
+
+		// start export generation for reports
+		reportsGroup.GET("/", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_REPORTS,
+			},
+			nil,
+			h.generateReportsExport,
+		))
+
+		// get export status
+		reportsGroup.GET("/task/:taskID", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_REPORTS,
+			},
+			nil,
+			h.getExportTaskStatus,
+		))
+
+		// get export result
+		reportsGroup.GET("/task/:taskID/result", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_REPORTS,
+			},
+			nil,
+			h.getExportTaskResult,
+		))
+	}
+
+	confidentialResponsesGroup := exporterGroup.Group("/confidential-responses")
+	{
+		// count confidential responses
+		confidentialResponsesGroup.GET("/count", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_CONFIDENTIAL_RESPONSES,
+			},
+			nil,
+			h.getConfidentialResponsesCount,
+		))
+
+		// start export generation for confidential responses
+		confidentialResponsesGroup.GET("/", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_CONFIDENTIAL_RESPONSES,
+			},
+			nil,
+			h.generateConfidentialResponsesExport,
+		))
+
+		// get export status
+		confidentialResponsesGroup.GET("/task/:taskID", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_CONFIDENTIAL_RESPONSES,
+			},
+			nil,
+			h.getExportTaskStatus,
+		))
+
+		// get export result
+		confidentialResponsesGroup.GET("/task/:taskID/result", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_CONFIDENTIAL_RESPONSES,
+			},
+			nil,
+			h.getExportTaskResult,
+		))
+	}
+}
+
 func (h *HttpEndpoints) getAllStudies(c *gin.Context) {
 	// TODO: implement
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
@@ -580,6 +788,56 @@ func (h *HttpEndpoints) runActionOnPreviousResponsesForParticipant(c *gin.Contex
 }
 
 func (h *HttpEndpoints) runActionOnPreviousResponsesForParticipants(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) getResponsesCount(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) generateResponsesExport(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) getParticipantsCount(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) generateParticipantsExport(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) getReportsCount(c *gin.Context) {
+	//	TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) generateReportsExport(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) getConfidentialResponsesCount(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) generateConfidentialResponsesExport(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) getExportTaskStatus(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) getExportTaskResult(c *gin.Context) {
 	// TODO: implement
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }

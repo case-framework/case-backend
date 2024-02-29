@@ -35,5 +35,11 @@ const (
 	ACTION_UNPUBLISH_SURVEY      = "unpublish-survey"
 	ACTION_DELETE_SURVEY_VERSION = "delete-survey-version"
 
+	ACTION_GET_RESPONSES              = "get-responses"
+	ACTION_GET_CONFIDENTIAL_RESPONSES = "get-confidential-responses"
+	ACTION_GET_FILES                  = "get-files"
+	ACTION_GET_PARTICIPANT_STATES     = "get-participant-states"
+	ACTION_GET_REPORTS                = "get-reports"
+
 	ACTION_ALL = "*"
 )
