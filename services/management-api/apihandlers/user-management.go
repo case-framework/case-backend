@@ -16,20 +16,37 @@ func (h *HttpEndpoints) AddUserManagementAPI(rg *gin.RouterGroup) {
 	umGroup := rg.Group("/user-management")
 	umGroup.Use(mw.GetAndValidateManagementUserJWT(h.tokenSignKey))
 	umGroup.Use(mw.IsInstanceIDInJWTAllowed(h.allowedInstanceIDs))
+
+	// all management users can see other users (though not all details if not admin)
 	{
 		umGroup.GET("/management-users", h.getAllManagementUsers)
 	}
 
-	onlyAdminGroup := umGroup.Group("/")
-	onlyAdminGroup.Use(mw.IsAdminUser())
+	managementUsersGroup := umGroup.Group("/management-users")
+	managementUsersGroup.Use(mw.IsAdminUser())
 	{
-		umGroup.GET("/management-users/:userID", h.getManagementUser)
-		umGroup.DELETE("/management-users/:userID", h.deleteManagementUser)
-		umGroup.GET("/management-users/:userID/permissions", h.getManagementUserPermissions)
-		umGroup.POST("/management-users/:userID/permissions", mw.RequirePayload(), h.createManagementUserPermission)
-		umGroup.DELETE("/management-users/:userID/permissions/:permissionID", h.deleteManagementUserPermission)
-		umGroup.PUT("/management-users/:userID/permissions/:permissionID/limiter", mw.RequirePayload(), h.updateManagementUserPermissionLimiter)
+		managementUsersGroup.GET("/:userID", h.getManagementUser)
+		managementUsersGroup.DELETE("/:userID", h.deleteManagementUser)
+		managementUsersGroup.GET("/:userID/permissions", h.getManagementUserPermissions)
+		managementUsersGroup.POST("/:userID/permissions", mw.RequirePayload(), h.createManagementUserPermission)
+		managementUsersGroup.DELETE("/:userID/permissions/:permissionID", h.deleteManagementUserPermission)
+		managementUsersGroup.PUT("/:userID/permissions/:permissionID/limiter", mw.RequirePayload(), h.updateManagementUserPermissionLimiter)
 	}
+
+	serviceAccountsGroup := umGroup.Group("/service-accounts")
+	serviceAccountsGroup.Use(mw.IsAdminUser())
+	{
+		serviceAccountsGroup.GET("/", h.getAllServiceAccounts)
+		serviceAccountsGroup.POST("/", mw.RequirePayload(), h.createServiceAccount)
+		serviceAccountsGroup.GET("/:serviceAccountID", h.getServiceAccount)
+		serviceAccountsGroup.PUT("/:serviceAccountID", mw.RequirePayload(), h.updateServiceAccount)
+		serviceAccountsGroup.DELETE("/:serviceAccountID", h.deleteServiceAccount)
+		serviceAccountsGroup.GET("/:serviceAccountID/permissions", h.getServiceAccountPermissions)
+		serviceAccountsGroup.POST("/:serviceAccountID/permissions", mw.RequirePayload(), h.createServiceAccountPermission)
+		serviceAccountsGroup.DELETE("/:serviceAccountID/permissions/:permissionID", h.deleteServiceAccountPermission)
+		serviceAccountsGroup.PUT("/:serviceAccountID/permissions/:permissionID/limiter", mw.RequirePayload(), h.updateServiceAccountPermissionLimiter)
+	}
+
 }
 
 func (h *HttpEndpoints) getAllManagementUsers(c *gin.Context) {
@@ -187,4 +204,49 @@ func (h *HttpEndpoints) updateManagementUserPermissionLimiter(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "permission limiter updated"})
+}
+
+func (h *HttpEndpoints) getAllServiceAccounts(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) createServiceAccount(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) getServiceAccount(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) updateServiceAccount(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) deleteServiceAccount(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) getServiceAccountPermissions(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) createServiceAccountPermission(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) deleteServiceAccountPermission(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) updateServiceAccountPermissionLimiter(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
