@@ -30,7 +30,10 @@ func (h *HttpEndpoints) AddStudyManagementAPI(rg *gin.RouterGroup) {
 	studyGroup := studiesGroup.Group("/:studyKey")
 	{
 		h.addGeneralStudyEndpoints(studyGroup)
+		h.addStudyConfigEndpoints(studyGroup)
+		h.addStudyRuleEndpoints(studyGroup)
 		h.addSurveyEndpoints(studyGroup)
+		// h.addStudyActionEndpoints(studyGroup) --> TODO: define async task based actions
 
 		// TODO: study permissions
 	}
@@ -188,6 +191,93 @@ func (h *HttpEndpoints) addSurveyEndpoints(rg *gin.RouterGroup) {
 	}
 }
 
+func (h *HttpEndpoints) addStudyConfigEndpoints(rg *gin.RouterGroup) {
+
+	permissionsGroup := rg.Group("/permissions")
+	{
+		permissionsGroup.GET("/", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_READ_STUDY_CONFIG,
+			},
+			nil,
+			h.getStudyPermissions,
+		))
+
+		permissionsGroup.POST("/", mw.RequirePayload(), h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_MANAGE_STUDY_PERMISSIONS,
+			},
+			nil,
+			h.addStudyPermission,
+		))
+
+		permissionsGroup.PUT("/:permissionID", mw.RequirePayload(), h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_MANAGE_STUDY_PERMISSIONS,
+			},
+			nil,
+			h.updateStudyPermissions,
+		))
+
+		permissionsGroup.DELETE("/:permissionID", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_MANAGE_STUDY_PERMISSIONS,
+			},
+			nil,
+			h.deleteStudyPermission,
+		))
+	}
+
+	notificationSubGroup := rg.Group("/notification-subscriptions")
+	{
+		notificationSubGroup.GET("/", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_READ_STUDY_CONFIG,
+			},
+			nil,
+			h.getNotificationSubscriptions,
+		))
+
+		notificationSubGroup.PUT("/", mw.RequirePayload(), h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_UPDATE_NOTIFICATION_SUBSCRIPTIONS,
+			},
+			nil,
+			h.updateNotificationSubscriptions,
+		))
+	}
+}
+
+func (h *HttpEndpoints) addStudyRuleEndpoints(rg *gin.RouterGroup) {
+	// get current rules
+
+	// update rules
+
+	// get rule history
+
+	// get specific rule version
+
+	// delete rule version
+}
+
 func (h *HttpEndpoints) getAllStudies(c *gin.Context) {
 	// TODO: implement
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
@@ -254,6 +344,36 @@ func (h *HttpEndpoints) getSurveyVersion(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) deleteSurveyVersion(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) getStudyPermissions(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) addStudyPermission(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) updateStudyPermissions(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) deleteStudyPermission(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) getNotificationSubscriptions(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) updateNotificationSubscriptions(c *gin.Context) {
 	// TODO: implement
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }

@@ -19,11 +19,16 @@ const (
 )
 
 const (
-	ACTION_CREATE_STUDY        = "create-study"
-	ACTION_READ_STUDY_CONFIG   = "read-study-config"
-	ACTION_UPDATE_STUDY_PROPS  = "update-study-props"
-	ACTION_UPDATE_STUDY_STATUS = "update-study-status"
-	ACTION_DELETE_STUDY        = "delete-study"
+	ACTION_CREATE_STUDY                      = "create-study"
+	ACTION_READ_STUDY_CONFIG                 = "read-study-config"
+	ACTION_UPDATE_STUDY_PROPS                = "update-study-props"
+	ACTION_UPDATE_STUDY_STATUS               = "update-study-status"
+	ACTION_UPDATE_NOTIFICATION_SUBSCRIPTIONS = "update-notification-subscriptions"
+	ACTION_UPDATE_STUDY_RULES                = "update-study-rules"
+	ACTION_RUN_STUDY_ACTION                  = "run-study-action"
+	ACTION_DELETE_STUDY                      = "delete-study"
+
+	ACTION_MANAGE_STUDY_PERMISSIONS = "manage-study-permissions"
 
 	ACTION_CREATE_SURVEY         = "create-survey"
 	ACTION_UPDATE_SURVEY         = "update-survey"
