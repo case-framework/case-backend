@@ -33,9 +33,9 @@ func (h *HttpEndpoints) AddStudyManagementAPI(rg *gin.RouterGroup) {
 		h.addStudyConfigEndpoints(studyGroup)
 		h.addStudyRuleEndpoints(studyGroup)
 		h.addSurveyEndpoints(studyGroup)
-		// h.addStudyActionEndpoints(studyGroup) --> TODO: define async task based actions
-
-		// TODO: study permissions
+		h.addStudyActionEndpoints(studyGroup)
+		// h.addStudyDataExporterEndpoints(studyGroup)
+		// h.addStudyDataExplorerEndpoints(studyGroup)
 	}
 }
 
@@ -326,7 +326,106 @@ func (h *HttpEndpoints) addStudyRuleEndpoints(rg *gin.RouterGroup) {
 		nil,
 		h.deleteStudyRuleVersion,
 	))
+}
 
+func (h *HttpEndpoints) addStudyActionEndpoints(rg *gin.RouterGroup) {
+	actionsGroup := rg.Group("/run-actions")
+
+	// run actions on current participant states
+	participantGroup := actionsGroup.Group("/participants")
+	{
+		participantGroup.POST("/:participantID", mw.RequirePayload(), h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_RUN_STUDY_ACTION,
+			},
+			nil,
+			h.runActionOnParticipant,
+		))
+
+		participantGroup.POST("/", mw.RequirePayload(), h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_RUN_STUDY_ACTION,
+			},
+			nil,
+			h.runActionOnParticipants,
+		))
+
+		participantGroup.GET("/task/:taskID", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_RUN_STUDY_ACTION,
+			},
+			nil,
+			h.getStudyActionTaskStatus,
+		))
+
+		participantGroup.GET("/task/:taskID/result", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_RUN_STUDY_ACTION,
+			},
+			nil,
+			h.getStudyActionTaskResult,
+		))
+	}
+
+	// run action on previous responses of a participant
+	previousResponsesGroup := actionsGroup.Group("/previous-responses")
+	{
+		previousResponsesGroup.POST("/:participantID", mw.RequirePayload(), h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_RUN_STUDY_ACTION,
+			},
+			nil,
+			h.runActionOnPreviousResponsesForParticipant,
+		))
+
+		previousResponsesGroup.POST("/", mw.RequirePayload(), h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_RUN_STUDY_ACTION,
+			},
+			nil,
+			h.runActionOnPreviousResponsesForParticipants,
+		))
+
+		previousResponsesGroup.GET("/task/:taskID", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_RUN_STUDY_ACTION,
+			},
+			nil,
+			h.getStudyActionTaskStatus,
+		))
+
+		previousResponsesGroup.GET("/task/:taskID/result", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_RUN_STUDY_ACTION,
+			},
+			nil,
+			h.getStudyActionTaskResult,
+		))
+	}
 }
 
 func (h *HttpEndpoints) getAllStudies(c *gin.Context) {
@@ -450,6 +549,37 @@ func (h *HttpEndpoints) getStudyRuleVersion(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) deleteStudyRuleVersion(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) runActionOnParticipant(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) runActionOnParticipants(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) getStudyActionTaskStatus(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) getStudyActionTaskResult(c *gin.Context) {
+	// TODO: implement
+	// TODO: cleanup after successfully retrieving results
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) runActionOnPreviousResponsesForParticipant(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) runActionOnPreviousResponsesForParticipants(c *gin.Context) {
 	// TODO: implement
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }

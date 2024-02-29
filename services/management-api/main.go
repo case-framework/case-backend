@@ -55,6 +55,7 @@ func main() {
 	v1APIHandlers.AddManagementAuthAPI(v1Root)
 	v1APIHandlers.AddUserManagementAPI(v1Root)
 	v1APIHandlers.AddMessagingServiceAPI(v1Root)
+	v1APIHandlers.AddStudyManagementAPI(v1Root)
 
 	if conf.GinDebugMode {
 		apihelpers.WriteRoutesToFile(router, "management-api-routes.txt")
