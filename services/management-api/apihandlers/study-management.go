@@ -35,7 +35,7 @@ func (h *HttpEndpoints) AddStudyManagementAPI(rg *gin.RouterGroup) {
 		h.addSurveyEndpoints(studyGroup)
 		h.addStudyActionEndpoints(studyGroup)
 		h.addStudyDataExporterEndpoints(studyGroup)
-		// h.addStudyDataExplorerEndpoints(studyGroup)
+		h.addStudyDataExplorerEndpoints(studyGroup)
 	}
 }
 
@@ -636,6 +636,130 @@ func (h *HttpEndpoints) addStudyDataExporterEndpoints(rg *gin.RouterGroup) {
 	}
 }
 
+func (h *HttpEndpoints) addStudyDataExplorerEndpoints(rg *gin.RouterGroup) {
+	dataExplGroup := rg.Group("/data-explorer")
+
+	responsesGroup := dataExplGroup.Group("/responses")
+	{
+		// get responses with pagination
+		responsesGroup.GET("/", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_RESPONSES,
+			},
+			nil,
+			h.getStudyResponses,
+		))
+
+		// delete responses
+		responsesGroup.DELETE("/", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_DELETE_RESPONSES,
+			},
+			nil,
+			h.deleteStudyResponses,
+		))
+	}
+
+	participantsGroup := dataExplGroup.Group("/participants")
+	{
+		// get participants with pagination
+		participantsGroup.GET("/", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_PARTICIPANT_STATES,
+			},
+			nil,
+			h.getStudyParticipants,
+		))
+
+		// get single participant
+		participantsGroup.GET("/:participantID", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_PARTICIPANT_STATES,
+			},
+			nil,
+			h.getStudyParticipant,
+		))
+	}
+
+	reportsGroup := dataExplGroup.Group("/reports")
+	{
+		// get reports with pagination
+		reportsGroup.GET("/", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_REPORTS,
+			},
+			nil,
+			h.getStudyReports,
+		))
+
+		// get single report by ID
+		reportsGroup.GET("/:reportID", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_REPORTS,
+			},
+			nil,
+			h.getStudyReport,
+		))
+	}
+
+	filesGroup := dataExplGroup.Group("/files")
+	{
+		// get files with pagination
+		filesGroup.GET("/", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_FILES,
+			},
+			nil,
+			h.getStudyFiles,
+		))
+
+		// get single file by ID
+		filesGroup.GET("/:fileID", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_FILES,
+			},
+			nil,
+			h.getStudyFile,
+		))
+
+		// delete file by ID
+		filesGroup.DELETE("/:fileID", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_DELETE_FILES,
+			},
+			nil,
+			h.deleteStudyFile,
+		))
+	}
+}
+
 func (h *HttpEndpoints) getAllStudies(c *gin.Context) {
 	// TODO: implement
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
@@ -838,6 +962,51 @@ func (h *HttpEndpoints) getExportTaskStatus(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getExportTaskResult(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) getStudyResponses(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) deleteStudyResponses(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) getStudyParticipants(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) getStudyParticipant(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) getStudyReports(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) getStudyReport(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) getStudyFiles(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) getStudyFile(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) deleteStudyFile(c *gin.Context) {
 	// TODO: implement
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
