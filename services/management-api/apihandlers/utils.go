@@ -1,9 +1,9 @@
 package apihandlers
 
 import (
-	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	pc "github.com/case-framework/case-backend/pkg/permission-checker"
@@ -20,9 +20,10 @@ func (h *HttpEndpoints) isInstanceAllowed(instanceID string) bool {
 }
 
 type RequiredPermission struct {
-	ResourceType string
-	ResourceKeys []string
-	Action       string
+	ResourceType        string
+	ResourceKeys        []string
+	ExtractResourceKeys func(c *gin.Context) []string // from route params, query params, etc.
+	Action              string
 }
 
 func (h *HttpEndpoints) useAuthorisedHandler(
@@ -38,6 +39,12 @@ func (h *HttpEndpoints) useAuthorisedHandler(
 			limiterReq = getLimiterRequirement(c)
 		}
 
+		rks := requiredPermission.ResourceKeys
+		if requiredPermission.ExtractResourceKeys != nil {
+			newRks := requiredPermission.ExtractResourceKeys(c)
+			rks = append(rks, newRks...)
+		}
+
 		hasPermission := pc.IsAuthorized(
 			h.muDBConn,
 			token.IsAdmin,
@@ -45,13 +52,18 @@ func (h *HttpEndpoints) useAuthorisedHandler(
 			token.Subject,
 			pc.SUBJECT_TYPE_MANAGEMENT_USER,
 			requiredPermission.ResourceType,
-			requiredPermission.ResourceKeys,
+			rks,
 			requiredPermission.Action,
 			limiterReq,
 		)
 		if !hasPermission {
-			requiredPermissionStr, _ := json.Marshal(requiredPermission)
-			slog.Warn("unauthorised access attempted", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("requiredPermission", string(requiredPermissionStr)))
+			slog.Warn("unauthorised access attempted",
+				slog.String("instanceID", token.InstanceID),
+				slog.String("userID", token.Subject),
+				slog.String("resourceType", requiredPermission.ResourceType),
+				slog.String("resourceKeys", strings.Join(rks, ",")),
+				slog.String("action", requiredPermission.Action),
+			)
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorised access attempted"})
 			return
 		}
