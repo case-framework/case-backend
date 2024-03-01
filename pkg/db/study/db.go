@@ -123,7 +123,7 @@ func (dbService *StudyDBService) getContext() (ctx context.Context, cancel conte
 }
 
 func (dbService *StudyDBService) ensureIndexes() error {
-	slog.Debug("Ensuring indexes for messaging DB")
+	slog.Debug("Ensuring indexes for study DB")
 	for _, instanceID := range dbService.InstanceIDs {
 		ctx, cancel := dbService.getContext()
 		defer cancel()
