@@ -64,6 +64,7 @@ func (dbService *MessagingDBService) SaveScheduledEmail(instanceID string, sched
 		).Decode(&elem)
 		return elem, err
 	} else {
+		scheduledEmail.ID = primitive.NewObjectID()
 		res, err := dbService.collectionEmailSchedules(instanceID).InsertOne(ctx, scheduledEmail)
 		if err != nil {
 			return scheduledEmail, err
