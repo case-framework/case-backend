@@ -21,7 +21,7 @@ func WriteRoutesToFile(router *gin.Engine, filename string) {
 	})
 
 	for _, route := range routes {
-		_, err := file.WriteString(fmt.Sprintf("%s\t%s\n", route.Method, route.Path))
+		_, err := file.WriteString(fmt.Sprintf("%s %s\n", route.Method, route.Path))
 		if err != nil {
 			log.Fatal(err)
 		}
