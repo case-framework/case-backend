@@ -34,10 +34,13 @@ func (dbService *MessagingDBService) GetScheduledEmailByID(instanceID string, id
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	filter := bson.M{"_id": id}
-
+	_id, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, err
+	}
+	filter := bson.M{"_id": _id}
 	var scheduledEmail messagingTypes.ScheduledEmail
-	err := dbService.collectionEmailSchedules(instanceID).FindOne(ctx, filter).Decode(&scheduledEmail)
+	err = dbService.collectionEmailSchedules(instanceID).FindOne(ctx, filter).Decode(&scheduledEmail)
 	if err != nil {
 		return nil, err
 	}
@@ -79,8 +82,12 @@ func (dbService *MessagingDBService) DeleteScheduledEmail(instanceID string, id 
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	filter := bson.M{"_id": id}
+	_id, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+	filter := bson.M{"_id": _id}
 
-	_, err := dbService.collectionEmailSchedules(instanceID).DeleteOne(ctx, filter)
+	_, err = dbService.collectionEmailSchedules(instanceID).DeleteOne(ctx, filter)
 	return err
 }
