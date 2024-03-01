@@ -99,7 +99,10 @@ func (dbService *MessagingDBService) ensureIndexes() error {
 			ctx,
 			// index unique on messageType and studyKey combo:
 			mongo.IndexModel{
-				Keys:    bson.M{"messageType": 1, "studyKey": 1},
+				Keys: bson.D{
+					{Key: "messageType", Value: 1},
+					{Key: "studyKey", Value: 1},
+				},
 				Options: options.Index().SetUnique(true),
 			},
 		)
