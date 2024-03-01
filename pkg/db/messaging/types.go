@@ -4,7 +4,7 @@ import "go.mongodb.org/mongo-driver/bson/primitive"
 
 // email template
 type EmailTemplate struct {
-	ID              primitive.ObjectID  `bson:"_id" json:"id"`
+	ID              primitive.ObjectID  `bson:"_id" json:"id,omitempty"`
 	MessageType     string              `bson:"messageType" json:"messageType"`
 	StudyKey        string              `bson:"studyKey,omitempty" json:"studyKey"`
 	DefaultLanguage string              `bson:"defaultLanguage" json:"defaultLanguage"`

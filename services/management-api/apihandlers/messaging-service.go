@@ -172,7 +172,7 @@ func (h *HttpEndpoints) getGlobalMessageTemplates(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 	slog.Info("getGlobalMessageTemplates: getting global message templates", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
 
-	messages, err := h.messagingDBConn.GetEmailTemplatesForAllStudies(token.InstanceID)
+	messages, err := h.messagingDBConn.GetGlobalEmailTemplates(token.InstanceID)
 	if err != nil {
 		slog.Error("getGlobalMessageTemplates: error getting global message templates", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting global message templates"})

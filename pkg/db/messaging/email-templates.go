@@ -60,6 +60,7 @@ func (messagingDBService *MessagingDBService) SaveEmailTemplate(instanceID strin
 	defer cancel()
 
 	if emailTemplate.ID.IsZero() {
+		emailTemplate.ID = primitive.NewObjectID()
 		// new email template
 		res, err := messagingDBService.collectionEmailTemplates(instanceID).InsertOne(ctx, emailTemplate)
 		if err != nil {
