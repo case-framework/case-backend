@@ -3,14 +3,14 @@ package emailtemplates
 import (
 	"testing"
 
-	messagingDB "github.com/case-framework/case-backend/pkg/db/messaging"
+	messagingTypes "github.com/case-framework/case-backend/pkg/types/messaging"
 )
 
 func TestTemplateLanguageSelection(t *testing.T) {
-	testTemplate := messagingDB.EmailTemplate{
+	testTemplate := messagingTypes.EmailTemplate{
 		MessageType:     "test-type",
 		DefaultLanguage: "en",
-		Translations: []messagingDB.LocalizedTemplate{
+		Translations: []messagingTypes.LocalizedTemplate{
 			{Lang: "en", Subject: "EN"},
 			{Lang: "de", Subject: "DE"},
 		},

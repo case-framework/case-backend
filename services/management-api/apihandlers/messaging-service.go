@@ -3,11 +3,12 @@ package apihandlers
 import (
 	"log/slog"
 	"net/http"
+	"time"
 
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
-	messagingDB "github.com/case-framework/case-backend/pkg/db/messaging"
 	emailtemplates "github.com/case-framework/case-backend/pkg/email-templates"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
+	messagingTypes "github.com/case-framework/case-backend/pkg/types/messaging"
 	"github.com/gin-gonic/gin"
 
 	pc "github.com/case-framework/case-backend/pkg/permission-checker"
@@ -185,7 +186,7 @@ func (h *HttpEndpoints) saveGlobalMessageTemplate(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 
 	// parse body
-	var template messagingDB.EmailTemplate
+	var template messagingTypes.EmailTemplate
 	if err := c.ShouldBindJSON(&template); err != nil {
 		slog.Error("saveGlobalMessageTemplate: error parsing request body", slog.String("error", err.Error()))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "error parsing request body"})
@@ -219,9 +220,9 @@ func (h *HttpEndpoints) getGlobalMessageTemplate(c *gin.Context) {
 	message, err := h.messagingDBConn.GetGlobalEmailTemplateByMessageType(token.InstanceID, messageType)
 	if err != nil {
 		if err.Error() == "mongo: no documents in result" {
-			dummyTemplate := messagingDB.EmailTemplate{
+			dummyTemplate := messagingTypes.EmailTemplate{
 				MessageType:  messageType,
-				Translations: []messagingDB.LocalizedTemplate{},
+				Translations: []messagingTypes.LocalizedTemplate{},
 			}
 			c.JSON(http.StatusOK, gin.H{"template": dummyTemplate})
 			return
@@ -284,7 +285,7 @@ func (h *HttpEndpoints) saveStudyMessageTemplate(c *gin.Context) {
 	studyKey := c.Param("studyKey")
 
 	// parse body
-	var template messagingDB.EmailTemplate
+	var template messagingTypes.EmailTemplate
 	if err := c.ShouldBindJSON(&template); err != nil {
 		slog.Error("saveStudyMessageTemplate: error parsing request body", slog.String("error", err.Error()))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "error parsing request body"})
@@ -344,21 +345,90 @@ func (h *HttpEndpoints) deleteStudyMessageTemplate(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getScheduledEmails(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	slog.Info("getScheduledEmails: getting scheduled emails", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+
+	schedules, err := h.messagingDBConn.GetAllScheduledEmails(token.InstanceID)
+	if err != nil {
+		slog.Error("getScheduledEmails: error getting scheduled emails", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting scheduled emails"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"schedules": schedules})
 }
 
 func (h *HttpEndpoints) SaveScheduledEmail(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	// parse body
+	var schedule messagingTypes.ScheduledEmail
+	if err := c.ShouldBindJSON(&schedule); err != nil {
+		slog.Error("SaveScheduledEmail: error parsing request body", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "error parsing request body"})
+		return
+	}
+
+	slog.Info("SaveScheduledEmail: saving scheduled email", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+
+	// check if template is valid
+	err := emailtemplates.CheckAllTranslationsParsable(schedule.Template)
+	if err != nil {
+		slog.Error("SaveScheduledEmail: error parsing template", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "error while checking template validity"})
+		return
+	}
+
+	// ensure that times are in the future
+	if 0 < schedule.Until {
+		if schedule.Until < time.Now().Unix() {
+			slog.Error("SaveScheduledEmail: error saving scheduled email", slog.String("error", "invalid termination date of auto message schedule, is in past"))
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid termination date of auto message schedule, is in past"})
+			return
+		}
+		if schedule.Until < schedule.NextTime {
+			slog.Error("SaveScheduledEmail: error saving scheduled email", slog.String("error", "invalid termination date of auto message schedule, earlier than start date"))
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid termination date of auto message schedule, earlier than start date"})
+			return
+		}
+	}
+
+	savedSchedule, err := h.messagingDBConn.SaveScheduledEmail(token.InstanceID, schedule)
+	if err != nil {
+		slog.Error("SaveScheduledEmail: error saving scheduled email", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error saving scheduled email"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"schedule": savedSchedule})
 }
 
 func (h *HttpEndpoints) getScheduledEmail(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	id := c.Param("id")
+
+	slog.Info("getScheduledEmail: getting scheduled email", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("id", id))
+
+	schedule, err := h.messagingDBConn.GetScheduledEmailByID(token.InstanceID, id)
+	if err != nil {
+		slog.Error("getScheduledEmail: error getting scheduled email", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting scheduled email"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"schedule": schedule})
 }
 
 func (h *HttpEndpoints) deleteScheduledEmail(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	id := c.Param("id")
+
+	slog.Info("deleteScheduledEmail: deleting scheduled email", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("id", id))
+
+	err := h.messagingDBConn.DeleteScheduledEmail(token.InstanceID, id)
+	if err != nil {
+		slog.Error("deleteScheduledEmail: error deleting scheduled email", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error deleting scheduled email"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "schedule deleted"})
 }

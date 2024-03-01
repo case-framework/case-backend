@@ -4,16 +4,18 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo/options"
+
+	messagingTypes "github.com/case-framework/case-backend/pkg/types/messaging"
 )
 
 // find all email templates with study key empty
-func (messagingDBService *MessagingDBService) GetGlobalEmailTemplates(instanceID string) ([]EmailTemplate, error) {
+func (messagingDBService *MessagingDBService) GetGlobalEmailTemplates(instanceID string) ([]messagingTypes.EmailTemplate, error) {
 	ctx, cancel := messagingDBService.getContext()
 	defer cancel()
 
 	filter := bson.M{"studyKey": bson.M{"$exists": false}}
 
-	var emailTemplates []EmailTemplate
+	var emailTemplates []messagingTypes.EmailTemplate
 	cursor, err := messagingDBService.collectionEmailTemplates(instanceID).Find(ctx, filter)
 	if err != nil {
 		return nil, err
@@ -25,13 +27,13 @@ func (messagingDBService *MessagingDBService) GetGlobalEmailTemplates(instanceID
 }
 
 // find one email template by message type and study key empty
-func (messagingDBService *MessagingDBService) GetGlobalEmailTemplateByMessageType(instanceID string, messageType string) (*EmailTemplate, error) {
+func (messagingDBService *MessagingDBService) GetGlobalEmailTemplateByMessageType(instanceID string, messageType string) (*messagingTypes.EmailTemplate, error) {
 	ctx, cancel := messagingDBService.getContext()
 	defer cancel()
 
 	filter := bson.M{"messageType": messageType, "studyKey": bson.M{"$exists": false}}
 
-	var emailTemplate EmailTemplate
+	var emailTemplate messagingTypes.EmailTemplate
 	err := messagingDBService.collectionEmailTemplates(instanceID).FindOne(ctx, filter).Decode(&emailTemplate)
 	if err != nil {
 		return nil, err
@@ -40,11 +42,16 @@ func (messagingDBService *MessagingDBService) GetGlobalEmailTemplateByMessageTyp
 }
 
 // find one email template by id
-func (messagingDBService *MessagingDBService) GetEmailTemplateByID(instanceID string, id string) (*EmailTemplate, error) {
+func (messagingDBService *MessagingDBService) GetEmailTemplateByID(instanceID string, id string) (*messagingTypes.EmailTemplate, error) {
 	ctx, cancel := messagingDBService.getContext()
 	defer cancel()
 
-	filter := bson.M{"_id": id}
+	_id, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, err
+	}
+
+	filter := bson.M{"_id": _id}
 
 	var emailTemplate EmailTemplate
 	err := messagingDBService.collectionEmailTemplates(instanceID).FindOne(ctx, filter).Decode(&emailTemplate)
@@ -96,7 +103,7 @@ func (messagingDBService *MessagingDBService) DeleteEmailTemplate(instanceID str
 }
 
 // find all email templates with study key non-empty
-func (messagingDBService *MessagingDBService) GetEmailTemplatesForAllStudies(instanceID string) ([]EmailTemplate, error) {
+func (messagingDBService *MessagingDBService) GetEmailTemplatesForAllStudies(instanceID string) ([]messagingTypes.EmailTemplate, error) {
 	ctx, cancel := messagingDBService.getContext()
 	defer cancel()
 
@@ -114,7 +121,7 @@ func (messagingDBService *MessagingDBService) GetEmailTemplatesForAllStudies(ins
 }
 
 // find all email templates by study key
-func (messagingDBService *MessagingDBService) GetStudyEmailTemplates(instanceID string, studyKey string) ([]EmailTemplate, error) {
+func (messagingDBService *MessagingDBService) GetStudyEmailTemplates(instanceID string, studyKey string) ([]messagingTypes.EmailTemplate, error) {
 	ctx, cancel := messagingDBService.getContext()
 	defer cancel()
 
@@ -132,7 +139,7 @@ func (messagingDBService *MessagingDBService) GetStudyEmailTemplates(instanceID 
 }
 
 // find one email template by message type and study key
-func (messagingDBService *MessagingDBService) GetStudyEmailTemplateByMessageType(instanceID string, studyKey string, messageType string) (*EmailTemplate, error) {
+func (messagingDBService *MessagingDBService) GetStudyEmailTemplateByMessageType(instanceID string, studyKey string, messageType string) (*messagingTypes.EmailTemplate, error) {
 	ctx, cancel := messagingDBService.getContext()
 	defer cancel()
 
