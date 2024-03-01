@@ -8,6 +8,7 @@ import (
 	"github.com/case-framework/case-backend/pkg/apihelpers"
 	muDB "github.com/case-framework/case-backend/pkg/db/management-user"
 	"github.com/case-framework/case-backend/pkg/db/messaging"
+	studyDB "github.com/case-framework/case-backend/pkg/db/study"
 	"github.com/case-framework/case-backend/services/management-api/apihandlers"
 
 	"github.com/gin-contrib/cors"
@@ -26,6 +27,12 @@ func main() {
 	messagingDBService, err := messaging.NewMessagingDBService(conf.MessagingDBConfig)
 	if err != nil {
 		slog.Error("Error connecting to Messaging DB", slog.String("error", err.Error()))
+		return
+	}
+
+	studyDBService, err := studyDB.NewStudyDBService(conf.StudyDBConfig)
+	if err != nil {
+		slog.Error("Error connecting to Study DB", slog.String("error", err.Error()))
 		return
 	}
 
@@ -50,6 +57,7 @@ func main() {
 		conf.ManagementUserJWTExpiresIn,
 		muDBService,
 		messagingDBService,
+		studyDBService,
 		conf.AllowedInstanceIDs,
 	)
 	v1APIHandlers.AddManagementAuthAPI(v1Root)

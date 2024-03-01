@@ -6,6 +6,7 @@ import (
 
 	muDB "github.com/case-framework/case-backend/pkg/db/management-user"
 	messagingDB "github.com/case-framework/case-backend/pkg/db/messaging"
+	studyDB "github.com/case-framework/case-backend/pkg/db/study"
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,6 +17,7 @@ func HealthCheckHandle(c *gin.Context) {
 type HttpEndpoints struct {
 	muDBConn           *muDB.ManagementUserDBService
 	messagingDBConn    *messagingDB.MessagingDBService
+	studyDBConn        *studyDB.StudyDBService
 	tokenSignKey       string
 	tokenExpiresIn     time.Duration
 	allowedInstanceIDs []string
@@ -26,12 +28,14 @@ func NewHTTPHandler(
 	tokenExpiresIn time.Duration,
 	muDBConn *muDB.ManagementUserDBService,
 	messagingDBConn *messagingDB.MessagingDBService,
+	studyDBConn *studyDB.StudyDBService,
 	allowedInstanceIDs []string,
 ) *HttpEndpoints {
 	return &HttpEndpoints{
 		tokenSignKey:       tokenSignKey,
 		muDBConn:           muDBConn,
 		messagingDBConn:    messagingDBConn,
+		studyDBConn:        studyDBConn,
 		allowedInstanceIDs: allowedInstanceIDs,
 		tokenExpiresIn:     tokenExpiresIn,
 	}
