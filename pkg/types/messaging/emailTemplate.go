@@ -2,7 +2,6 @@ package messaging
 
 import "go.mongodb.org/mongo-driver/bson/primitive"
 
-// email template
 type EmailTemplate struct {
 	ID              primitive.ObjectID  `bson:"_id" json:"id,omitempty"`
 	MessageType     string              `bson:"messageType" json:"messageType"`
@@ -24,9 +23,3 @@ type LocalizedTemplate struct {
 	Subject     string `bson:"subject" json:"subject"`
 	TemplateDef string `bson:"templateDef" json:"templateDef"`
 }
-
-// messageschedule
-
-// outgoing email
-
-// sent email

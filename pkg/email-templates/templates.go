@@ -8,11 +8,11 @@ import (
 	"strings"
 	"text/template"
 
-	messagingDB "github.com/case-framework/case-backend/pkg/db/messaging"
+	messagingTypes "github.com/case-framework/case-backend/pkg/types/messaging"
 )
 
-func GetTemplateTranslation(tDef messagingDB.EmailTemplate, lang string) messagingDB.LocalizedTemplate {
-	var defaultTranslation messagingDB.LocalizedTemplate
+func GetTemplateTranslation(tDef messagingTypes.EmailTemplate, lang string) messagingTypes.LocalizedTemplate {
+	var defaultTranslation messagingTypes.LocalizedTemplate
 	for _, tr := range tDef.Translations {
 		if tr.Lang == lang {
 			return tr
@@ -42,7 +42,7 @@ func ResolveTemplate(tempName string, templateDef string, contentInfos map[strin
 	return tpl.String(), nil
 }
 
-func CheckAllTranslationsParsable(tempTranslations messagingDB.EmailTemplate) (err error) {
+func CheckAllTranslationsParsable(tempTranslations messagingTypes.EmailTemplate) (err error) {
 	if len(tempTranslations.Translations) == 0 {
 		return errors.New("error when decoding template `" + tempTranslations.MessageType + "`: translation list is empty")
 	}
