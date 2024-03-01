@@ -46,9 +46,14 @@ func (messagingDBService *MessagingDBService) GetEmailTemplateByID(instanceID st
 	ctx, cancel := messagingDBService.getContext()
 	defer cancel()
 
-	filter := bson.M{"_id": id}
+	_id, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, err
+	}
 
-	var emailTemplate messagingTypes.EmailTemplate
+	filter := bson.M{"_id": _id}
+
+	var emailTemplate EmailTemplate
 	err := messagingDBService.collectionEmailTemplates(instanceID).FindOne(ctx, filter).Decode(&emailTemplate)
 	if err != nil {
 		return nil, err
@@ -57,7 +62,7 @@ func (messagingDBService *MessagingDBService) GetEmailTemplateByID(instanceID st
 }
 
 // save email template (if id is empty, insert, else update)
-func (messagingDBService *MessagingDBService) SaveEmailTemplate(instanceID string, emailTemplate messagingTypes.EmailTemplate) (messagingTypes.EmailTemplate, error) {
+func (messagingDBService *MessagingDBService) SaveEmailTemplate(instanceID string, emailTemplate EmailTemplate) (EmailTemplate, error) {
 	ctx, cancel := messagingDBService.getContext()
 	defer cancel()
 
@@ -66,7 +71,7 @@ func (messagingDBService *MessagingDBService) SaveEmailTemplate(instanceID strin
 		// new email template
 		res, err := messagingDBService.collectionEmailTemplates(instanceID).InsertOne(ctx, emailTemplate)
 		if err != nil {
-			return messagingTypes.EmailTemplate{}, err
+			return EmailTemplate{}, err
 		}
 		emailTemplate.ID = res.InsertedID.(primitive.ObjectID)
 		return emailTemplate, nil
@@ -79,7 +84,7 @@ func (messagingDBService *MessagingDBService) SaveEmailTemplate(instanceID strin
 	opt := options.FindOneAndReplaceOptions{Upsert: &upsert, ReturnDocument: &after}
 	err := messagingDBService.collectionEmailTemplates(instanceID).FindOneAndReplace(ctx, filter, emailTemplate, &opt).Decode(&emailTemplate)
 	if err != nil {
-		return messagingTypes.EmailTemplate{}, err
+		return EmailTemplate{}, err
 	}
 	return emailTemplate, nil
 }
@@ -104,7 +109,7 @@ func (messagingDBService *MessagingDBService) GetEmailTemplatesForAllStudies(ins
 
 	filter := bson.M{"studyKey": bson.M{"$exists": true}}
 
-	var emailTemplates []messagingTypes.EmailTemplate
+	var emailTemplates []EmailTemplate
 	cursor, err := messagingDBService.collectionEmailTemplates(instanceID).Find(ctx, filter)
 	if err != nil {
 		return nil, err
@@ -122,7 +127,7 @@ func (messagingDBService *MessagingDBService) GetStudyEmailTemplates(instanceID 
 
 	filter := bson.M{"studyKey": studyKey}
 
-	var emailTemplates []messagingTypes.EmailTemplate
+	var emailTemplates []EmailTemplate
 	cursor, err := messagingDBService.collectionEmailTemplates(instanceID).Find(ctx, filter)
 	if err != nil {
 		return nil, err
@@ -140,7 +145,7 @@ func (messagingDBService *MessagingDBService) GetStudyEmailTemplateByMessageType
 
 	filter := bson.M{"messageType": messageType, "studyKey": studyKey}
 
-	var emailTemplate messagingTypes.EmailTemplate
+	var emailTemplate EmailTemplate
 	err := messagingDBService.collectionEmailTemplates(instanceID).FindOne(ctx, filter).Decode(&emailTemplate)
 	if err != nil {
 		return nil, err
