@@ -1,9 +1,11 @@
 package apihandlers
 
 import (
+	"log/slog"
 	"net/http"
 
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
+	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	pc "github.com/case-framework/case-backend/pkg/permission-checker"
 	"github.com/gin-gonic/gin"
 )
@@ -777,8 +779,24 @@ func (h *HttpEndpoints) addStudyDataExplorerEndpoints(rg *gin.RouterGroup) {
 }
 
 func (h *HttpEndpoints) getAllStudies(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	slog.Info("getAllStudies: getting all studies", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+
+	studies, err := h.studyDBConn.GetStudies(token.InstanceID, "", false)
+	if err != nil {
+		slog.Error("getAllStudies: failed to get all studies", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get studies"})
+		return
+	}
+
+	for i := range studies {
+		studies[i].SecretKey = ""
+		studies[i].Rules = nil
+		studies[i].NotificationSubscriptions = nil
+	}
+
+	c.JSON(http.StatusOK, gin.H{"studies": studies})
 }
 
 func (h *HttpEndpoints) createStudy(c *gin.Context) {
