@@ -26,3 +26,12 @@ func (dbService *StudyDBService) CreateIndexForStudyRulesCollection(instanceID s
 	_, err := collection.Indexes().CreateMany(ctx, indexes)
 	return err
 }
+
+func (dbService *StudyDBService) deleteStudyRules(instanceID string, studyKey string) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	collection := dbService.collectionStudyRules(instanceID)
+	_, err := collection.DeleteMany(ctx, bson.M{"studyKey": studyKey})
+	return err
+}

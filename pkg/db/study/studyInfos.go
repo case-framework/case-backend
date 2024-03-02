@@ -80,3 +80,75 @@ func (dbService *StudyDBService) CreateStudy(instanceID string, study studyTypes
 	}
 	return nil
 }
+
+// get study by study key
+func (dbService *StudyDBService) GetStudy(instanceID string, studyKey string) (study studyTypes.Study, err error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	collection := dbService.collectionStudyInfos(instanceID)
+	filter := bson.M{"key": studyKey}
+	err = collection.FindOne(ctx, filter).Decode(&study)
+	if err != nil {
+		return study, err
+	}
+
+	return study, nil
+}
+
+// delete study by study key
+func (dbService *StudyDBService) DeleteStudy(instanceID string, studyKey string) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	// delete study collections
+	err := dbService.collectionFiles(instanceID, studyKey).Drop(ctx)
+	if err != nil {
+		slog.Error("Error deleting collection", slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+	}
+
+	err = dbService.collectionParticipants(instanceID, studyKey).Drop(ctx)
+	if err != nil {
+		slog.Error("Error deleting collection", slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+	}
+
+	err = dbService.collectionReports(instanceID, studyKey).Drop(ctx)
+	if err != nil {
+		slog.Error("Error deleting collection", slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+	}
+
+	err = dbService.collectionResponses(instanceID, studyKey).Drop(ctx)
+	if err != nil {
+		slog.Error("Error deleting collection", slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+	}
+
+	err = dbService.collectionSurveys(instanceID, studyKey).Drop(ctx)
+	if err != nil {
+		slog.Error("Error deleting collection", slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+	}
+
+	err = dbService.collectionConfidentialResponses(instanceID, studyKey).Drop(ctx)
+	if err != nil {
+		slog.Error("Error deleting collection", slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+	}
+
+	err = dbService.collectionResearcherMessages(instanceID, studyKey).Drop(ctx)
+	if err != nil {
+		slog.Error("Error deleting collection", slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+	}
+
+	// delete study rules for study
+	err = dbService.deleteStudyRules(instanceID, studyKey)
+	if err != nil {
+		slog.Error("Error deleting study rules", slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+	}
+
+	collection := dbService.collectionStudyInfos(instanceID)
+	filter := bson.M{"key": studyKey}
+	_, err = collection.DeleteOne(ctx, filter)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
