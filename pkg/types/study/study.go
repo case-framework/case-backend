@@ -1,5 +1,14 @@
 package study
 
+const (
+	STUDY_STATUS_ACTIVE   = "active"
+	STUDY_STATUS_INACTIVE = "inactive"
+)
+
+const (
+	DEFAULT_ID_MAPPING_METHOD = "sha-256"
+)
+
 type Study struct {
 	ID                        string                     `bson:"_id" json:"id,omitempty"`
 	Key                       string                     `bson:"key" json:"key"`

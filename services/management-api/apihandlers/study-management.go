@@ -7,7 +7,10 @@ import (
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	pc "github.com/case-framework/case-backend/pkg/permission-checker"
+	"github.com/case-framework/case-backend/pkg/utils"
 	"github.com/gin-gonic/gin"
+
+	studyTypes "github.com/case-framework/case-backend/pkg/types/study"
 )
 
 func (h *HttpEndpoints) AddStudyManagementAPI(rg *gin.RouterGroup) {
@@ -799,9 +802,51 @@ func (h *HttpEndpoints) getAllStudies(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"studies": studies})
 }
 
+type NewStudyReq struct {
+	StudyKey           string `json:"studyKey"`
+	SecretKey          string `json:"secretKey"`
+	SystemDefaultStudy bool   `json:"systemDefaultStudy"`
+}
+
 func (h *HttpEndpoints) createStudy(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	var req NewStudyReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("createStudy: failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	slog.Info("createStudy: creating new study", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", req.StudyKey))
+
+	// check if study key is URL safe
+	if !utils.IsURLSafe(req.StudyKey) {
+		slog.Error("createStudy: study key is not URL safe", slog.String("studyKey", req.StudyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "study key is not URL safe"})
+		return
+	}
+
+	study := studyTypes.Study{
+		Key:       req.StudyKey,
+		SecretKey: req.SecretKey,
+		Status:    studyTypes.STUDY_STATUS_INACTIVE,
+		Props: studyTypes.StudyProps{
+			SystemDefaultStudy: req.SystemDefaultStudy,
+		},
+		Configs: studyTypes.StudyConfigs{
+			IdMappingMethod: studyTypes.DEFAULT_ID_MAPPING_METHOD,
+		},
+	}
+
+	err := h.studyDBConn.CreateStudy(token.InstanceID, study)
+	if err != nil {
+		slog.Error("createStudy: failed to create study", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create study"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"study": study})
 }
 
 func (h *HttpEndpoints) getStudyProps(c *gin.Context) {

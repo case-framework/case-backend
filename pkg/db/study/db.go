@@ -147,37 +147,37 @@ func (dbService *StudyDBService) ensureIndexes() error {
 			return err
 		}
 
+		// index on studyRules
+		err = dbService.CreateIndexForStudyRulesCollection(instanceID)
+		if err != nil {
+			slog.Error("Error creating index for studyRules: ", err)
+		}
+
 		for _, study := range studies {
 			studyKey := study.Key
 
 			// index on surveys
 			err = dbService.CreateIndexForSurveyCollection(instanceID, studyKey)
 			if err != nil {
-				slog.Error("Error creating index for surveys: ", err)
+				slog.Error("Error creating index for surveys: ", slog.String("error", err.Error()))
 			}
 
 			// index on participants
 			err = dbService.CreateIndexForParticipantsCollection(instanceID, studyKey)
 			if err != nil {
-				slog.Error("Error creating index for participants: ", err)
-			}
-
-			// index on studyRules
-			err = dbService.CreateIndexForStudyRulesCollection(instanceID)
-			if err != nil {
-				slog.Error("Error creating index for studyRules: ", err)
+				slog.Error("Error creating index for participants: ", slog.String("error", err.Error()))
 			}
 
 			// index on responses
 			err = dbService.CreateIndexForResponsesCollection(instanceID, studyKey)
 			if err != nil {
-				slog.Error("Error creating index for responses: ", err)
+				slog.Error("Error creating index for responses: ", slog.String("error", err.Error()))
 			}
 
 			// index on reports
 			err = dbService.CreateIndexForReportsCollection(instanceID, studyKey)
 			if err != nil {
-				slog.Error("Error creating index for reports: ", err)
+				slog.Error("Error creating index for reports: ", slog.String("error", err.Error()))
 			}
 		}
 

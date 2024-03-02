@@ -1,6 +1,8 @@
 package study
 
 import (
+	"log/slog"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -39,4 +41,42 @@ func (dbService *StudyDBService) GetStudies(instanceID string, statusFilter stri
 	}
 
 	return studies, nil
+}
+
+func (dbService *StudyDBService) CreateStudy(instanceID string, study studyTypes.Study) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	collection := dbService.collectionStudyInfos(instanceID)
+	_, err := collection.InsertOne(ctx, study)
+	if err != nil {
+		return err
+	}
+
+	studyKey := study.Key
+
+	// index on surveys
+	err = dbService.CreateIndexForSurveyCollection(instanceID, studyKey)
+	if err != nil {
+		slog.Error("Error creating index for surveys: ", slog.String("error", err.Error()))
+	}
+
+	// index on participants
+	err = dbService.CreateIndexForParticipantsCollection(instanceID, studyKey)
+	if err != nil {
+		slog.Error("Error creating index for participants: ", slog.String("error", err.Error()))
+	}
+
+	// index on responses
+	err = dbService.CreateIndexForResponsesCollection(instanceID, studyKey)
+	if err != nil {
+		slog.Error("Error creating index for responses: ", slog.String("error", err.Error()))
+	}
+
+	// index on reports
+	err = dbService.CreateIndexForReportsCollection(instanceID, studyKey)
+	if err != nil {
+		slog.Error("Error creating index for reports: ", slog.String("error", err.Error()))
+	}
+	return nil
 }
