@@ -872,8 +872,20 @@ func (h *HttpEndpoints) updateStudyStatus(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) deleteStudy(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	slog.Info("deleteStudy: deleting study", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	err := h.studyDBConn.DeleteStudy(token.InstanceID, studyKey)
+	if err != nil {
+		slog.Error("deleteStudy: failed to delete study", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete study"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "study deleted"})
 }
 
 func (h *HttpEndpoints) getSurveyInfoList(c *gin.Context) {
