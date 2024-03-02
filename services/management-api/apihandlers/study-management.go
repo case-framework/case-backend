@@ -857,8 +857,20 @@ func (h *HttpEndpoints) createStudy(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getStudyProps(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	slog.Info("getStudyProps: getting study props", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	study, err := h.studyDBConn.GetStudy(token.InstanceID, studyKey)
+	if err != nil {
+		slog.Error("getStudyProps: failed to get study", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"study": study})
 }
 
 func (h *HttpEndpoints) updateStudyProps(c *gin.Context) {
