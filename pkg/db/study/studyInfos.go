@@ -5,10 +5,27 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	studyTypes "github.com/case-framework/case-backend/pkg/types/study"
 )
+
+func (dbService *StudyDBService) createIndexForStudyInfosCollection(instanceID string) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	_, err := dbService.collectionStudyInfos(instanceID).Indexes().CreateOne(
+		ctx,
+		mongo.IndexModel{
+			Keys: bson.D{
+				{Key: "key", Value: 1},
+			},
+			Options: options.Index().SetUnique(true),
+		},
+	)
+	return err
+}
 
 // get studies
 func (dbService *StudyDBService) GetStudies(instanceID string, statusFilter string, onlyKeys bool) (studies []studyTypes.Study, err error) {

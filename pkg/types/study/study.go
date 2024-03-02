@@ -1,5 +1,7 @@
 package study
 
+import "go.mongodb.org/mongo-driver/bson/primitive"
+
 const (
 	STUDY_STATUS_ACTIVE   = "active"
 	STUDY_STATUS_INACTIVE = "inactive"
@@ -10,7 +12,7 @@ const (
 )
 
 type Study struct {
-	ID                        string                     `bson:"_id" json:"id,omitempty"`
+	ID                        primitive.ObjectID         `bson:"_id,omitempty" json:"id,omitempty"`
 	Key                       string                     `bson:"key" json:"key"`
 	SecretKey                 string                     `bson:"secretKey" json:"secretKey"`
 	Status                    string                     `bson:"status" json:"status"`

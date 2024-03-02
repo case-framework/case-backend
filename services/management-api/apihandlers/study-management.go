@@ -803,9 +803,9 @@ func (h *HttpEndpoints) getAllStudies(c *gin.Context) {
 }
 
 type NewStudyReq struct {
-	StudyKey           string `json:"studyKey"`
-	SecretKey          string `json:"secretKey"`
-	SystemDefaultStudy bool   `json:"systemDefaultStudy"`
+	StudyKey             string `json:"studyKey"`
+	SecretKey            string `json:"secretKey"`
+	IsSystemDefaultStudy bool   `json:"isSystemDefaultStudy"`
 }
 
 func (h *HttpEndpoints) createStudy(c *gin.Context) {
@@ -832,10 +832,17 @@ func (h *HttpEndpoints) createStudy(c *gin.Context) {
 		SecretKey: req.SecretKey,
 		Status:    studyTypes.STUDY_STATUS_INACTIVE,
 		Props: studyTypes.StudyProps{
-			SystemDefaultStudy: req.SystemDefaultStudy,
+			SystemDefaultStudy: req.IsSystemDefaultStudy,
 		},
 		Configs: studyTypes.StudyConfigs{
 			IdMappingMethod: studyTypes.DEFAULT_ID_MAPPING_METHOD,
+			ParticipantFileUploadRule: &studyTypes.Expression{
+				Name: "gt",
+				Data: []studyTypes.ExpressionArg{
+					{Num: 0, DType: "num"},
+					{Num: 1, DType: "num"},
+				},
+			}, // default rule: file upload is not allowed
 		},
 	}
 

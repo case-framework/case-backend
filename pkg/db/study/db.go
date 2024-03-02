@@ -140,6 +140,12 @@ func (dbService *StudyDBService) ensureIndexes() error {
 			slog.Error("Error creating index for createdAt in userDB.sessions: ", err)
 		}
 
+		// index on studyInfos
+		err = dbService.createIndexForStudyInfosCollection(instanceID)
+		if err != nil {
+			slog.Error("Error creating index for studyInfos: ", err)
+		}
+
 		//fetch studyKeys from studyInfos
 		studies, err := dbService.GetStudies(instanceID, "", true)
 		if err != nil {
