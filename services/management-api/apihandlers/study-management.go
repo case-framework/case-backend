@@ -80,7 +80,7 @@ func (h *HttpEndpoints) addGeneralStudyEndpoints(rg *gin.RouterGroup) {
 		h.getStudyProps,
 	))
 
-	rg.PUT("/", mw.RequirePayload(), h.useAuthorisedHandler(
+	rg.PUT("/is-default", mw.RequirePayload(), h.useAuthorisedHandler(
 		RequiredPermission{
 			ResourceType:        pc.RESOURCE_TYPE_STUDY,
 			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
@@ -88,7 +88,7 @@ func (h *HttpEndpoints) addGeneralStudyEndpoints(rg *gin.RouterGroup) {
 			Action:              pc.ACTION_UPDATE_STUDY_PROPS,
 		},
 		nil,
-		h.updateStudyProps,
+		h.updateStudyIsDefault,
 	))
 
 	// change status
@@ -873,9 +873,32 @@ func (h *HttpEndpoints) getStudyProps(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"study": study})
 }
 
-func (h *HttpEndpoints) updateStudyProps(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+type StudyIsDefaultUpdateReq struct {
+	IsDefault bool `json:"isDefault"`
+}
+
+func (h *HttpEndpoints) updateStudyIsDefault(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	var req StudyIsDefaultUpdateReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("updateStudyIsDefault: failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	slog.Info("updateStudyIsDefault: updating study is default", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.Bool("isDefault", req.IsDefault))
+
+	err := h.studyDBConn.UpdateStudyIsDefault(token.InstanceID, studyKey, req.IsDefault)
+	if err != nil {
+		slog.Error("updateStudyIsDefault: failed to update study is default", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update study is default"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "study is default updated"})
 }
 
 type StudyStatusUpdateReq struct {

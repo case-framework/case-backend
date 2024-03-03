@@ -129,6 +129,23 @@ func (dbService *StudyDBService) UpdateStudyStatus(instanceID string, studyKey s
 	return nil
 }
 
+// update study is default
+func (dbService *StudyDBService) UpdateStudyIsDefault(instanceID string, studyKey string, isDefault bool) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	collection := dbService.collectionStudyInfos(instanceID)
+	filter := bson.M{"key": studyKey}
+	update := bson.M{"$set": bson.M{"props.systemDefaultStudy": isDefault}}
+
+	_, err := collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // delete study by study key
 func (dbService *StudyDBService) DeleteStudy(instanceID string, studyKey string) error {
 	ctx, cancel := dbService.getContext()
