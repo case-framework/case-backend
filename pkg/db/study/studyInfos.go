@@ -162,6 +162,22 @@ func (dbService *StudyDBService) UpdateStudyFileUploadRule(instanceID string, st
 	return nil
 }
 
+func (dbService *StudyDBService) UpdateStudyDisplayProps(instanceID string, studyKey string, name []studyTypes.LocalisedObject, description []studyTypes.LocalisedObject, tags []studyTypes.Tag) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	collection := dbService.collectionStudyInfos(instanceID)
+	filter := bson.M{"key": studyKey}
+	update := bson.M{"$set": bson.M{"props.name": name, "props.description": description, "props.tags": tags}}
+
+	_, err := collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // delete study by study key
 func (dbService *StudyDBService) DeleteStudy(instanceID string, studyKey string) error {
 	ctx, cancel := dbService.getContext()

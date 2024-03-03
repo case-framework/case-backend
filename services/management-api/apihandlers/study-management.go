@@ -103,6 +103,18 @@ func (h *HttpEndpoints) addGeneralStudyEndpoints(rg *gin.RouterGroup) {
 		h.updateStudyStatus,
 	))
 
+	// update study display props (name, description, tags)
+	rg.PUT("/display-props", mw.RequirePayload(), h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType:        pc.RESOURCE_TYPE_STUDY,
+			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+			ExtractResourceKeys: getStudyKeyFromParams,
+			Action:              pc.ACTION_UPDATE_STUDY_PROPS,
+		},
+		nil,
+		h.updateStudyDisplayProps,
+	))
+
 	rg.PUT("/file-upload-config", mw.RequirePayload(), h.useAuthorisedHandler(
 		RequiredPermission{
 			ResourceType:        pc.RESOURCE_TYPE_STUDY,
@@ -937,6 +949,35 @@ func (h *HttpEndpoints) updateStudyStatus(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "study status updated"})
+}
+
+type StudyDisplayPropsUpdateReq struct {
+	Name        []studyTypes.LocalisedObject `bson:"name" json:"name"`
+	Description []studyTypes.LocalisedObject `bson:"description" json:"description"`
+	Tags        []studyTypes.Tag             `bson:"tags" json:"tags"`
+}
+
+func (h *HttpEndpoints) updateStudyDisplayProps(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	var req StudyDisplayPropsUpdateReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("updateStudyDisplayProps: failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	slog.Info("updateStudyDisplayProps: updating study display props", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	err := h.studyDBConn.UpdateStudyDisplayProps(token.InstanceID, studyKey, req.Name, req.Description, req.Tags)
+	if err != nil {
+		slog.Error("updateStudyDisplayProps: failed to update study display props", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update study display props"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "study display props updated"})
 }
 
 type FileUploadRuleUpdateReq struct {
