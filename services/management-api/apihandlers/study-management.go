@@ -878,9 +878,31 @@ func (h *HttpEndpoints) updateStudyProps(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
 
+type StudyStatusUpdateReq struct {
+	Status string `json:"status"`
+}
+
 func (h *HttpEndpoints) updateStudyStatus(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	var req StudyStatusUpdateReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("updateStudyStatus: failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	slog.Info("updateStudyStatus: updating study status", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("status", req.Status))
+
+	err := h.studyDBConn.UpdateStudyStatus(token.InstanceID, studyKey, req.Status)
+	if err != nil {
+		slog.Error("updateStudyStatus: failed to update study status", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update study status"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "study status updated"})
 }
 
 func (h *HttpEndpoints) deleteStudy(c *gin.Context) {

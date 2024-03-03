@@ -113,6 +113,22 @@ func (dbService *StudyDBService) GetStudy(instanceID string, studyKey string) (s
 	return study, nil
 }
 
+// update study status
+func (dbService *StudyDBService) UpdateStudyStatus(instanceID string, studyKey string, status string) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	collection := dbService.collectionStudyInfos(instanceID)
+	filter := bson.M{"key": studyKey}
+	update := bson.M{"$set": bson.M{"status": status}}
+	_, err := collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // delete study by study key
 func (dbService *StudyDBService) DeleteStudy(instanceID string, studyKey string) error {
 	ctx, cancel := dbService.getContext()
