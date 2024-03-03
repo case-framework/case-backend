@@ -103,6 +103,17 @@ func (h *HttpEndpoints) addGeneralStudyEndpoints(rg *gin.RouterGroup) {
 		h.updateStudyStatus,
 	))
 
+	rg.PUT("/file-upload-config", mw.RequirePayload(), h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType:        pc.RESOURCE_TYPE_STUDY,
+			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+			ExtractResourceKeys: getStudyKeyFromParams,
+			Action:              pc.ACTION_UPDATE_STUDY_PROPS,
+		},
+		nil,
+		h.updateStudyFileUploadRule,
+	))
+
 	rg.DELETE("/", h.useAuthorisedHandler(
 		RequiredPermission{
 			ResourceType:        pc.RESOURCE_TYPE_STUDY,
@@ -926,6 +937,55 @@ func (h *HttpEndpoints) updateStudyStatus(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "study status updated"})
+}
+
+type FileUploadRuleUpdateReq struct {
+	SimplifiedAllow bool                   `json:"simplifiedAllowedUpload"`
+	Expression      *studyTypes.Expression `json:"expression,omitempty"`
+}
+
+func (h *HttpEndpoints) updateStudyFileUploadRule(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	var req FileUploadRuleUpdateReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("updateStudyFileUploadRule: failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	newRule := req.Expression
+	if newRule == nil {
+		if req.SimplifiedAllow {
+			newRule = &studyTypes.Expression{
+				Name: "gt",
+				Data: []studyTypes.ExpressionArg{
+					{Num: 1, DType: "num"},
+					{Num: 0, DType: "num"},
+				},
+			}
+		} else {
+			newRule = &studyTypes.Expression{
+				Name: "gt",
+				Data: []studyTypes.ExpressionArg{
+					{Num: 0, DType: "num"},
+					{Num: 1, DType: "num"},
+				},
+			}
+		}
+	}
+
+	slog.Info("updateStudyFileUploadRule: updating study file upload rule", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	err := h.studyDBConn.UpdateStudyFileUploadRule(token.InstanceID, studyKey, newRule)
+	if err != nil {
+		slog.Error("updateStudyFileUploadRule: failed to update study file upload rule", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update study file upload rule"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "study file upload rule updated"})
 }
 
 func (h *HttpEndpoints) deleteStudy(c *gin.Context) {
