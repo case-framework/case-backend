@@ -185,6 +185,8 @@ func (h *HttpEndpoints) extendSession(c *gin.Context) {
 		return
 	}
 
+	slog.Info("extendSession: extended session", slog.String("userID", token.Subject), slog.String("instanceID", token.InstanceID))
+
 	c.JSON(http.StatusOK, gin.H{
 		"accessToken": newAccessToken,
 		"sessionID":   sessionId,
@@ -214,6 +216,8 @@ func (h *HttpEndpoints) getRenewToken(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "user not allowed to get renew token"})
 		return
 	}
+
+	slog.Info("getRenewToken: got renew token", slog.String("userID", token.Subject), slog.String("instanceID", token.InstanceID))
 
 	c.JSON(http.StatusOK, gin.H{"renewToken": existingSession.RenewToken})
 }
