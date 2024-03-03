@@ -13,6 +13,8 @@ import (
 	"github.com/case-framework/case-backend/pkg/utils"
 
 	"github.com/gin-gonic/gin"
+
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 // Environment variables
@@ -60,6 +62,13 @@ const (
 	ENV_STUDY_DB_IDLE_CONN_TIMEOUT     = "STUDY_DB_IDLE_CONN_TIMEOUT"
 	ENV_STUDY_DB_USE_NO_CURSOR_TIMEOUT = "STUDY_DB_USE_NO_CURSOR_TIMEOUT"
 	ENV_STUDY_DB_MAX_POOL_SIZE         = "STUDY_DB_MAX_POOL_SIZE"
+
+	ENV_LOG_TO_FILE     = "LOG_TO_FILE"
+	ENV_LOG_FILENAME    = "LOG_FILENAME"
+	ENV_LOG_MAX_SIZE    = "LOG_MAX_SIZE"
+	ENV_LOG_MAX_AGE     = "LOG_MAX_AGE"
+	ENV_LOG_MAX_BACKUPS = "LOG_MAX_BACKUPS"
+	ENV_LOG_LEVEL       = "LOG_LEVEL"
 )
 
 type Config struct {
@@ -84,13 +93,7 @@ type Config struct {
 }
 
 func init() {
-	opts := &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	}
-
-	handler := slog.NewJSONHandler(os.Stdout, opts)
-	logger := slog.New(handler)
-	slog.SetDefault(logger)
+	initLogger()
 
 	conf = initConfig()
 	if !conf.GinDebugMode {
@@ -138,6 +141,60 @@ func initConfig() Config {
 
 func readInstaceIDs() []string {
 	return strings.Split(os.Getenv(ENV_INSTANCE_IDS), ",")
+}
+
+func initLogger() {
+	level := os.Getenv(ENV_LOG_LEVEL)
+	opts := &slog.HandlerOptions{
+		Level: logLevelFromString(level),
+	}
+
+	logToFile := os.Getenv(ENV_LOG_TO_FILE) == "true"
+	if logToFile {
+		logFilename := os.Getenv(ENV_LOG_FILENAME)
+		maxSize, err := strconv.Atoi(os.Getenv(ENV_LOG_MAX_SIZE))
+		if err != nil {
+			panic(err)
+		}
+		maxAge, err := strconv.Atoi(os.Getenv(ENV_LOG_MAX_AGE))
+		if err != nil {
+			panic(err)
+		}
+		maxBackups, err := strconv.Atoi(os.Getenv(ENV_LOG_MAX_BACKUPS))
+		if err != nil {
+			panic(err)
+		}
+
+		logTarget := &lumberjack.Logger{
+			Filename:   logFilename,
+			MaxSize:    maxSize, // megabytes
+			MaxAge:     maxAge,  // days
+			Compress:   true,    // compress old files
+			MaxBackups: maxBackups,
+		}
+		handler := slog.NewJSONHandler(logTarget, opts)
+		logger := slog.New(handler)
+		slog.SetDefault(logger)
+	} else {
+		handler := slog.NewJSONHandler(os.Stdout, opts)
+		logger := slog.New(handler)
+		slog.SetDefault(logger)
+	}
+}
+
+func logLevelFromString(level string) slog.Level {
+	switch level {
+	case "debug":
+		return slog.LevelDebug
+	case "info":
+		return slog.LevelInfo
+	case "warn":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
 }
 
 func readManagementUserDBConfig() db.DBConfig {
