@@ -41,3 +41,22 @@ func (dbService *StudyDBService) CreateIndexForSurveyCollection(instanceID strin
 	_, err := collection.Indexes().CreateMany(ctx, indexes)
 	return err
 }
+
+func (dbService *StudyDBService) GetSurveyKeysForStudy(instanceID string, studyKey string, includeUnpublished bool) (surveyKeys []string, err error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	filter := bson.M{}
+	if !includeUnpublished {
+		filter["unpublished"] = 0
+	}
+	res, err := dbService.collectionSurveys(instanceID, studyKey).Distinct(ctx, "surveyDefinition.key", filter)
+	if err != nil {
+		return surveyKeys, err
+	}
+	surveyKeys = make([]string, len(res))
+	for i, r := range res {
+		surveyKeys[i] = r.(string)
+	}
+	return surveyKeys, err
+}

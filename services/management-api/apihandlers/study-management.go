@@ -1046,9 +1046,30 @@ func (h *HttpEndpoints) deleteStudy(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "study deleted"})
 }
 
+type SurveyInfo struct {
+	Key string `json:"key"`
+}
+
 func (h *HttpEndpoints) getSurveyInfoList(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	slog.Info("getSurveyInfoList: getting survey info list", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	surveyKeys, err := h.studyDBConn.GetSurveyKeysForStudy(token.InstanceID, studyKey, true)
+	if err != nil {
+		slog.Error("getSurveyInfoList: failed to get survey info list", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get survey info list"})
+		return
+	}
+
+	surveyInfos := make([]SurveyInfo, len(surveyKeys))
+	for i, key := range surveyKeys {
+		surveyInfos[i] = SurveyInfo{Key: key}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"surveys": surveyInfos})
 }
 
 func (h *HttpEndpoints) createSurvey(c *gin.Context) {
