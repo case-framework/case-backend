@@ -1093,8 +1093,22 @@ func (h *HttpEndpoints) unpublishSurvey(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getSurveyVersions(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	surveyKey := c.Param("surveyKey")
+
+	slog.Info("getSurveyVersions: getting survey versions", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey))
+
+	versions, err := h.studyDBConn.GetSurveyVersions(token.InstanceID, studyKey, surveyKey)
+	if err != nil {
+		slog.Error("getSurveyVersions: failed to get survey versions", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get survey versions"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"versions": versions})
 }
 
 func (h *HttpEndpoints) getSurveyVersion(c *gin.Context) {

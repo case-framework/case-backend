@@ -2,8 +2,11 @@ package study
 
 import (
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+
+	studyTypes "github.com/case-framework/case-backend/pkg/types/study"
 )
 
 func (dbService *StudyDBService) CreateIndexForSurveyCollection(instanceID string, studyKey string) error {
@@ -59,4 +62,45 @@ func (dbService *StudyDBService) GetSurveyKeysForStudy(instanceID string, studyK
 		surveyKeys[i] = r.(string)
 	}
 	return surveyKeys, err
+}
+
+var (
+	sortByPublishedDesc = bson.D{
+		primitive.E{Key: "published", Value: -1},
+	}
+
+	projectionToRemoveSurveyContentAndRules = bson.D{
+		primitive.E{Key: "surveyDefinition.items", Value: 0},
+		primitive.E{Key: "prefillRules", Value: 0},
+		primitive.E{Key: "contextRules", Value: 0},
+	}
+)
+
+func (dbService *StudyDBService) GetSurveyVersions(instanceID string, studyKey string, surveyKey string) (surveys []*studyTypes.Survey, err error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	filter := bson.M{}
+	if len(surveyKey) > 0 {
+		filter["surveyDefinition.key"] = surveyKey
+	}
+	opts := &options.FindOptions{}
+
+	opts.SetProjection(projectionToRemoveSurveyContentAndRules)
+
+	opts.SetSort(sortByPublishedDesc)
+
+	cur, err := dbService.collectionSurveys(instanceID, studyKey).Find(
+		ctx,
+		filter,
+		opts,
+	)
+	if err != nil {
+		return surveys, err
+	}
+
+	if err = cur.All(ctx, &surveys); err != nil {
+		return nil, err
+	}
+	return surveys, nil
 }
