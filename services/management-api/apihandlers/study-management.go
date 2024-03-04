@@ -1142,13 +1142,48 @@ func (h *HttpEndpoints) deleteStudyPermission(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getNotificationSubscriptions(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	slog.Info("getNotificationSubscriptions: getting notification subscriptions", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	subscriptions, err := h.studyDBConn.GetNotificationSubscriptions(token.InstanceID, studyKey)
+	if err != nil {
+		slog.Error("getNotificationSubscriptions: failed to get notification subscriptions", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get notification subscriptions"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"subscriptions": subscriptions})
+}
+
+type NotificationSubscriptionsUpdateReq struct {
+	Subscriptions []studyTypes.NotificationSubscription `json:"subscriptions"`
 }
 
 func (h *HttpEndpoints) updateNotificationSubscriptions(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	var req NotificationSubscriptionsUpdateReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("updateNotificationSubscriptions: failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	slog.Info("updateNotificationSubscriptions: updating notification subscriptions", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	err := h.studyDBConn.UpdateStudyNotificationSubscriptions(token.InstanceID, studyKey, req.Subscriptions)
+	if err != nil {
+		slog.Error("updateNotificationSubscriptions: failed to update notification subscriptions", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update notification subscriptions"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "notification subscriptions updated"})
 }
 
 func (h *HttpEndpoints) getStudyRules(c *gin.Context) {

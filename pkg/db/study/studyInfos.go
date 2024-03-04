@@ -178,6 +178,38 @@ func (dbService *StudyDBService) UpdateStudyDisplayProps(instanceID string, stud
 	return nil
 }
 
+func (dbService *StudyDBService) GetNotificationSubscriptions(instanceID string, studyKey string) ([]studyTypes.NotificationSubscription, error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	collection := dbService.collectionStudyInfos(instanceID)
+	filter := bson.M{"key": studyKey}
+
+	var study studyTypes.Study
+	err := collection.FindOne(ctx, filter).Decode(&study)
+	if err != nil {
+		return nil, err
+	}
+
+	return study.NotificationSubscriptions, nil
+}
+
+func (dbService *StudyDBService) UpdateStudyNotificationSubscriptions(instanceID string, studyKey string, subscriptions []studyTypes.NotificationSubscription) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	collection := dbService.collectionStudyInfos(instanceID)
+	filter := bson.M{"key": studyKey}
+	update := bson.M{"$set": bson.M{"notificationSubscriptions": subscriptions}}
+
+	_, err := collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // delete study by study key
 func (dbService *StudyDBService) DeleteStudy(instanceID string, studyKey string) error {
 	ctx, cancel := dbService.getContext()
