@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
+	managementuser "github.com/case-framework/case-backend/pkg/db/management-user"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	pc "github.com/case-framework/case-backend/pkg/permission-checker"
 	"github.com/case-framework/case-backend/pkg/utils"
@@ -1121,9 +1122,77 @@ func (h *HttpEndpoints) deleteSurveyVersion(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
 
+type StudyUserPermissionInfo struct {
+	User        *managementuser.ManagementUser `json:"user"`
+	Permissions []managementuser.Permission    `json:"permissions"`
+}
+
 func (h *HttpEndpoints) getStudyPermissions(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	permissions, err := h.muDBConn.GetPermissionByResource(token.InstanceID, pc.RESOURCE_TYPE_STUDY, studyKey)
+	if err != nil {
+		slog.Error("getStudyPermissions: failed to get study permissions", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study permissions"})
+		return
+	}
+
+	// check if user has "manage study permissions" permission
+	// or is admin
+	allowedToManagePermissions := false
+	if token.IsAdmin {
+		allowedToManagePermissions = true
+	} else {
+		for _, permission := range permissions {
+			if permission.SubjectID == token.Subject &&
+				permission.SubjectType == pc.SUBJECT_TYPE_MANAGEMENT_USER &&
+				permission.Action == pc.ACTION_MANAGE_STUDY_PERMISSIONS {
+				allowedToManagePermissions = true
+				break
+			}
+		}
+	}
+
+	studyUserPermissionInfos := map[string]*StudyUserPermissionInfo{}
+
+	for _, permission := range permissions {
+		userID := permission.SubjectID
+
+		if permission.SubjectType != pc.SUBJECT_TYPE_MANAGEMENT_USER {
+			continue
+		}
+
+		var user *managementuser.ManagementUser
+
+		// Check if user ID already exists in the map
+		_, ok := studyUserPermissionInfos[userID]
+		if !ok {
+			// Get user info
+			var err error
+			user, err = h.muDBConn.GetUserByID(token.InstanceID, permission.SubjectID)
+			if err != nil {
+				slog.Error("getStudyPermissions: failed to get user info", slog.String("error", err.Error()))
+				continue
+			}
+			studyUserPermissionInfos[userID] = &StudyUserPermissionInfo{
+				User: &managementuser.ManagementUser{
+					ID:       user.ID,
+					Username: user.Username,
+					Email:    user.Email,
+					ImageURL: user.ImageURL,
+				},
+				Permissions: []managementuser.Permission{},
+			}
+		}
+
+		if allowedToManagePermissions {
+			studyUserPermissionInfos[userID].Permissions = append(studyUserPermissionInfos[userID].Permissions, *permission)
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"permissions": studyUserPermissionInfos})
 }
 
 func (h *HttpEndpoints) addStudyPermission(c *gin.Context) {

@@ -109,13 +109,9 @@ func (dbService *ManagementUserDBService) GetPermissionByResource(
 	if err != nil {
 		return nil, err
 	}
-	defer cursor.Close(ctx)
-	for cursor.Next(ctx) {
-		var permission Permission
-		if err := cursor.Decode(&permission); err != nil {
-			return nil, err
-		}
-		permissions = append(permissions, &permission)
+
+	if err := cursor.All(ctx, &permissions); err != nil {
+		return nil, err
 	}
 	return permissions, nil
 }
