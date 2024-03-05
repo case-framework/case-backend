@@ -1218,7 +1218,7 @@ func (h *HttpEndpoints) addStudyPermission(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "study permission added"})
+	c.JSON(http.StatusOK, gin.H{"message": "study permission added"})
 }
 
 func (h *HttpEndpoints) deleteStudyPermission(c *gin.Context) {
