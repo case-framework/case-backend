@@ -3,6 +3,7 @@ package apihandlers
 import (
 	"log/slog"
 	"net/http"
+	"time"
 
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
 	managementuser "github.com/case-framework/case-backend/pkg/db/management-user"
@@ -1063,8 +1064,54 @@ func (h *HttpEndpoints) getSurveyInfoList(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) createSurvey(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	var survey studyTypes.Survey
+	if err := c.ShouldBindJSON(&survey); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	slog.Info("creating survey", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", survey.SurveyDefinition.Key))
+
+	surveyKeys, err := h.studyDBConn.GetSurveyKeysForStudy(token.InstanceID, studyKey, true)
+	if err != nil {
+		slog.Error("failed to get survey info list", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get survey info list"})
+		return
+	}
+
+	for _, key := range surveyKeys {
+		if key == survey.SurveyDefinition.Key {
+			slog.Error("survey key already exists", slog.String("key", survey.SurveyDefinition.Key))
+			c.JSON(http.StatusBadRequest, gin.H{"error": "survey key already exists"})
+			return
+		}
+	}
+
+	if survey.VersionID == "" {
+		surveyHistory, err := h.studyDBConn.GetSurveyVersions(token.InstanceID, studyKey, survey.SurveyDefinition.Key)
+		if err != nil {
+			slog.Error("failed to get survey versions", slog.String("error", err.Error()))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get survey versions"})
+			return
+		}
+		survey.VersionID = utils.GenerateSurveyVersionID(surveyHistory)
+	}
+
+	survey.Published = time.Now().Unix()
+
+	err = h.studyDBConn.SaveSurveyVersion(token.InstanceID, studyKey, &survey)
+	if err != nil {
+		slog.Error("failed to create survey", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create survey"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"survey": survey})
 }
 
 func (h *HttpEndpoints) getLatestSurvey(c *gin.Context) {

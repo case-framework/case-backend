@@ -45,6 +45,19 @@ func (dbService *StudyDBService) CreateIndexForSurveyCollection(instanceID strin
 	return err
 }
 
+func (dbService *StudyDBService) SaveSurveyVersion(instanceID string, studyKey string, survey *studyTypes.Survey) (err error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	ret, err := dbService.collectionSurveys(instanceID, studyKey).InsertOne(ctx, survey)
+	if err != nil {
+		return err
+	}
+	survey.ID = ret.InsertedID.(primitive.ObjectID)
+
+	return nil
+}
+
 func (dbService *StudyDBService) GetSurveyKeysForStudy(instanceID string, studyKey string, includeUnpublished bool) (surveyKeys []string, err error) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
