@@ -1198,6 +1198,7 @@ func (h *HttpEndpoints) addStudyPermission(c *gin.Context) {
 
 	slog.Info("adding study permission", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("subjectID", permission.SubjectID), slog.String("action", permission.Action))
 
+	permission.SubjectType = pc.SUBJECT_TYPE_MANAGEMENT_USER
 	permission.ResourceType = pc.RESOURCE_TYPE_STUDY
 	permission.ResourceKey = studyKey
 
