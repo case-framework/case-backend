@@ -1118,7 +1118,6 @@ func (h *HttpEndpoints) getLatestSurvey(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 
 	studyKey := c.Param("studyKey")
-
 	surveyKey := c.Param("surveyKey")
 
 	slog.Info("getting latest survey", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey))
@@ -1137,7 +1136,6 @@ func (h *HttpEndpoints) updateSurvey(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 
 	studyKey := c.Param("studyKey")
-
 	surveyKey := c.Param("surveyKey")
 
 	var survey studyTypes.Survey
@@ -1169,7 +1167,6 @@ func (h *HttpEndpoints) unpublishSurvey(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 
 	studyKey := c.Param("studyKey")
-
 	surveyKey := c.Param("surveyKey")
 
 	slog.Info("unpublishing survey", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey))
@@ -1188,7 +1185,6 @@ func (h *HttpEndpoints) getSurveyVersions(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 
 	studyKey := c.Param("studyKey")
-
 	surveyKey := c.Param("surveyKey")
 
 	slog.Info("getting survey versions", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey))
@@ -1207,9 +1203,7 @@ func (h *HttpEndpoints) getSurveyVersion(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 
 	studyKey := c.Param("studyKey")
-
 	surveyKey := c.Param("surveyKey")
-
 	versionID := c.Param("versionID")
 
 	slog.Info("getting survey version", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey), slog.String("versionID", versionID))
@@ -1226,8 +1220,22 @@ func (h *HttpEndpoints) getSurveyVersion(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) deleteSurveyVersion(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	surveyKey := c.Param("surveyKey")
+	versionID := c.Param("versionID")
+
+	slog.Info("deleting survey version", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey), slog.String("versionID", versionID))
+
+	err := h.studyDBConn.DeleteSurveyVersion(token.InstanceID, studyKey, surveyKey, versionID)
+	if err != nil {
+		slog.Error("failed to delete survey version", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete survey version"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "survey version deleted"})
 }
 
 type StudyUserPermissionInfo struct {
