@@ -1115,8 +1115,22 @@ func (h *HttpEndpoints) createSurvey(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getLatestSurvey(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	surveyKey := c.Param("surveyKey")
+
+	slog.Info("getting latest survey", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey))
+
+	survey, err := h.studyDBConn.GetCurrentSurveyVersion(token.InstanceID, studyKey, surveyKey)
+	if err != nil {
+		slog.Error("failed to get latest survey", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get latest survey"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"survey": survey})
 }
 
 func (h *HttpEndpoints) updateSurvey(c *gin.Context) {
