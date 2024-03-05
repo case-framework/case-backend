@@ -2,8 +2,8 @@ package study
 
 type Expression struct {
 	Name       string          `bson:"name" json:"name"` // Name of the operation to be evaluated
-	ReturnType string          `bson:"returnType,omitempty" json:"returnType"`
-	Data       []ExpressionArg `bson:"data,omitempty" json:"data"` // Operation arguments
+	ReturnType string          `bson:"returnType,omitempty" json:"returnType,omitempty"`
+	Data       []ExpressionArg `bson:"data,omitempty" json:"data,omitempty"` // Operation arguments
 }
 
 type ExpressionArg struct {
