@@ -262,17 +262,6 @@ func (h *HttpEndpoints) addStudyConfigEndpoints(rg *gin.RouterGroup) {
 			h.addStudyPermission,
 		))
 
-		permissionsGroup.PUT("/:permissionID", mw.RequirePayload(), h.useAuthorisedHandler(
-			RequiredPermission{
-				ResourceType:        pc.RESOURCE_TYPE_STUDY,
-				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
-				ExtractResourceKeys: getStudyKeyFromParams,
-				Action:              pc.ACTION_MANAGE_STUDY_PERMISSIONS,
-			},
-			nil,
-			h.updateStudyPermissions,
-		))
-
 		permissionsGroup.DELETE("/:permissionID", h.useAuthorisedHandler(
 			RequiredPermission{
 				ResourceType:        pc.RESOURCE_TYPE_STUDY,
@@ -1196,18 +1185,71 @@ func (h *HttpEndpoints) getStudyPermissions(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) addStudyPermission(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
-}
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 
-func (h *HttpEndpoints) updateStudyPermissions(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	studyKey := c.Param("studyKey")
+
+	var permission managementuser.Permission
+	if err := c.ShouldBindJSON(&permission); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	slog.Info("adding study permission", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("subjectID", permission.SubjectID), slog.String("action", permission.Action))
+
+	permission.ResourceType = pc.RESOURCE_TYPE_STUDY
+	permission.ResourceKey = studyKey
+
+	_, err := h.muDBConn.CreatePermission(
+		token.InstanceID,
+		permission.SubjectID,
+		permission.SubjectType,
+		permission.ResourceType,
+		permission.ResourceKey,
+		permission.Action,
+		permission.Limiter,
+	)
+
+	if err != nil {
+		slog.Error("failed to add study permission", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to add study permission"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"message": "study permission added"})
 }
 
 func (h *HttpEndpoints) deleteStudyPermission(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	permissionID := c.Param("permissionID")
+
+	slog.Info("deleting study permission", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("permissionID", permissionID))
+
+	permission, err := h.muDBConn.GetPermissionByID(token.InstanceID, permissionID)
+	if err != nil {
+		slog.Error("failed to get study permission", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study permission"})
+		return
+	}
+
+	if permission.ResourceType != pc.RESOURCE_TYPE_STUDY || permission.ResourceKey != studyKey {
+		slog.Warn("permission does not belong to the study", slog.String("permissionID", permissionID))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "permission does not belong to the study"})
+		return
+	}
+
+	err = h.muDBConn.DeletePermission(token.InstanceID, permissionID)
+	if err != nil {
+		slog.Error("failed to delete study permission", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete study permission"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "study permission deleted"})
 }
 
 func (h *HttpEndpoints) getNotificationSubscriptions(c *gin.Context) {
