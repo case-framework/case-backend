@@ -1,6 +1,9 @@
 package study
 
 import (
+	"errors"
+	"time"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -116,4 +119,68 @@ func (dbService *StudyDBService) GetSurveyVersions(instanceID string, studyKey s
 		return nil, err
 	}
 	return surveys, nil
+}
+
+func (dbService *StudyDBService) GetSurveyVersion(instanceID string, studyKey string, surveyKey string, versionID string) (survey *studyTypes.Survey, err error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	filter := bson.M{
+		"surveyDefinition.key": surveyKey,
+		"versionID":            versionID,
+	}
+
+	err = dbService.collectionSurveys(instanceID, studyKey).FindOne(ctx, filter).Decode(&survey)
+	if err != nil {
+		return nil, err
+	}
+	return survey, nil
+}
+
+func (dbService *StudyDBService) GetCurrentSurveyVersion(instanceID string, studyKey string, surveyKey string) (survey *studyTypes.Survey, err error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	filter := bson.M{
+		"surveyDefinition.key": surveyKey,
+		"unpublished":          0,
+	}
+
+	opts := &options.FindOneOptions{}
+	opts.SetSort(sortByPublishedDesc)
+
+	err = dbService.collectionSurveys(instanceID, studyKey).FindOne(ctx, filter, opts).Decode(&survey)
+	if err != nil {
+		return nil, err
+	}
+	return survey, nil
+}
+
+func (dbService *StudyDBService) DeleteSurveyVersion(instanceID string, studyKey string, surveyKey string, versionID string) (err error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	filter := bson.M{
+		"surveyDefinition.key": surveyKey,
+		"versionID":            versionID,
+	}
+
+	res, err := dbService.collectionSurveys(instanceID, studyKey).DeleteOne(ctx, filter)
+	if res.DeletedCount < 1 {
+		return errors.New("no item was deleted")
+	}
+	return err
+}
+
+func (dbService *StudyDBService) UnpublishSurvey(instanceID string, studyKey string, surveyKey string) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	filter := bson.M{
+		"surveyDefinition.key": surveyKey,
+		"unpublished":          0,
+	}
+	update := bson.M{"$set": bson.M{"unpublished": time.Now().Unix()}}
+	_, err := dbService.collectionSurveys(instanceID, studyKey).UpdateMany(ctx, filter, update)
+	return err
 }
