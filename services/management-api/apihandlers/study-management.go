@@ -808,11 +808,11 @@ func (h *HttpEndpoints) addStudyDataExplorerEndpoints(rg *gin.RouterGroup) {
 func (h *HttpEndpoints) getAllStudies(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 
-	slog.Info("getAllStudies: getting all studies", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+	slog.Info("getting all studies", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
 
 	studies, err := h.studyDBConn.GetStudies(token.InstanceID, "", false)
 	if err != nil {
-		slog.Error("getAllStudies: failed to get all studies", slog.String("error", err.Error()))
+		slog.Error("failed to get all studies", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get studies"})
 		return
 	}
@@ -837,16 +837,16 @@ func (h *HttpEndpoints) createStudy(c *gin.Context) {
 
 	var req NewStudyReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		slog.Error("createStudy: failed to bind request", slog.String("error", err.Error()))
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
 
-	slog.Info("createStudy: creating new study", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", req.StudyKey))
+	slog.Info("creating new study", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", req.StudyKey))
 
 	// check if study key is URL safe
 	if !utils.IsURLSafe(req.StudyKey) {
-		slog.Error("createStudy: study key is not URL safe", slog.String("studyKey", req.StudyKey))
+		slog.Error("study key is not URL safe", slog.String("studyKey", req.StudyKey))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "study key is not URL safe"})
 		return
 	}
@@ -872,7 +872,7 @@ func (h *HttpEndpoints) createStudy(c *gin.Context) {
 
 	err := h.studyDBConn.CreateStudy(token.InstanceID, study)
 	if err != nil {
-		slog.Error("createStudy: failed to create study", slog.String("error", err.Error()))
+		slog.Error("failed to create study", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create study"})
 		return
 	}
@@ -885,11 +885,11 @@ func (h *HttpEndpoints) getStudyProps(c *gin.Context) {
 
 	studyKey := c.Param("studyKey")
 
-	slog.Info("getStudyProps: getting study props", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+	slog.Info("getting study props", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
 
 	study, err := h.studyDBConn.GetStudy(token.InstanceID, studyKey)
 	if err != nil {
-		slog.Error("getStudyProps: failed to get study", slog.String("error", err.Error()))
+		slog.Error("failed to get study", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study"})
 		return
 	}
@@ -908,16 +908,16 @@ func (h *HttpEndpoints) updateStudyIsDefault(c *gin.Context) {
 
 	var req StudyIsDefaultUpdateReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		slog.Error("updateStudyIsDefault: failed to bind request", slog.String("error", err.Error()))
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
 
-	slog.Info("updateStudyIsDefault: updating study is default", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.Bool("isDefault", req.IsDefault))
+	slog.Info("updating study is default", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.Bool("isDefault", req.IsDefault))
 
 	err := h.studyDBConn.UpdateStudyIsDefault(token.InstanceID, studyKey, req.IsDefault)
 	if err != nil {
-		slog.Error("updateStudyIsDefault: failed to update study is default", slog.String("error", err.Error()))
+		slog.Error("failed to update study is default", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update study is default"})
 		return
 	}
@@ -936,16 +936,16 @@ func (h *HttpEndpoints) updateStudyStatus(c *gin.Context) {
 
 	var req StudyStatusUpdateReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		slog.Error("updateStudyStatus: failed to bind request", slog.String("error", err.Error()))
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
 
-	slog.Info("updateStudyStatus: updating study status", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("status", req.Status))
+	slog.Info("updating study status", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("status", req.Status))
 
 	err := h.studyDBConn.UpdateStudyStatus(token.InstanceID, studyKey, req.Status)
 	if err != nil {
-		slog.Error("updateStudyStatus: failed to update study status", slog.String("error", err.Error()))
+		slog.Error("failed to update study status", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update study status"})
 		return
 	}
@@ -965,16 +965,16 @@ func (h *HttpEndpoints) updateStudyDisplayProps(c *gin.Context) {
 
 	var req StudyDisplayPropsUpdateReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		slog.Error("updateStudyDisplayProps: failed to bind request", slog.String("error", err.Error()))
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
 
-	slog.Info("updateStudyDisplayProps: updating study display props", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+	slog.Info("updating study display props", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
 
 	err := h.studyDBConn.UpdateStudyDisplayProps(token.InstanceID, studyKey, req.Name, req.Description, req.Tags)
 	if err != nil {
-		slog.Error("updateStudyDisplayProps: failed to update study display props", slog.String("error", err.Error()))
+		slog.Error("failed to update study display props", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update study display props"})
 		return
 	}
@@ -993,7 +993,7 @@ func (h *HttpEndpoints) updateStudyFileUploadRule(c *gin.Context) {
 
 	var req FileUploadRuleUpdateReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		slog.Error("updateStudyFileUploadRule: failed to bind request", slog.String("error", err.Error()))
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
@@ -1019,11 +1019,11 @@ func (h *HttpEndpoints) updateStudyFileUploadRule(c *gin.Context) {
 		}
 	}
 
-	slog.Info("updateStudyFileUploadRule: updating study file upload rule", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+	slog.Info("updating study file upload rule", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
 
 	err := h.studyDBConn.UpdateStudyFileUploadRule(token.InstanceID, studyKey, newRule)
 	if err != nil {
-		slog.Error("updateStudyFileUploadRule: failed to update study file upload rule", slog.String("error", err.Error()))
+		slog.Error("failed to update study file upload rule", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update study file upload rule"})
 		return
 	}
@@ -1035,11 +1035,11 @@ func (h *HttpEndpoints) deleteStudy(c *gin.Context) {
 
 	studyKey := c.Param("studyKey")
 
-	slog.Info("deleteStudy: deleting study", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+	slog.Info("deleting study", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
 
 	err := h.studyDBConn.DeleteStudy(token.InstanceID, studyKey)
 	if err != nil {
-		slog.Error("deleteStudy: failed to delete study", slog.String("error", err.Error()))
+		slog.Error("failed to delete study", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete study"})
 		return
 	}
@@ -1056,11 +1056,11 @@ func (h *HttpEndpoints) getSurveyInfoList(c *gin.Context) {
 
 	studyKey := c.Param("studyKey")
 
-	slog.Info("getSurveyInfoList: getting survey info list", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+	slog.Info("getting survey info list", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
 
 	surveyKeys, err := h.studyDBConn.GetSurveyKeysForStudy(token.InstanceID, studyKey, true)
 	if err != nil {
-		slog.Error("getSurveyInfoList: failed to get survey info list", slog.String("error", err.Error()))
+		slog.Error("failed to get survey info list", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get survey info list"})
 		return
 	}
@@ -1100,11 +1100,11 @@ func (h *HttpEndpoints) getSurveyVersions(c *gin.Context) {
 
 	surveyKey := c.Param("surveyKey")
 
-	slog.Info("getSurveyVersions: getting survey versions", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey))
+	slog.Info("getting survey versions", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey))
 
 	versions, err := h.studyDBConn.GetSurveyVersions(token.InstanceID, studyKey, surveyKey)
 	if err != nil {
-		slog.Error("getSurveyVersions: failed to get survey versions", slog.String("error", err.Error()))
+		slog.Error("failed to get survey versions", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get survey versions"})
 		return
 	}
@@ -1134,7 +1134,7 @@ func (h *HttpEndpoints) getStudyPermissions(c *gin.Context) {
 
 	permissions, err := h.muDBConn.GetPermissionByResource(token.InstanceID, pc.RESOURCE_TYPE_STUDY, studyKey)
 	if err != nil {
-		slog.Error("getStudyPermissions: failed to get study permissions", slog.String("error", err.Error()))
+		slog.Error("failed to get study permissions", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study permissions"})
 		return
 	}
@@ -1173,7 +1173,7 @@ func (h *HttpEndpoints) getStudyPermissions(c *gin.Context) {
 			var err error
 			user, err = h.muDBConn.GetUserByID(token.InstanceID, permission.SubjectID)
 			if err != nil {
-				slog.Error("getStudyPermissions: failed to get user info", slog.String("error", err.Error()))
+				slog.Error("failed to get user info", slog.String("error", err.Error()))
 				continue
 			}
 			studyUserPermissionInfos[userID] = &StudyUserPermissionInfo{
@@ -1215,11 +1215,11 @@ func (h *HttpEndpoints) getNotificationSubscriptions(c *gin.Context) {
 
 	studyKey := c.Param("studyKey")
 
-	slog.Info("getNotificationSubscriptions: getting notification subscriptions", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+	slog.Info("getting notification subscriptions", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
 
 	subscriptions, err := h.studyDBConn.GetNotificationSubscriptions(token.InstanceID, studyKey)
 	if err != nil {
-		slog.Error("getNotificationSubscriptions: failed to get notification subscriptions", slog.String("error", err.Error()))
+		slog.Error("failed to get notification subscriptions", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get notification subscriptions"})
 		return
 	}
@@ -1238,16 +1238,16 @@ func (h *HttpEndpoints) updateNotificationSubscriptions(c *gin.Context) {
 
 	var req NotificationSubscriptionsUpdateReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		slog.Error("updateNotificationSubscriptions: failed to bind request", slog.String("error", err.Error()))
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
 
-	slog.Info("updateNotificationSubscriptions: updating notification subscriptions", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+	slog.Info("updating notification subscriptions", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
 
 	err := h.studyDBConn.UpdateStudyNotificationSubscriptions(token.InstanceID, studyKey, req.Subscriptions)
 	if err != nil {
-		slog.Error("updateNotificationSubscriptions: failed to update notification subscriptions", slog.String("error", err.Error()))
+		slog.Error("failed to update notification subscriptions", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update notification subscriptions"})
 		return
 	}

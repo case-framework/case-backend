@@ -45,19 +45,19 @@ type SignInRequest struct {
 func (h *HttpEndpoints) signInWithIdP(c *gin.Context) {
 	var req SignInRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		slog.Error("signInWithIdP: ", err)
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	if !h.isInstanceAllowed(req.InstanceID) {
-		slog.Warn("signInWithIdP: instance not allowed", slog.String("instanceID", req.InstanceID))
+		slog.Warn("instance not allowed", slog.String("instanceID", req.InstanceID))
 		c.JSON(http.StatusForbidden, gin.H{"error": "instance not allowed"})
 		return
 	}
 
 	if req.Sub == "" {
-		slog.Warn("signInWithIdP: no sub")
+		slog.Warn("no sub")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing sub"})
 		return
 	}
@@ -122,7 +122,7 @@ func (h *HttpEndpoints) signInWithIdP(c *gin.Context) {
 		h.tokenSignKey,
 	)
 	if err != nil {
-		slog.Error("signInWithIdP: could not generate token", slog.String("error", err.Error()))
+		slog.Error("could not generate token", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not generate token"})
 		return
 	}
@@ -146,13 +146,13 @@ func (h *HttpEndpoints) extendSession(c *gin.Context) {
 
 	var req ExtendSessionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		slog.Error("extendSession: ", err)
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	if !h.isInstanceAllowed(token.InstanceID) {
-		slog.Warn("extendSession: instance not allowed", slog.String("instanceID", token.InstanceID))
+		slog.Warn("instance not allowed", slog.String("instanceID", token.InstanceID))
 		c.JSON(http.StatusForbidden, gin.H{"error": "instance not allowed"})
 		return
 	}
@@ -180,12 +180,12 @@ func (h *HttpEndpoints) extendSession(c *gin.Context) {
 		h.tokenSignKey,
 	)
 	if err != nil {
-		slog.Error("extendSession: could not generate token", slog.String("error", err.Error()))
+		slog.Error("could not generate token", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not generate token"})
 		return
 	}
 
-	slog.Info("extendSession: extended session", slog.String("userID", token.Subject), slog.String("instanceID", token.InstanceID))
+	slog.Info("extended session", slog.String("userID", token.Subject), slog.String("instanceID", token.InstanceID))
 
 	c.JSON(http.StatusOK, gin.H{
 		"accessToken": newAccessToken,
@@ -199,7 +199,7 @@ func (h *HttpEndpoints) extendSession(c *gin.Context) {
 func (h *HttpEndpoints) getRenewToken(c *gin.Context) {
 	sessionID := c.Param("sessionID")
 	if sessionID == "" {
-		slog.Warn("getRenewToken: no sessionID")
+		slog.Warn("no sessionID")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "no sessionID"})
 		return
 	}
@@ -207,17 +207,17 @@ func (h *HttpEndpoints) getRenewToken(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 	existingSession, err := h.muDBConn.GetSession(token.InstanceID, sessionID)
 	if err != nil {
-		slog.Debug("getRenewToken: could not get session", slog.String("error", err.Error()))
+		slog.Debug("could not get session", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not get session"})
 		return
 	}
 	if existingSession.UserID != token.Subject {
-		slog.Warn("getRenewToken: user not allowed to get renew token", slog.String("userID", token.Subject), slog.String("sessionUserID", existingSession.UserID))
+		slog.Warn("user not allowed to get renew token", slog.String("userID", token.Subject), slog.String("sessionUserID", existingSession.UserID))
 		c.JSON(http.StatusForbidden, gin.H{"error": "user not allowed to get renew token"})
 		return
 	}
 
-	slog.Info("getRenewToken: got renew token", slog.String("userID", token.Subject), slog.String("instanceID", token.InstanceID))
+	slog.Info("got renew token", slog.String("userID", token.Subject), slog.String("instanceID", token.InstanceID))
 
 	c.JSON(http.StatusOK, gin.H{"renewToken": existingSession.RenewToken})
 }
