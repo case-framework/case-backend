@@ -1134,8 +1134,35 @@ func (h *HttpEndpoints) getLatestSurvey(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) updateSurvey(c *gin.Context) {
-	//	TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	surveyKey := c.Param("surveyKey")
+
+	var survey studyTypes.Survey
+	if err := c.ShouldBindJSON(&survey); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	if survey.SurveyDefinition.Key != surveyKey {
+		slog.Error("survey key in request does not match", slog.String("key", survey.SurveyDefinition.Key))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "survey key in request does not match"})
+		return
+	}
+
+	slog.Info("updating survey", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey))
+
+	err := h.studyDBConn.SaveSurveyVersion(token.InstanceID, studyKey, &survey)
+	if err != nil {
+		slog.Error("failed to update survey", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update survey"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"survey": survey})
 }
 
 func (h *HttpEndpoints) unpublishSurvey(c *gin.Context) {
