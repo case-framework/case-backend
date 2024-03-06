@@ -179,7 +179,7 @@ func (h *HttpEndpoints) addSurveyEndpoints(rg *gin.RouterGroup) {
 			h.getLatestSurvey,
 		))
 
-		surveyGroup.PUT("/", mw.RequirePayload(), h.useAuthorisedHandler(
+		surveyGroup.POST("/", mw.RequirePayload(), h.useAuthorisedHandler(
 			RequiredPermission{
 				ResourceType:        pc.RESOURCE_TYPE_STUDY,
 				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
@@ -1150,6 +1150,18 @@ func (h *HttpEndpoints) updateSurvey(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "survey key in request does not match"})
 		return
 	}
+
+	if survey.VersionID == "" {
+		surveyHistory, err := h.studyDBConn.GetSurveyVersions(token.InstanceID, studyKey, survey.SurveyDefinition.Key)
+		if err != nil {
+			slog.Error("failed to get survey versions", slog.String("error", err.Error()))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get survey versions"})
+			return
+		}
+		survey.VersionID = utils.GenerateSurveyVersionID(surveyHistory)
+	}
+
+	survey.Published = time.Now().Unix()
 
 	slog.Info("updating survey", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey))
 
