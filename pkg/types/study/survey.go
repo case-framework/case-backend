@@ -4,6 +4,7 @@ import "go.mongodb.org/mongo-driver/bson/primitive"
 
 type Survey struct {
 	ID                           primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	SurveyKey                    string             `bson:"surveyKey,omitempty" json:"surveyKey,omitempty"`
 	Props                        SurveyProps        `bson:"props,omitempty" json:"props,omitempty"`
 	PrefillRules                 []Expression       `bson:"prefillRules,omitempty" json:"prefillRules,omitempty"`
 	ContextRules                 *SurveyContextDef  `bson:"contextRules,omitempty" json:"contextRules,omitempty"`

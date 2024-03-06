@@ -1466,12 +1466,20 @@ func (h *HttpEndpoints) publishNewStudyRulesVersion(c *gin.Context) {
 		return
 	}
 
+	rules.StudyKey = studyKey
 	rules.UploadedAt = time.Now().Unix()
 	rules.UploadedBy = token.Subject
 
+	err := rules.MarshalRules()
+	if err != nil {
+		slog.Error("failed to marshal study rules", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid study rules"})
+		return
+	}
+
 	slog.Info("publishing new study rules version", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
 
-	err := h.studyDBConn.SaveStudyRules(token.InstanceID, studyKey, rules)
+	err = h.studyDBConn.SaveStudyRules(token.InstanceID, studyKey, rules)
 	if err != nil {
 		slog.Error("failed to publish new study rules version", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to publish new study rules version"})

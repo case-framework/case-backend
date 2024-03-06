@@ -46,14 +46,6 @@ func (dbService *StudyDBService) SaveStudyRules(instanceID string, studyKey stri
 
 	collection := dbService.collectionStudyRules(instanceID)
 	_, err := collection.InsertOne(ctx, rules)
-	if err != nil {
-		return err
-	}
-
-	// update study object as long as participant flow uses the current rules from there
-	filter := bson.M{"studyKey": studyKey}
-	update := bson.M{"$set": bson.M{"rules": rules}}
-	_, err = collection.UpdateOne(ctx, filter, update)
 	return err
 }
 
@@ -71,12 +63,15 @@ func (dbService *StudyDBService) GetCurrentStudyRules(instanceID string, studyKe
 		"studyKey": studyKey,
 	}
 
-	elem := &studyTypes.StudyRules{}
 	opts := &options.FindOneOptions{
 		Sort: sortByPublished,
 	}
 
-	err = collection.FindOne(ctx, filter, opts).Decode(elem)
+	err = collection.FindOne(ctx, filter, opts).Decode(&rules)
+	if err != nil {
+		return rules, err
+	}
+	err = rules.UnmarshalRules()
 	return rules, err
 }
 
@@ -97,6 +92,11 @@ func (dbService *StudyDBService) GetStudyRulesByID(instanceID string, studyKey s
 	}
 
 	err = collection.FindOne(ctx, filter).Decode(&rules)
+	if err != nil {
+		return rules, err
+	}
+	err = rules.UnmarshalRules()
+
 	return rules, err
 }
 
@@ -136,6 +136,7 @@ func (dbService *StudyDBService) GetStudyRulesHistory(instanceID string, studyKe
 	opts := options.Find().SetSort(bson.D{{Key: "uploadedAt", Value: -1}})
 	opts.SetProjection(bson.D{
 		primitive.E{Key: "rules", Value: 0},
+		primitive.E{Key: "serialisedRules", Value: 0},
 	})
 	cursor, err := collection.Find(ctx, filter, opts)
 	if err != nil {
