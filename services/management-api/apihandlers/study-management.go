@@ -1074,6 +1074,7 @@ func (h *HttpEndpoints) createSurvey(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
+	survey.SurveyKey = survey.SurveyDefinition.Key
 
 	slog.Info("creating survey", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", survey.SurveyDefinition.Key))
 
@@ -1085,15 +1086,15 @@ func (h *HttpEndpoints) createSurvey(c *gin.Context) {
 	}
 
 	for _, key := range surveyKeys {
-		if key == survey.SurveyDefinition.Key {
-			slog.Error("survey key already exists", slog.String("key", survey.SurveyDefinition.Key))
+		if key == survey.SurveyKey {
+			slog.Error("survey key already exists", slog.String("key", survey.SurveyKey))
 			c.JSON(http.StatusBadRequest, gin.H{"error": "survey key already exists"})
 			return
 		}
 	}
 
 	if survey.VersionID == "" {
-		surveyHistory, err := h.studyDBConn.GetSurveyVersions(token.InstanceID, studyKey, survey.SurveyDefinition.Key)
+		surveyHistory, err := h.studyDBConn.GetSurveyVersions(token.InstanceID, studyKey, survey.SurveyKey)
 		if err != nil {
 			slog.Error("failed to get survey versions", slog.String("error", err.Error()))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get survey versions"})
@@ -1144,15 +1145,16 @@ func (h *HttpEndpoints) updateSurvey(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
+	survey.SurveyKey = survey.SurveyDefinition.Key
 
-	if survey.SurveyDefinition.Key != surveyKey {
-		slog.Error("survey key in request does not match", slog.String("key", survey.SurveyDefinition.Key))
+	if survey.SurveyKey != surveyKey {
+		slog.Error("survey key in request does not match", slog.String("key", survey.SurveyKey))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "survey key in request does not match"})
 		return
 	}
 
 	if survey.VersionID == "" {
-		surveyHistory, err := h.studyDBConn.GetSurveyVersions(token.InstanceID, studyKey, survey.SurveyDefinition.Key)
+		surveyHistory, err := h.studyDBConn.GetSurveyVersions(token.InstanceID, studyKey, survey.SurveyKey)
 		if err != nil {
 			slog.Error("failed to get survey versions", slog.String("error", err.Error()))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get survey versions"})
