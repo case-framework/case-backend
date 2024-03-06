@@ -1438,8 +1438,20 @@ func (h *HttpEndpoints) updateNotificationSubscriptions(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getCurrentStudyRules(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	slog.Info("getting current study rules", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	rules, err := h.studyDBConn.GetCurrentStudyRules(token.InstanceID, studyKey)
+	if err != nil {
+		slog.Error("failed to get current study rules", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get current study rules"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"studyRules": rules})
 }
 
 func (h *HttpEndpoints) publishNewStudyRulesVersion(c *gin.Context) {
