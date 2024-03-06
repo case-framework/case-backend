@@ -134,6 +134,9 @@ func (dbService *StudyDBService) GetStudyRulesHistory(instanceID string, studyKe
 	}
 
 	opts := options.Find().SetSort(bson.D{{Key: "uploadedAt", Value: -1}})
+	opts.SetProjection(bson.D{
+		primitive.E{Key: "rules", Value: 0},
+	})
 	cursor, err := collection.Find(ctx, filter, opts)
 	if err != nil {
 		return ruleHistory, err

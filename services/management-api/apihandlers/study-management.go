@@ -1466,6 +1466,9 @@ func (h *HttpEndpoints) publishNewStudyRulesVersion(c *gin.Context) {
 		return
 	}
 
+	rules.UploadedAt = time.Now().Unix()
+	rules.UploadedBy = token.Subject
+
 	slog.Info("publishing new study rules version", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
 
 	err := h.studyDBConn.SaveStudyRules(token.InstanceID, studyKey, rules)
