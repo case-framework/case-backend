@@ -178,7 +178,7 @@ func (dbService *StudyDBService) UnpublishSurvey(instanceID string, studyKey str
 
 	filter := bson.M{
 		"surveyDefinition.key": surveyKey,
-		"unpublished":          0,
+		"unpublished":          bson.M{"$not": bson.M{"$gt": 0}},
 	}
 	update := bson.M{"$set": bson.M{"unpublished": time.Now().Unix()}}
 	_, err := dbService.collectionSurveys(instanceID, studyKey).UpdateMany(ctx, filter, update)

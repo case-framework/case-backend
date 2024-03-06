@@ -190,7 +190,7 @@ func (h *HttpEndpoints) addSurveyEndpoints(rg *gin.RouterGroup) {
 			h.updateSurvey,
 		))
 
-		surveyGroup.DELETE("/", h.useAuthorisedHandler(
+		surveyGroup.POST("/unpublish", h.useAuthorisedHandler(
 			RequiredPermission{
 				ResourceType:        pc.RESOURCE_TYPE_STUDY,
 				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
