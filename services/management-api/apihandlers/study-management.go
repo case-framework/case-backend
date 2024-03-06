@@ -312,7 +312,7 @@ func (h *HttpEndpoints) addStudyRuleEndpoints(rg *gin.RouterGroup) {
 			Action:              pc.ACTION_READ_STUDY_CONFIG,
 		},
 		nil,
-		h.getStudyRules,
+		h.getCurrentStudyRules,
 	))
 
 	rulesGroup.POST("/", mw.RequirePayload(), h.useAuthorisedHandler(
@@ -323,7 +323,7 @@ func (h *HttpEndpoints) addStudyRuleEndpoints(rg *gin.RouterGroup) {
 			Action:              pc.ACTION_UPDATE_STUDY_RULES,
 		},
 		nil,
-		h.updateStudyRules,
+		h.publishNewStudyRulesVersion,
 	))
 
 	// get rule history
@@ -339,7 +339,7 @@ func (h *HttpEndpoints) addStudyRuleEndpoints(rg *gin.RouterGroup) {
 	))
 
 	// get specific rule version
-	rulesGroup.GET("/versions/:versionID", h.useAuthorisedHandler(
+	rulesGroup.GET("/versions/:id", h.useAuthorisedHandler(
 		RequiredPermission{
 			ResourceType:        pc.RESOURCE_TYPE_STUDY,
 			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
@@ -351,7 +351,7 @@ func (h *HttpEndpoints) addStudyRuleEndpoints(rg *gin.RouterGroup) {
 	))
 
 	// delete rule version
-	rulesGroup.DELETE("/versions/:versionID", h.useAuthorisedHandler(
+	rulesGroup.DELETE("/versions/:id", h.useAuthorisedHandler(
 		RequiredPermission{
 			ResourceType:        pc.RESOURCE_TYPE_STUDY,
 			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
@@ -1437,12 +1437,12 @@ func (h *HttpEndpoints) updateNotificationSubscriptions(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "notification subscriptions updated"})
 }
 
-func (h *HttpEndpoints) getStudyRules(c *gin.Context) {
+func (h *HttpEndpoints) getCurrentStudyRules(c *gin.Context) {
 	// TODO: implement
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
 
-func (h *HttpEndpoints) updateStudyRules(c *gin.Context) {
+func (h *HttpEndpoints) publishNewStudyRulesVersion(c *gin.Context) {
 	// TODO: implement
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
@@ -1458,8 +1458,22 @@ func (h *HttpEndpoints) getStudyRuleVersion(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) deleteStudyRuleVersion(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	versionID := c.Param("id")
+
+	slog.Info("deleting study rule version", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("versionID", versionID))
+
+	err := h.studyDBConn.DeleteStudyRulesByID(token.InstanceID, studyKey, versionID)
+	if err != nil {
+		slog.Error("failed to delete study rule version", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete study rule version"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "study rule version deleted"})
 }
 
 func (h *HttpEndpoints) runActionOnParticipant(c *gin.Context) {
