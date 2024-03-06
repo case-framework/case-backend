@@ -1453,8 +1453,22 @@ func (h *HttpEndpoints) getStudyRuleVersions(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getStudyRuleVersion(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	versionID := c.Param("id")
+
+	slog.Info("getting study rule version", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("versionID", versionID))
+
+	version, err := h.studyDBConn.GetStudyRulesByID(token.InstanceID, studyKey, versionID)
+	if err != nil {
+		slog.Error("failed to get study rule version", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study rule version"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"studyRules": version})
 }
 
 func (h *HttpEndpoints) deleteStudyRuleVersion(c *gin.Context) {
