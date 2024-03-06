@@ -35,6 +35,25 @@ func (dbService *ManagementUserDBService) CreatePermission(
 	return permission, nil
 }
 
+// Find permission by id
+func (dbService *ManagementUserDBService) GetPermissionByID(
+	instanceID string,
+	permissionID string,
+) (*Permission, error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	objID, err := primitive.ObjectIDFromHex(permissionID)
+	if err != nil {
+		return nil, err
+	}
+	var permission Permission
+	if err := dbService.collectionPermissions(instanceID).FindOne(ctx, bson.M{"_id": objID}).Decode(&permission); err != nil {
+		return nil, err
+	}
+	return &permission, nil
+}
+
 // Find permissions by subject id and type
 func (dbService *ManagementUserDBService) GetPermissionBySubject(
 	instanceID string,
@@ -109,13 +128,9 @@ func (dbService *ManagementUserDBService) GetPermissionByResource(
 	if err != nil {
 		return nil, err
 	}
-	defer cursor.Close(ctx)
-	for cursor.Next(ctx) {
-		var permission Permission
-		if err := cursor.Decode(&permission); err != nil {
-			return nil, err
-		}
-		permissions = append(permissions, &permission)
+
+	if err := cursor.All(ctx, &permissions); err != nil {
+		return nil, err
 	}
 	return permissions, nil
 }

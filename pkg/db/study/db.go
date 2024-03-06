@@ -140,11 +140,23 @@ func (dbService *StudyDBService) ensureIndexes() error {
 			slog.Error("Error creating index for createdAt in userDB.sessions: ", err)
 		}
 
+		// index on studyInfos
+		err = dbService.createIndexForStudyInfosCollection(instanceID)
+		if err != nil {
+			slog.Error("Error creating index for studyInfos: ", err)
+		}
+
 		//fetch studyKeys from studyInfos
 		studies, err := dbService.GetStudies(instanceID, "", true)
 		if err != nil {
 			slog.Error("Error fetching studies", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
 			return err
+		}
+
+		// index on studyRules
+		err = dbService.CreateIndexForStudyRulesCollection(instanceID)
+		if err != nil {
+			slog.Error("Error creating index for studyRules: ", err)
 		}
 
 		for _, study := range studies {
@@ -153,31 +165,25 @@ func (dbService *StudyDBService) ensureIndexes() error {
 			// index on surveys
 			err = dbService.CreateIndexForSurveyCollection(instanceID, studyKey)
 			if err != nil {
-				slog.Error("Error creating index for surveys: ", err)
+				slog.Error("Error creating index for surveys: ", slog.String("error", err.Error()))
 			}
 
 			// index on participants
 			err = dbService.CreateIndexForParticipantsCollection(instanceID, studyKey)
 			if err != nil {
-				slog.Error("Error creating index for participants: ", err)
-			}
-
-			// index on studyRules
-			err = dbService.CreateIndexForStudyRulesCollection(instanceID)
-			if err != nil {
-				slog.Error("Error creating index for studyRules: ", err)
+				slog.Error("Error creating index for participants: ", slog.String("error", err.Error()))
 			}
 
 			// index on responses
 			err = dbService.CreateIndexForResponsesCollection(instanceID, studyKey)
 			if err != nil {
-				slog.Error("Error creating index for responses: ", err)
+				slog.Error("Error creating index for responses: ", slog.String("error", err.Error()))
 			}
 
 			// index on reports
 			err = dbService.CreateIndexForReportsCollection(instanceID, studyKey)
 			if err != nil {
-				slog.Error("Error creating index for reports: ", err)
+				slog.Error("Error creating index for reports: ", slog.String("error", err.Error()))
 			}
 		}
 

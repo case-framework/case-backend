@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -69,6 +70,7 @@ const (
 	ENV_LOG_MAX_AGE     = "LOG_MAX_AGE"
 	ENV_LOG_MAX_BACKUPS = "LOG_MAX_BACKUPS"
 	ENV_LOG_LEVEL       = "LOG_LEVEL"
+	ENV_LOG_INCLUDE_SRC = "LOG_INCLUDE_SRC"
 )
 
 type Config struct {
@@ -146,7 +148,18 @@ func readInstaceIDs() []string {
 func initLogger() {
 	level := os.Getenv(ENV_LOG_LEVEL)
 	opts := &slog.HandlerOptions{
-		Level: logLevelFromString(level),
+		Level:     logLevelFromString(level),
+		AddSource: os.Getenv(ENV_LOG_INCLUDE_SRC) == "true",
+		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+			if a.Key == slog.SourceKey {
+				source, _ := a.Value.Any().(*slog.Source)
+				if source != nil {
+					source.File = filepath.Base(source.File)
+					source.Function = strings.Replace(source.Function, "github.com/case-framework/case-backend", "", -1)
+				}
+			}
+			return a
+		},
 	}
 
 	logToFile := os.Getenv(ENV_LOG_TO_FILE) == "true"

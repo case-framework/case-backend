@@ -13,7 +13,7 @@ func IsInstanceIDInJWTAllowed(allowedInstanceIDs []string) gin.HandlerFunc {
 		// Get the validated token from the context
 		parsedToken, ok := c.Get("validatedToken")
 		if !ok {
-			slog.Warn("IsInstanceIDInJWTAllowed Middleware: validatedToken not found in context")
+			slog.Warn("validatedToken not found in context")
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "validatedToken not found in context"})
 			return
 		}
@@ -31,7 +31,7 @@ func IsInstanceIDInJWTAllowed(allowedInstanceIDs []string) gin.HandlerFunc {
 		}
 
 		if !allowed {
-			slog.Warn("IsInstanceIDInJWTAllowed Middleware: instanceID not allowed", slog.String("instanceID", instanceID))
+			slog.Warn("instanceID not allowed", slog.String("instanceID", instanceID))
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "instanceID not allowed"})
 			return
 		}

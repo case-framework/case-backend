@@ -52,11 +52,11 @@ func (h *HttpEndpoints) AddUserManagementAPI(rg *gin.RouterGroup) {
 func (h *HttpEndpoints) getAllManagementUsers(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 
-	slog.Info("getAllManagementUsers: getting all users", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+	slog.Info("getting all users", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
 
 	users, err := h.muDBConn.GetAllUsers(token.InstanceID, token.IsAdmin)
 	if err != nil {
-		slog.Error("getAllManagementUsers: error retrieving users", slog.String("error", err.Error()))
+		slog.Error("error retrieving users", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting users"})
 		return
 	}
@@ -68,11 +68,11 @@ func (h *HttpEndpoints) getManagementUser(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 	userID := c.Param("userID")
 
-	slog.Info("getManagementUser: getting user", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("requestedUserID", userID))
+	slog.Info("getting user", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("requestedUserID", userID))
 
 	user, err := h.muDBConn.GetUserByID(token.InstanceID, userID)
 	if err != nil {
-		slog.Error("getManagementUser: error retrieving user", slog.String("error", err.Error()))
+		slog.Error("error retrieving user", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting user"})
 		return
 	}
@@ -85,29 +85,29 @@ func (h *HttpEndpoints) deleteManagementUser(c *gin.Context) {
 	userID := c.Param("userID")
 
 	if token.Subject == userID {
-		slog.Error("deleteManagementUser: user cannot delete itself", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("requestedUserID", userID))
+		slog.Error("user cannot delete itself", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("requestedUserID", userID))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "user cannot delete itself"})
 		return
 	}
 
-	slog.Info("deleteManagementUser: deleting user", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("requestedUserID", userID))
+	slog.Info("deleting user", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("requestedUserID", userID))
 
 	// delete sessions
 	err := h.muDBConn.DeleteSessionsByUserID(token.InstanceID, userID)
 	if err != nil {
-		slog.Error("deleteManagementUser: error deleting sessions", slog.String("error", err.Error()))
+		slog.Error("error deleting sessions", slog.String("error", err.Error()))
 	}
 
 	// delete permissions
 	err = h.muDBConn.DeletePermissionsBySubject(token.InstanceID, userID, pc.SUBJECT_TYPE_MANAGEMENT_USER)
 	if err != nil {
-		slog.Error("deleteManagementUser: error deleting permissions", slog.String("error", err.Error()))
+		slog.Error("error deleting permissions", slog.String("error", err.Error()))
 	}
 
 	// delete user
 	err = h.muDBConn.DeleteUser(token.InstanceID, userID)
 	if err != nil {
-		slog.Error("deleteManagementUser: error deleting user", slog.String("error", err.Error()))
+		slog.Error("error deleting user", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error deleting user"})
 		return
 	}
@@ -119,11 +119,11 @@ func (h *HttpEndpoints) getManagementUserPermissions(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 	userID := c.Param("userID")
 
-	slog.Info("getManagementUserPermissions: getting user permissions", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("requestedUserID", userID))
+	slog.Info("getting user permissions", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("requestedUserID", userID))
 
 	permissions, err := h.muDBConn.GetPermissionBySubject(token.InstanceID, userID, pc.SUBJECT_TYPE_MANAGEMENT_USER)
 	if err != nil {
-		slog.Error("getManagementUserPermissions: error retrieving user permissions", slog.String("error", err.Error()))
+		slog.Error("error retrieving user permissions", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting user permissions"})
 		return
 	}
@@ -137,12 +137,12 @@ func (h *HttpEndpoints) createManagementUserPermission(c *gin.Context) {
 
 	var newPerm mUserDB.Permission
 	if err := c.ShouldBindJSON(&newPerm); err != nil {
-		slog.Error("createManagementUserPermission: error binding permission", slog.String("error", err.Error()))
+		slog.Error("error binding permission", slog.String("error", err.Error()))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "error parsing payload"})
 		return
 	}
 
-	slog.Info("createManagementUserPermission: creating user permission", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("requestedUserID", userID))
+	slog.Info("creating user permission", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("requestedUserID", userID))
 
 	newPerm.SubjectType = pc.SUBJECT_TYPE_MANAGEMENT_USER
 	newPerm.SubjectID = userID
@@ -157,7 +157,7 @@ func (h *HttpEndpoints) createManagementUserPermission(c *gin.Context) {
 		newPerm.Limiter,
 	)
 	if err != nil {
-		slog.Error("createManagementUserPermission: error creating user permission", slog.String("error", err.Error()))
+		slog.Error("error creating user permission", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error creating user permission"})
 		return
 	}
@@ -170,11 +170,11 @@ func (h *HttpEndpoints) deleteManagementUserPermission(c *gin.Context) {
 	userID := c.Param("userID")
 	permissionID := c.Param("permissionID")
 
-	slog.Info("deleteManagementUserPermission: deleting user permission", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("permissionForUser", userID), slog.String("permissionID", permissionID))
+	slog.Info("deleting user permission", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("permissionForUser", userID), slog.String("permissionID", permissionID))
 
 	err := h.muDBConn.DeletePermission(token.InstanceID, permissionID)
 	if err != nil {
-		slog.Error("deleteManagementUserPermission: error deleting user permission", slog.String("error", err.Error()))
+		slog.Error("error deleting user permission", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error deleting user permission"})
 		return
 	}
@@ -189,16 +189,16 @@ func (h *HttpEndpoints) updateManagementUserPermissionLimiter(c *gin.Context) {
 
 	var newLimiter mUserDB.Permission
 	if err := c.ShouldBindJSON(&newLimiter); err != nil {
-		slog.Error("updateManagementUserPermissionLimiter: error binding permission", slog.String("error", err.Error()))
+		slog.Error("error binding permission", slog.String("error", err.Error()))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "error parsing payload"})
 		return
 	}
 
-	slog.Info("updateManagementUserPermissionLimiter: updating user permission limiter", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("permissionForUser", userID), slog.String("permissionID", permissionID))
+	slog.Info("updating user permission limiter", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("permissionForUser", userID), slog.String("permissionID", permissionID))
 
 	err := h.muDBConn.UpdatePermissionLimiter(token.InstanceID, permissionID, newLimiter.Limiter)
 	if err != nil {
-		slog.Error("updateManagementUserPermissionLimiter: error updating user permission limiter", slog.String("error", err.Error()))
+		slog.Error("error updating user permission limiter", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error updating user permission limiter"})
 		return
 	}

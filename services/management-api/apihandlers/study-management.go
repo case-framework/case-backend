@@ -1,11 +1,18 @@
 package apihandlers
 
 import (
+	"log/slog"
 	"net/http"
+	"time"
 
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
+	managementuser "github.com/case-framework/case-backend/pkg/db/management-user"
+	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	pc "github.com/case-framework/case-backend/pkg/permission-checker"
+	"github.com/case-framework/case-backend/pkg/utils"
 	"github.com/gin-gonic/gin"
+
+	studyTypes "github.com/case-framework/case-backend/pkg/types/study"
 )
 
 func (h *HttpEndpoints) AddStudyManagementAPI(rg *gin.RouterGroup) {
@@ -75,7 +82,7 @@ func (h *HttpEndpoints) addGeneralStudyEndpoints(rg *gin.RouterGroup) {
 		h.getStudyProps,
 	))
 
-	rg.PUT("/", mw.RequirePayload(), h.useAuthorisedHandler(
+	rg.PUT("/is-default", mw.RequirePayload(), h.useAuthorisedHandler(
 		RequiredPermission{
 			ResourceType:        pc.RESOURCE_TYPE_STUDY,
 			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
@@ -83,7 +90,7 @@ func (h *HttpEndpoints) addGeneralStudyEndpoints(rg *gin.RouterGroup) {
 			Action:              pc.ACTION_UPDATE_STUDY_PROPS,
 		},
 		nil,
-		h.updateStudyProps,
+		h.updateStudyIsDefault,
 	))
 
 	// change status
@@ -96,6 +103,29 @@ func (h *HttpEndpoints) addGeneralStudyEndpoints(rg *gin.RouterGroup) {
 		},
 		nil,
 		h.updateStudyStatus,
+	))
+
+	// update study display props (name, description, tags)
+	rg.PUT("/display-props", mw.RequirePayload(), h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType:        pc.RESOURCE_TYPE_STUDY,
+			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+			ExtractResourceKeys: getStudyKeyFromParams,
+			Action:              pc.ACTION_UPDATE_STUDY_PROPS,
+		},
+		nil,
+		h.updateStudyDisplayProps,
+	))
+
+	rg.PUT("/file-upload-config", mw.RequirePayload(), h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType:        pc.RESOURCE_TYPE_STUDY,
+			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+			ExtractResourceKeys: getStudyKeyFromParams,
+			Action:              pc.ACTION_UPDATE_STUDY_PROPS,
+		},
+		nil,
+		h.updateStudyFileUploadRule,
 	))
 
 	rg.DELETE("/", h.useAuthorisedHandler(
@@ -149,7 +179,7 @@ func (h *HttpEndpoints) addSurveyEndpoints(rg *gin.RouterGroup) {
 			h.getLatestSurvey,
 		))
 
-		surveyGroup.PUT("/", mw.RequirePayload(), h.useAuthorisedHandler(
+		surveyGroup.POST("/", mw.RequirePayload(), h.useAuthorisedHandler(
 			RequiredPermission{
 				ResourceType:        pc.RESOURCE_TYPE_STUDY,
 				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
@@ -160,7 +190,7 @@ func (h *HttpEndpoints) addSurveyEndpoints(rg *gin.RouterGroup) {
 			h.updateSurvey,
 		))
 
-		surveyGroup.DELETE("/", h.useAuthorisedHandler(
+		surveyGroup.POST("/unpublish", h.useAuthorisedHandler(
 			RequiredPermission{
 				ResourceType:        pc.RESOURCE_TYPE_STUDY,
 				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
@@ -233,17 +263,6 @@ func (h *HttpEndpoints) addStudyConfigEndpoints(rg *gin.RouterGroup) {
 			h.addStudyPermission,
 		))
 
-		permissionsGroup.PUT("/:permissionID", mw.RequirePayload(), h.useAuthorisedHandler(
-			RequiredPermission{
-				ResourceType:        pc.RESOURCE_TYPE_STUDY,
-				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
-				ExtractResourceKeys: getStudyKeyFromParams,
-				Action:              pc.ACTION_MANAGE_STUDY_PERMISSIONS,
-			},
-			nil,
-			h.updateStudyPermissions,
-		))
-
 		permissionsGroup.DELETE("/:permissionID", h.useAuthorisedHandler(
 			RequiredPermission{
 				ResourceType:        pc.RESOURCE_TYPE_STUDY,
@@ -293,7 +312,7 @@ func (h *HttpEndpoints) addStudyRuleEndpoints(rg *gin.RouterGroup) {
 			Action:              pc.ACTION_READ_STUDY_CONFIG,
 		},
 		nil,
-		h.getStudyRules,
+		h.getCurrentStudyRules,
 	))
 
 	rulesGroup.POST("/", mw.RequirePayload(), h.useAuthorisedHandler(
@@ -304,7 +323,7 @@ func (h *HttpEndpoints) addStudyRuleEndpoints(rg *gin.RouterGroup) {
 			Action:              pc.ACTION_UPDATE_STUDY_RULES,
 		},
 		nil,
-		h.updateStudyRules,
+		h.publishNewStudyRulesVersion,
 	))
 
 	// get rule history
@@ -320,7 +339,7 @@ func (h *HttpEndpoints) addStudyRuleEndpoints(rg *gin.RouterGroup) {
 	))
 
 	// get specific rule version
-	rulesGroup.GET("/versions/:versionID", h.useAuthorisedHandler(
+	rulesGroup.GET("/versions/:id", h.useAuthorisedHandler(
 		RequiredPermission{
 			ResourceType:        pc.RESOURCE_TYPE_STUDY,
 			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
@@ -332,7 +351,7 @@ func (h *HttpEndpoints) addStudyRuleEndpoints(rg *gin.RouterGroup) {
 	))
 
 	// delete rule version
-	rulesGroup.DELETE("/versions/:versionID", h.useAuthorisedHandler(
+	rulesGroup.DELETE("/versions/:id", h.useAuthorisedHandler(
 		RequiredPermission{
 			ResourceType:        pc.RESOURCE_TYPE_STUDY,
 			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
@@ -777,128 +796,754 @@ func (h *HttpEndpoints) addStudyDataExplorerEndpoints(rg *gin.RouterGroup) {
 }
 
 func (h *HttpEndpoints) getAllStudies(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	slog.Info("getting all studies", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+
+	studies, err := h.studyDBConn.GetStudies(token.InstanceID, "", false)
+	if err != nil {
+		slog.Error("failed to get all studies", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get studies"})
+		return
+	}
+
+	for i := range studies {
+		studies[i].SecretKey = ""
+		studies[i].Rules = nil
+		studies[i].NotificationSubscriptions = nil
+	}
+
+	c.JSON(http.StatusOK, gin.H{"studies": studies})
+}
+
+type NewStudyReq struct {
+	StudyKey             string `json:"studyKey"`
+	SecretKey            string `json:"secretKey"`
+	IsSystemDefaultStudy bool   `json:"isSystemDefaultStudy"`
 }
 
 func (h *HttpEndpoints) createStudy(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	var req NewStudyReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	slog.Info("creating new study", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", req.StudyKey))
+
+	// check if study key is URL safe
+	if !utils.IsURLSafe(req.StudyKey) {
+		slog.Error("study key is not URL safe", slog.String("studyKey", req.StudyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "study key is not URL safe"})
+		return
+	}
+
+	study := studyTypes.Study{
+		Key:       req.StudyKey,
+		SecretKey: req.SecretKey,
+		Status:    studyTypes.STUDY_STATUS_INACTIVE,
+		Props: studyTypes.StudyProps{
+			SystemDefaultStudy: req.IsSystemDefaultStudy,
+		},
+		Configs: studyTypes.StudyConfigs{
+			IdMappingMethod: studyTypes.DEFAULT_ID_MAPPING_METHOD,
+			ParticipantFileUploadRule: &studyTypes.Expression{
+				Name: "gt",
+				Data: []studyTypes.ExpressionArg{
+					{Num: 0, DType: "num"},
+					{Num: 1, DType: "num"},
+				},
+			}, // default rule: file upload is not allowed
+		},
+	}
+
+	err := h.studyDBConn.CreateStudy(token.InstanceID, study)
+	if err != nil {
+		slog.Error("failed to create study", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create study"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"study": study})
 }
 
 func (h *HttpEndpoints) getStudyProps(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	slog.Info("getting study props", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	study, err := h.studyDBConn.GetStudy(token.InstanceID, studyKey)
+	if err != nil {
+		slog.Error("failed to get study", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"study": study})
 }
 
-func (h *HttpEndpoints) updateStudyProps(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+type StudyIsDefaultUpdateReq struct {
+	IsDefault bool `json:"isDefault"`
+}
+
+func (h *HttpEndpoints) updateStudyIsDefault(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	var req StudyIsDefaultUpdateReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	slog.Info("updating study is default", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.Bool("isDefault", req.IsDefault))
+
+	err := h.studyDBConn.UpdateStudyIsDefault(token.InstanceID, studyKey, req.IsDefault)
+	if err != nil {
+		slog.Error("failed to update study is default", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update study is default"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "study is default updated"})
+}
+
+type StudyStatusUpdateReq struct {
+	Status string `json:"status"`
 }
 
 func (h *HttpEndpoints) updateStudyStatus(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	var req StudyStatusUpdateReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	slog.Info("updating study status", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("status", req.Status))
+
+	err := h.studyDBConn.UpdateStudyStatus(token.InstanceID, studyKey, req.Status)
+	if err != nil {
+		slog.Error("failed to update study status", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update study status"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "study status updated"})
+}
+
+type StudyDisplayPropsUpdateReq struct {
+	Name        []studyTypes.LocalisedObject `bson:"name" json:"name"`
+	Description []studyTypes.LocalisedObject `bson:"description" json:"description"`
+	Tags        []studyTypes.Tag             `bson:"tags" json:"tags"`
+}
+
+func (h *HttpEndpoints) updateStudyDisplayProps(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	var req StudyDisplayPropsUpdateReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	slog.Info("updating study display props", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	err := h.studyDBConn.UpdateStudyDisplayProps(token.InstanceID, studyKey, req.Name, req.Description, req.Tags)
+	if err != nil {
+		slog.Error("failed to update study display props", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update study display props"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "study display props updated"})
+}
+
+type FileUploadRuleUpdateReq struct {
+	SimplifiedAllow bool                   `json:"simplifiedAllowedUpload"`
+	Expression      *studyTypes.Expression `json:"expression,omitempty"`
+}
+
+func (h *HttpEndpoints) updateStudyFileUploadRule(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	var req FileUploadRuleUpdateReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	newRule := req.Expression
+	if newRule == nil {
+		if req.SimplifiedAllow {
+			newRule = &studyTypes.Expression{
+				Name: "gt",
+				Data: []studyTypes.ExpressionArg{
+					{Num: 1, DType: "num"},
+					{Num: 0, DType: "num"},
+				},
+			}
+		} else {
+			newRule = &studyTypes.Expression{
+				Name: "gt",
+				Data: []studyTypes.ExpressionArg{
+					{Num: 0, DType: "num"},
+					{Num: 1, DType: "num"},
+				},
+			}
+		}
+	}
+
+	slog.Info("updating study file upload rule", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	err := h.studyDBConn.UpdateStudyFileUploadRule(token.InstanceID, studyKey, newRule)
+	if err != nil {
+		slog.Error("failed to update study file upload rule", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update study file upload rule"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "study file upload rule updated"})
 }
 
 func (h *HttpEndpoints) deleteStudy(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	slog.Info("deleting study", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	err := h.studyDBConn.DeleteStudy(token.InstanceID, studyKey)
+	if err != nil {
+		slog.Error("failed to delete study", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete study"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "study deleted"})
+}
+
+type SurveyInfo struct {
+	Key string `json:"key"`
 }
 
 func (h *HttpEndpoints) getSurveyInfoList(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	slog.Info("getting survey info list", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	surveyKeys, err := h.studyDBConn.GetSurveyKeysForStudy(token.InstanceID, studyKey, true)
+	if err != nil {
+		slog.Error("failed to get survey info list", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get survey info list"})
+		return
+	}
+
+	surveyInfos := make([]SurveyInfo, len(surveyKeys))
+	for i, key := range surveyKeys {
+		surveyInfos[i] = SurveyInfo{Key: key}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"surveys": surveyInfos})
 }
 
 func (h *HttpEndpoints) createSurvey(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	var survey studyTypes.Survey
+	if err := c.ShouldBindJSON(&survey); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+	survey.SurveyKey = survey.SurveyDefinition.Key
+
+	slog.Info("creating survey", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", survey.SurveyDefinition.Key))
+
+	surveyKeys, err := h.studyDBConn.GetSurveyKeysForStudy(token.InstanceID, studyKey, true)
+	if err != nil {
+		slog.Error("failed to get survey info list", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get survey info list"})
+		return
+	}
+
+	for _, key := range surveyKeys {
+		if key == survey.SurveyKey {
+			slog.Error("survey key already exists", slog.String("key", survey.SurveyKey))
+			c.JSON(http.StatusBadRequest, gin.H{"error": "survey key already exists"})
+			return
+		}
+	}
+
+	if survey.VersionID == "" {
+		surveyHistory, err := h.studyDBConn.GetSurveyVersions(token.InstanceID, studyKey, survey.SurveyKey)
+		if err != nil {
+			slog.Error("failed to get survey versions", slog.String("error", err.Error()))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get survey versions"})
+			return
+		}
+		survey.VersionID = utils.GenerateSurveyVersionID(surveyHistory)
+	}
+
+	survey.Published = time.Now().Unix()
+
+	err = h.studyDBConn.SaveSurveyVersion(token.InstanceID, studyKey, &survey)
+	if err != nil {
+		slog.Error("failed to create survey", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create survey"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"survey": survey})
 }
 
 func (h *HttpEndpoints) getLatestSurvey(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	surveyKey := c.Param("surveyKey")
+
+	slog.Info("getting latest survey", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey))
+
+	survey, err := h.studyDBConn.GetCurrentSurveyVersion(token.InstanceID, studyKey, surveyKey)
+	if err != nil {
+		slog.Error("failed to get latest survey", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get latest survey"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"survey": survey})
 }
 
 func (h *HttpEndpoints) updateSurvey(c *gin.Context) {
-	//	TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	surveyKey := c.Param("surveyKey")
+
+	var survey studyTypes.Survey
+	if err := c.ShouldBindJSON(&survey); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+	survey.SurveyKey = survey.SurveyDefinition.Key
+
+	if survey.SurveyKey != surveyKey {
+		slog.Error("survey key in request does not match", slog.String("key", survey.SurveyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "survey key in request does not match"})
+		return
+	}
+
+	if survey.VersionID == "" {
+		surveyHistory, err := h.studyDBConn.GetSurveyVersions(token.InstanceID, studyKey, survey.SurveyKey)
+		if err != nil {
+			slog.Error("failed to get survey versions", slog.String("error", err.Error()))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get survey versions"})
+			return
+		}
+		survey.VersionID = utils.GenerateSurveyVersionID(surveyHistory)
+	}
+
+	survey.Published = time.Now().Unix()
+
+	slog.Info("updating survey", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey))
+
+	err := h.studyDBConn.SaveSurveyVersion(token.InstanceID, studyKey, &survey)
+	if err != nil {
+		slog.Error("failed to update survey", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update survey"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"survey": survey})
 }
 
 func (h *HttpEndpoints) unpublishSurvey(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	surveyKey := c.Param("surveyKey")
+
+	slog.Info("unpublishing survey", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey))
+
+	err := h.studyDBConn.UnpublishSurvey(token.InstanceID, studyKey, surveyKey)
+	if err != nil {
+		slog.Error("failed to unpublish survey", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to unpublish survey"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "survey unpublished"})
 }
 
 func (h *HttpEndpoints) getSurveyVersions(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	surveyKey := c.Param("surveyKey")
+
+	slog.Info("getting survey versions", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey))
+
+	versions, err := h.studyDBConn.GetSurveyVersions(token.InstanceID, studyKey, surveyKey)
+	if err != nil {
+		slog.Error("failed to get survey versions", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get survey versions"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"versions": versions})
 }
 
 func (h *HttpEndpoints) getSurveyVersion(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	surveyKey := c.Param("surveyKey")
+	versionID := c.Param("versionID")
+
+	slog.Info("getting survey version", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey), slog.String("versionID", versionID))
+
+	version, err := h.studyDBConn.GetSurveyVersion(token.InstanceID, studyKey, surveyKey, versionID)
+
+	if err != nil {
+		slog.Error("failed to get survey version", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get survey version"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"survey": version})
 }
 
 func (h *HttpEndpoints) deleteSurveyVersion(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	surveyKey := c.Param("surveyKey")
+	versionID := c.Param("versionID")
+
+	slog.Info("deleting survey version", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey), slog.String("versionID", versionID))
+
+	err := h.studyDBConn.DeleteSurveyVersion(token.InstanceID, studyKey, surveyKey, versionID)
+	if err != nil {
+		slog.Error("failed to delete survey version", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete survey version"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "survey version deleted"})
+}
+
+type StudyUserPermissionInfo struct {
+	User        *managementuser.ManagementUser `json:"user"`
+	Permissions []managementuser.Permission    `json:"permissions"`
 }
 
 func (h *HttpEndpoints) getStudyPermissions(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	permissions, err := h.muDBConn.GetPermissionByResource(token.InstanceID, pc.RESOURCE_TYPE_STUDY, studyKey)
+	if err != nil {
+		slog.Error("failed to get study permissions", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study permissions"})
+		return
+	}
+
+	// check if user has "manage study permissions" permission
+	// or is admin
+	allowedToManagePermissions := false
+	if token.IsAdmin {
+		allowedToManagePermissions = true
+	} else {
+		for _, permission := range permissions {
+			if permission.SubjectID == token.Subject &&
+				permission.SubjectType == pc.SUBJECT_TYPE_MANAGEMENT_USER &&
+				permission.Action == pc.ACTION_MANAGE_STUDY_PERMISSIONS {
+				allowedToManagePermissions = true
+				break
+			}
+		}
+	}
+
+	studyUserPermissionInfos := map[string]*StudyUserPermissionInfo{}
+
+	for _, permission := range permissions {
+		userID := permission.SubjectID
+
+		if permission.SubjectType != pc.SUBJECT_TYPE_MANAGEMENT_USER {
+			continue
+		}
+
+		var user *managementuser.ManagementUser
+
+		// Check if user ID already exists in the map
+		_, ok := studyUserPermissionInfos[userID]
+		if !ok {
+			// Get user info
+			var err error
+			user, err = h.muDBConn.GetUserByID(token.InstanceID, permission.SubjectID)
+			if err != nil {
+				slog.Error("failed to get user info", slog.String("error", err.Error()))
+				continue
+			}
+			studyUserPermissionInfos[userID] = &StudyUserPermissionInfo{
+				User: &managementuser.ManagementUser{
+					ID:       user.ID,
+					Username: user.Username,
+					Email:    user.Email,
+					ImageURL: user.ImageURL,
+				},
+				Permissions: []managementuser.Permission{},
+			}
+		}
+
+		if allowedToManagePermissions {
+			studyUserPermissionInfos[userID].Permissions = append(studyUserPermissionInfos[userID].Permissions, *permission)
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"permissions": studyUserPermissionInfos})
 }
 
 func (h *HttpEndpoints) addStudyPermission(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
-}
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 
-func (h *HttpEndpoints) updateStudyPermissions(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	studyKey := c.Param("studyKey")
+
+	var permission managementuser.Permission
+	if err := c.ShouldBindJSON(&permission); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	slog.Info("adding study permission", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("subjectID", permission.SubjectID), slog.String("action", permission.Action))
+
+	permission.SubjectType = pc.SUBJECT_TYPE_MANAGEMENT_USER
+	permission.ResourceType = pc.RESOURCE_TYPE_STUDY
+	permission.ResourceKey = studyKey
+
+	_, err := h.muDBConn.CreatePermission(
+		token.InstanceID,
+		permission.SubjectID,
+		permission.SubjectType,
+		permission.ResourceType,
+		permission.ResourceKey,
+		permission.Action,
+		permission.Limiter,
+	)
+
+	if err != nil {
+		slog.Error("failed to add study permission", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to add study permission"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "study permission added"})
 }
 
 func (h *HttpEndpoints) deleteStudyPermission(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	permissionID := c.Param("permissionID")
+
+	slog.Info("deleting study permission", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("permissionID", permissionID))
+
+	permission, err := h.muDBConn.GetPermissionByID(token.InstanceID, permissionID)
+	if err != nil {
+		slog.Error("failed to get study permission", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study permission"})
+		return
+	}
+
+	if permission.ResourceType != pc.RESOURCE_TYPE_STUDY || permission.ResourceKey != studyKey {
+		slog.Warn("permission does not belong to the study", slog.String("permissionID", permissionID))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "permission does not belong to the study"})
+		return
+	}
+
+	err = h.muDBConn.DeletePermission(token.InstanceID, permissionID)
+	if err != nil {
+		slog.Error("failed to delete study permission", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete study permission"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "study permission deleted"})
 }
 
 func (h *HttpEndpoints) getNotificationSubscriptions(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	slog.Info("getting notification subscriptions", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	subscriptions, err := h.studyDBConn.GetNotificationSubscriptions(token.InstanceID, studyKey)
+	if err != nil {
+		slog.Error("failed to get notification subscriptions", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get notification subscriptions"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"subscriptions": subscriptions})
+}
+
+type NotificationSubscriptionsUpdateReq struct {
+	Subscriptions []studyTypes.NotificationSubscription `json:"subscriptions"`
 }
 
 func (h *HttpEndpoints) updateNotificationSubscriptions(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	var req NotificationSubscriptionsUpdateReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	slog.Info("updating notification subscriptions", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	err := h.studyDBConn.UpdateStudyNotificationSubscriptions(token.InstanceID, studyKey, req.Subscriptions)
+	if err != nil {
+		slog.Error("failed to update notification subscriptions", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update notification subscriptions"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "notification subscriptions updated"})
 }
 
-func (h *HttpEndpoints) getStudyRules(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+func (h *HttpEndpoints) getCurrentStudyRules(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	slog.Info("getting current study rules", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	rules, err := h.studyDBConn.GetCurrentStudyRules(token.InstanceID, studyKey)
+	if err != nil {
+		slog.Error("failed to get current study rules", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get current study rules"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"studyRules": rules})
 }
 
-func (h *HttpEndpoints) updateStudyRules(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+func (h *HttpEndpoints) publishNewStudyRulesVersion(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	var rules studyTypes.StudyRules
+	if err := c.ShouldBindJSON(&rules); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	rules.StudyKey = studyKey
+	rules.UploadedAt = time.Now().Unix()
+	rules.UploadedBy = token.Subject
+
+	err := rules.MarshalRules()
+	if err != nil {
+		slog.Error("failed to marshal study rules", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid study rules"})
+		return
+	}
+
+	slog.Info("publishing new study rules version", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	err = h.studyDBConn.SaveStudyRules(token.InstanceID, studyKey, rules)
+	if err != nil {
+		slog.Error("failed to publish new study rules version", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to publish new study rules version"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "new study rules version published"})
 }
 
 func (h *HttpEndpoints) getStudyRuleVersions(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	slog.Info("getting study rule versions", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	versions, err := h.studyDBConn.GetStudyRulesHistory(token.InstanceID, studyKey)
+	if err != nil {
+		slog.Error("failed to get study rule versions", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study rule versions"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"versions": versions})
 }
 
 func (h *HttpEndpoints) getStudyRuleVersion(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	versionID := c.Param("id")
+
+	slog.Info("getting study rule version", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("versionID", versionID))
+
+	version, err := h.studyDBConn.GetStudyRulesByID(token.InstanceID, studyKey, versionID)
+	if err != nil {
+		slog.Error("failed to get study rule version", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study rule version"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"studyRules": version})
 }
 
 func (h *HttpEndpoints) deleteStudyRuleVersion(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	versionID := c.Param("id")
+
+	slog.Info("deleting study rule version", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("versionID", versionID))
+
+	err := h.studyDBConn.DeleteStudyRulesByID(token.InstanceID, studyKey, versionID)
+	if err != nil {
+		slog.Error("failed to delete study rule version", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete study rule version"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "study rule version deleted"})
 }
 
 func (h *HttpEndpoints) runActionOnParticipant(c *gin.Context) {
