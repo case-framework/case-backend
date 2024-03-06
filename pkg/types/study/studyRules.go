@@ -26,8 +26,11 @@ func (studyRules *StudyRules) MarshalRules() error {
 }
 
 func (studyRules *StudyRules) UnmarshalRules() error {
-	if studyRules.SerialisedRules == "" && studyRules.Rules == nil {
-		studyRules.Rules = []Expression{}
+	if studyRules.SerialisedRules == "" {
+		if studyRules.Rules == nil {
+			studyRules.Rules = []Expression{}
+			return nil
+		}
 		return nil
 	}
 	var rules []Expression
