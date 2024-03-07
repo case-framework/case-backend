@@ -2,6 +2,7 @@ package apihelpers
 
 import (
 	"encoding/json"
+	"net/url"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -28,14 +29,22 @@ func ParsePaginatedQueryFromCtx(c *gin.Context) (*PagenatedQuery, error) {
 
 	sort := bson.M{}
 	if sortStr := c.DefaultQuery("sort", ""); sortStr != "" {
-		if err := json.Unmarshal([]byte(sortStr), &sort); err != nil {
+		decodedSortStr, err := url.QueryUnescape(sortStr)
+		if err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal([]byte(decodedSortStr), &sort); err != nil {
 			return nil, err
 		}
 	}
 
 	filter := bson.M{}
 	if filterStr := c.DefaultQuery("filter", ""); filterStr != "" {
-		if err := json.Unmarshal([]byte(filterStr), &filter); err != nil {
+		decodedFilterStr, err := url.QueryUnescape(filterStr)
+		if err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal([]byte(decodedFilterStr), &filter); err != nil {
 			return nil, err
 		}
 	}

@@ -88,6 +88,10 @@ func (dbService *StudyDBService) GetParticipants(instanceID string, studyKey str
 		limit = FALLBACK_PAGE_SIZE
 	}
 
+	if count < limit {
+		page = 1
+	}
+
 	paginationInfo = &PaginationInfos{
 		PageSize:    limit,
 		TotalCount:  count,
