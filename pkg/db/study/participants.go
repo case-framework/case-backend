@@ -4,7 +4,6 @@ import (
 	"log/slog"
 
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/net/context"
@@ -54,13 +53,8 @@ func (dbService *StudyDBService) GetParticipantByID(instanceID string, studyKey 
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(participantID)
-	if err != nil {
-		return participant, err
-	}
-
 	filter := bson.M{
-		"_id": _id,
+		"participantID": participantID,
 	}
 
 	err = dbService.collectionParticipants(instanceID, studyKey).FindOne(ctx, filter).Decode(&participant)
@@ -164,13 +158,8 @@ func (dbService *StudyDBService) DeleteParticipantByID(instanceID string, studyK
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(participantID)
-	if err != nil {
-		return err
-	}
-
 	filter := bson.M{
-		"_id": _id,
+		"participantID": participantID,
 	}
 	res, err := dbService.collectionParticipants(instanceID, studyKey).DeleteOne(ctx, filter)
 	if err != nil {
