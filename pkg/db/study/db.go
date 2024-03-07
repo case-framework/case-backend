@@ -132,7 +132,7 @@ func (dbService *StudyDBService) ensureIndexes() error {
 		_, err := dbService.collectionTaskQueue(instanceID).Indexes().CreateOne(
 			ctx,
 			mongo.IndexModel{
-				Keys:    bson.D{{Key: "createdAt", Value: 1}},
+				Keys:    bson.D{{Key: "updatedAt", Value: 1}},
 				Options: options.Index().SetExpireAfterSeconds(REMOVE_TASK_FROM_QUEUE_AFTER),
 			},
 		)
