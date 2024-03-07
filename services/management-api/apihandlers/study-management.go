@@ -645,6 +645,18 @@ func (h *HttpEndpoints) addStudyDataExporterEndpoints(rg *gin.RouterGroup) {
 			h.generateConfidentialResponsesExport,
 		))
 
+		// delete confidential response
+		confidentialResponsesGroup.GET("/:id", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_CONFIDENTIAL_RESPONSES,
+			},
+			nil,
+			h.deleteConfidentialResponse,
+		))
+
 		// get export status
 		confidentialResponsesGroup.GET("/task/:taskID", h.useAuthorisedHandler(
 			RequiredPermission{
@@ -688,6 +700,17 @@ func (h *HttpEndpoints) addStudyDataExplorerEndpoints(rg *gin.RouterGroup) {
 			h.getStudyResponses,
 		))
 
+		responsesGroup.GET("/:responseId", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_RESPONSES,
+			},
+			getSurveyKeyLimiterFromQuery,
+			h.getStudyResponseById,
+		))
+
 		// delete responses
 		responsesGroup.DELETE("/", h.useAuthorisedHandler(
 			RequiredPermission{
@@ -698,6 +721,17 @@ func (h *HttpEndpoints) addStudyDataExplorerEndpoints(rg *gin.RouterGroup) {
 			},
 			nil,
 			h.deleteStudyResponses,
+		))
+
+		responsesGroup.DELETE("/:responseId", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_DELETE_RESPONSES,
+			},
+			nil,
+			h.deleteStudyResponse,
 		))
 	}
 
@@ -1612,6 +1646,11 @@ func (h *HttpEndpoints) getConfidentialResponsesCount(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
 
+func (h *HttpEndpoints) deleteConfidentialResponse(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
 func (h *HttpEndpoints) generateConfidentialResponsesExport(c *gin.Context) {
 	// TODO: implement
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
@@ -1632,7 +1671,17 @@ func (h *HttpEndpoints) getStudyResponses(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
 
+func (h *HttpEndpoints) getStudyResponseById(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
 func (h *HttpEndpoints) deleteStudyResponses(c *gin.Context) {
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) deleteStudyResponse(c *gin.Context) {
 	// TODO: implement
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
