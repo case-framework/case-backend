@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/case-framework/case-backend/pkg/apihelpers"
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
 	managementuser "github.com/case-framework/case-backend/pkg/db/management-user"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
@@ -1687,13 +1688,54 @@ func (h *HttpEndpoints) deleteStudyResponse(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getStudyParticipants(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	studyKey := c.Param("studyKey")
+
+	slog.Info("getting study participants", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	query, err := apihelpers.ParsePaginatedQueryFromCtx(c)
+	if err != nil || query == nil {
+		slog.Error("failed to parse paginated query", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	participants, paginationInfo, err := h.studyDBConn.GetParticipants(
+		token.InstanceID,
+		studyKey,
+		query.Filter,
+		query.Sort,
+		query.Page,
+		query.Limit,
+	)
+	if err != nil {
+		slog.Error("failed to get study participants", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study participants"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"participants": participants,
+		"pagination":   paginationInfo,
+	})
 }
 
 func (h *HttpEndpoints) getStudyParticipant(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	participantID := c.Param("participantID")
+
+	slog.Info("getting study participant", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("participantID", participantID))
+
+	participant, err := h.studyDBConn.GetParticipantByID(token.InstanceID, studyKey, participantID)
+	if err != nil {
+		slog.Error("failed to get study participant", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study participant"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"participant": participant})
 }
 
 func (h *HttpEndpoints) getStudyReports(c *gin.Context) {
