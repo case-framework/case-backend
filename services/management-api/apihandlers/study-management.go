@@ -1,6 +1,7 @@
 package apihandlers
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -13,6 +14,8 @@ import (
 	"github.com/case-framework/case-backend/pkg/utils"
 	"github.com/gin-gonic/gin"
 
+	studydefinition "github.com/case-framework/case-backend/pkg/exporter/survey-definition"
+	surveydefinition "github.com/case-framework/case-backend/pkg/exporter/survey-definition"
 	studyTypes "github.com/case-framework/case-backend/pkg/types/study"
 )
 
@@ -466,6 +469,21 @@ func (h *HttpEndpoints) addStudyActionEndpoints(rg *gin.RouterGroup) {
 
 func (h *HttpEndpoints) addStudyDataExporterEndpoints(rg *gin.RouterGroup) {
 	exporterGroup := rg.Group("/data-exporter")
+
+	surveyInfoGroup := exporterGroup.Group("/survey-info")
+	{
+		// get survey info
+		surveyInfoGroup.GET("/", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_READ_STUDY_CONFIG,
+			},
+			nil,
+			h.getSurveyInfo,
+		))
+	}
 
 	responsesGroup := exporterGroup.Group("/responses")
 	{
@@ -1610,6 +1628,68 @@ func (h *HttpEndpoints) runActionOnPreviousResponsesForParticipant(c *gin.Contex
 func (h *HttpEndpoints) runActionOnPreviousResponsesForParticipants(c *gin.Context) {
 	// TODO: implement
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) getSurveyInfo(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	surveyKey := c.DefaultQuery("surveyKey", "")
+	if surveyKey == "" {
+		slog.Error("surveyKey is required", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "surveyKey is required"})
+		return
+	}
+
+	format := c.DefaultQuery("format", "json")
+	if format != "json" && format != "csv" {
+		slog.Error("invalid format", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey), slog.String("format", format))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid format query parameter"})
+		return
+	}
+	// includeItems, excludeItems
+	language := c.DefaultQuery("language", "en")
+	shortKeys := c.DefaultQuery("shortKeys", "false") == "true"
+
+	slog.Info("getting survey info", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey))
+
+	sInfos, err := studydefinition.PrepareSurveyInfosFromDB(
+		h.studyDBConn,
+		token.InstanceID,
+		studyKey,
+		surveyKey,
+		&surveydefinition.ExtractOptions{
+			UseLabelLang: language,
+		},
+	)
+	if err != nil {
+		slog.Error("failed to get survey info", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get survey info"})
+		return
+	}
+
+	siExp := studydefinition.NewSurveyInfoExporter(
+		sInfos,
+		surveyKey,
+		shortKeys,
+	)
+
+	if format == "json" {
+		c.Header("Content-Disposition", `attachment; filename=`+fmt.Sprintf("survey-infos_%s_%s.json", studyKey, surveyKey))
+		c.JSON(http.StatusOK, gin.H{"versions": siExp.GetSurveyInfos(), "key": surveyKey})
+		return
+	}
+
+	// CSV:
+	c.Header("Content-Disposition", `attachment; filename=`+fmt.Sprintf("survey-infos_%s_%s.csv", studyKey, surveyKey))
+	c.Header("Content-Type", "text/csv")
+	err = siExp.GetSurveyInfoCSV(c.Writer)
+	if err != nil {
+		slog.Error("failed to get survey info csv", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get survey info csv"})
+		return
+	}
 }
 
 func (h *HttpEndpoints) getResponsesCount(c *gin.Context) {
