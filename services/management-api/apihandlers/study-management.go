@@ -1668,8 +1668,50 @@ func (h *HttpEndpoints) getExportTaskResult(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getStudyResponses(c *gin.Context) {
-	// TODO: implement
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	surveyKey := c.DefaultQuery("surveyKey", "")
+	if surveyKey == "" {
+		slog.Error("surveyKey is required", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "surveyKey is required"})
+		return
+	}
+
+	slog.Info("getting study responses", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	query, err := apihelpers.ParsePaginatedQueryFromCtx(c)
+	if err != nil || query == nil {
+		slog.Error("failed to parse paginated query", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+	query.Filter["surveyKey"] = surveyKey
+
+	rawResponses, paginationInfo, err := h.studyDBConn.GetResponses(
+		token.InstanceID,
+		studyKey,
+		query.Filter,
+		query.Sort,
+		query.Page,
+		query.Limit,
+	)
+	if err != nil {
+		slog.Error("failed to get study responses", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study responses"})
+		return
+	}
+
+	slog.Any("rawResponses", rawResponses)
+	slog.Any("paginationInfo", paginationInfo)
+
+	// TODO: use data exporter to prep flat json
+
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	/*c.JSON(http.StatusOK, gin.H{
+		// "responses":  responses,
+		"pagination": paginationInfo,
+	})*/
 }
 
 func (h *HttpEndpoints) getStudyResponseById(c *gin.Context) {

@@ -2,6 +2,11 @@ package study
 
 import "go.mongodb.org/mongo-driver/bson/primitive"
 
+const (
+	SURVEY_ITEM_TYPE_PAGE_BREAK = "pageBreak"
+	SURVEY_ITEM_TYPE_END        = "surveyEnd"
+)
+
 type SurveyItem struct {
 	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
 	Key       string             `bson:"key" json:"key"`
