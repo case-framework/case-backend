@@ -22,9 +22,17 @@ func ParsePaginatedQueryFromCtx(c *gin.Context) (*PagenatedQuery, error) {
 		return nil, err
 	}
 
+	if page < 1 {
+		page = 1
+	}
+
 	limit, err := strconv.ParseInt(c.DefaultQuery("limit", "10"), 10, 64)
 	if err != nil {
 		return nil, err
+	}
+
+	if limit < 1 {
+		limit = 10
 	}
 
 	sort := bson.M{}
