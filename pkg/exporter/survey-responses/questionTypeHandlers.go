@@ -13,6 +13,7 @@ type QuestionTypeHandler interface {
 var questionTypeHandlers = map[string]QuestionTypeHandler{
 	sd.QUESTION_TYPE_SINGLE_CHOICE:   &SingleChoiceHandler{},
 	sd.QUESTION_TYPE_MULTIPLE_CHOICE: &MultipleChoiceHandler{},
+	sd.QUESTION_TYPE_CONSENT:         &ConsentHandler{},
 	// TODO: add more handlers for other question types here
 }
 
@@ -109,5 +110,50 @@ func (h *MultipleChoiceHandler) ParseResponse(question sd.SurveyQuestion, respon
 		responseCols = parseMultipleChoiceGroupList(question.ID, question.Responses, response, questionOptionSep)
 	}
 
+	return responseCols
+}
+
+// ConsentHandler implements the QuestionTypeHandler interface for consent questions
+type ConsentHandler struct{}
+
+func (h *ConsentHandler) GetResponseColumnNames(question sd.SurveyQuestion, questionOptionSep string) []string {
+	responseCols := []string{}
+	if len(question.Responses) == 1 {
+		responseCols = append(responseCols, question.ID)
+	} else {
+		for _, rSlot := range question.Responses {
+			responseCols = append(responseCols, question.ID+questionOptionSep+rSlot.ID)
+		}
+	}
+	return responseCols
+}
+
+func (h *ConsentHandler) ParseResponse(question sd.SurveyQuestion, response *studytypes.SurveyItemResponse, questionOptionSep string) map[string]interface{} {
+	responseCols := map[string]interface{}{}
+
+	questionKey := question.ID
+	if len(question.Responses) == 1 {
+		rSlot := question.Responses[0]
+		rValue := retrieveResponseItem(response, sd.RESPONSE_ROOT_KEY+"."+rSlot.ID)
+		if rValue != nil {
+			responseCols[questionKey] = sd.TRUE_VALUE
+		} else {
+			responseCols[questionKey] = sd.FALSE_VALUE
+		}
+
+	} else {
+		for _, rSlot := range question.Responses {
+			// Prepare columns:
+			slotKey := questionKey + questionOptionSep + rSlot.ID
+
+			// Find responses
+			rValue := retrieveResponseItem(response, sd.RESPONSE_ROOT_KEY+"."+rSlot.ID)
+			if rValue != nil {
+				responseCols[slotKey] = sd.TRUE_VALUE
+			} else {
+				responseCols[slotKey] = sd.FALSE_VALUE
+			}
+		}
+	}
 	return responseCols
 }
