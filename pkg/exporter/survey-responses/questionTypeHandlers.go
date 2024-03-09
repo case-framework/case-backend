@@ -24,6 +24,7 @@ var questionTypeHandlers = map[string]QuestionTypeHandler{
 	sd.QUESTION_TYPE_NUMBER_INPUT:                    &InputValueHandler{},
 	sd.QUESTION_TYPE_NUMERIC_SLIDER:                  &InputValueHandler{},
 	sd.QUESTION_TYPE_EQ5D_SLIDER:                     &InputValueHandler{},
+	sd.QUESTION_TYPE_RESPONSIVE_TABLE:                &ResponsiveTableHandler{},
 	// TODO: add more handlers for other question types here
 }
 
@@ -207,5 +208,35 @@ func (h *InputValueHandler) ParseResponse(question sd.SurveyQuestion, response *
 			}
 		}
 	}
+	return responseCols
+}
+
+// ResponsiveTableHandler implements the QuestionTypeHandler interface for responsive table questions
+type ResponsiveTableHandler struct{}
+
+func (h *ResponsiveTableHandler) GetResponseColumnNames(question sd.SurveyQuestion, questionOptionSep string) []string {
+	colNames := []string{}
+
+	for _, rSlot := range question.Responses {
+		slotKey := question.ID + questionOptionSep + rSlot.ID
+		colNames = append(colNames, slotKey)
+	}
+
+	return colNames
+}
+
+func (h *ResponsiveTableHandler) ParseResponse(question sd.SurveyQuestion, response *studytypes.SurveyItemResponse, questionOptionSep string) map[string]interface{} {
+	responseCols := map[string]interface{}{}
+
+	for _, rSlot := range question.Responses {
+		slotKey := question.ID + questionOptionSep + rSlot.ID
+
+		rItem := retrieveResponseItemByShortKey(response, rSlot.ID)
+
+		if rItem != nil {
+			responseCols[slotKey] = rItem.Value
+		}
+	}
+
 	return responseCols
 }
