@@ -91,79 +91,75 @@ func getResponseColNamesForQuestion(
 	}
 	return qTypeHandl.GetResponseColumnNames(question, questionOptionSep)
 	/*
-	   switch question.QuestionType {
-	   case studydefinition.QUESTION_TYPE_SINGLE_CHOICE:
+		   switch question.QuestionType {
+			case studydefinition.QUESTION_TYPE_MULTIPLE_CHOICE:
 
-	   	return getResponseColumnNamesForSingleChoice(question, questionOptionSep)
+		   	return processResponseForMultipleChoice(question, response, questionOptionSep)
 
-	   case studydefinition.QUESTION_TYPE_CONSENT:
+		   case studydefinition.QUESTION_TYPE_CONSENT:
 
-	   	return processResponseForConsent(question, response, questionOptionSep)
+		   	return processResponseForConsent(question, response, questionOptionSep)
 
-	   case studydefinition.QUESTION_TYPE_DROPDOWN:
+		   case studydefinition.QUESTION_TYPE_DROPDOWN:
 
-	   	return processResponseForSingleChoice(question, response, questionOptionSep)
+		   	return processResponseForSingleChoice(question, response, questionOptionSep)
 
-	   case studydefinition.QUESTION_TYPE_LIKERT:
+		   case studydefinition.QUESTION_TYPE_LIKERT:
 
-	   	return processResponseForSingleChoice(question, response, questionOptionSep)
+		   	return processResponseForSingleChoice(question, response, questionOptionSep)
 
-	   case studydefinition.QUESTION_TYPE_LIKERT_GROUP:
+		   case studydefinition.QUESTION_TYPE_LIKERT_GROUP:
 
-	   	return handleSingleChoiceGroupList(question.ID, question.Responses, response, questionOptionSep)
+		   	return handleSingleChoiceGroupList(question.ID, question.Responses, response, questionOptionSep)
 
-	   case studydefinition.QUESTION_TYPE_RESPONSIVE_SINGLE_CHOICE_ARRAY:
+		   case studydefinition.QUESTION_TYPE_RESPONSIVE_SINGLE_CHOICE_ARRAY:
 
-	   	return processResponseForSingleChoice(question, response, questionOptionSep)
+		   	return processResponseForSingleChoice(question, response, questionOptionSep)
 
-	   case studydefinition.QUESTION_TYPE_RESPONSIVE_BIPOLAR_LIKERT_ARRAY:
+		   case studydefinition.QUESTION_TYPE_RESPONSIVE_BIPOLAR_LIKERT_ARRAY:
 
-	   	return processResponseForSingleChoice(question, response, questionOptionSep)
+		   	return processResponseForSingleChoice(question, response, questionOptionSep)
 
-	   case studydefinition.QUESTION_TYPE_MULTIPLE_CHOICE:
+		   case studydefinition.QUESTION_TYPE_TEXT_INPUT:
 
-	   	return processResponseForMultipleChoice(question, response, questionOptionSep)
+		   	return processResponseForInputs(question, response, questionOptionSep)
 
-	   case studydefinition.QUESTION_TYPE_TEXT_INPUT:
+		   case studydefinition.QUESTION_TYPE_DATE_INPUT:
 
-	   	return processResponseForInputs(question, response, questionOptionSep)
+		   	return processResponseForInputs(question, response, questionOptionSep)
 
-	   case studydefinition.QUESTION_TYPE_DATE_INPUT:
+		   case studydefinition.QUESTION_TYPE_NUMBER_INPUT:
 
-	   	return processResponseForInputs(question, response, questionOptionSep)
+		   	return processResponseForInputs(question, response, questionOptionSep)
 
-	   case studydefinition.QUESTION_TYPE_NUMBER_INPUT:
+		   case studydefinition.QUESTION_TYPE_NUMERIC_SLIDER:
 
-	   	return processResponseForInputs(question, response, questionOptionSep)
+		   	return processResponseForInputs(question, response, questionOptionSep)
 
-	   case studydefinition.QUESTION_TYPE_NUMERIC_SLIDER:
+		   case studydefinition.QUESTION_TYPE_EQ5D_SLIDER:
 
-	   	return processResponseForInputs(question, response, questionOptionSep)
+		   	return processResponseForInputs(question, response, questionOptionSep)
 
-	   case studydefinition.QUESTION_TYPE_EQ5D_SLIDER:
+		   case studydefinition.QUESTION_TYPE_RESPONSIVE_TABLE:
 
-	   	return processResponseForInputs(question, response, questionOptionSep)
+		   	return processResponseForResponsiveTable(question, response, questionOptionSep)
 
-	   case studydefinition.QUESTION_TYPE_RESPONSIVE_TABLE:
+		   case studydefinition.QUESTION_TYPE_MATRIX:
 
-	   	return processResponseForResponsiveTable(question, response, questionOptionSep)
+		   	return processResponseForMatrix(question, response, questionOptionSep)
 
-	   case studydefinition.QUESTION_TYPE_MATRIX:
+		   case studydefinition.QUESTION_TYPE_CLOZE:
 
-	   	return processResponseForMatrix(question, response, questionOptionSep)
+		   	return processResponseForCloze(question, response, questionOptionSep)
 
-	   case studydefinition.QUESTION_TYPE_CLOZE:
+		   case studydefinition.QUESTION_TYPE_UNKNOWN:
 
-	   	return processResponseForCloze(question, response, questionOptionSep)
+		   	return processResponseForUnknown(question, response, questionOptionSep)
 
-	   case studydefinition.QUESTION_TYPE_UNKNOWN:
+		   default:
 
-	   	return processResponseForUnknown(question, response, questionOptionSep)
-
-	   default:
-
-	   		return []string{}
-	   	}
+		   		return []string{}
+		   	}
 	*/
 }
 

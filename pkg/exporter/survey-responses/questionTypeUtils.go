@@ -7,6 +7,11 @@ import (
 	studytypes "github.com/case-framework/case-backend/pkg/types/study"
 )
 
+func isEmbeddedCloze(optionType string) bool {
+	return optionType == sd.OPTION_TYPE_EMBEDDED_CLOZE_DATE_INPUT || optionType == sd.OPTION_TYPE_EMBEDDED_CLOZE_DROPDOWN ||
+		optionType == sd.OPTION_TYPE_EMBEDDED_CLOZE_NUMBER_INPUT || optionType == sd.OPTION_TYPE_EMBEDDED_CLOZE_TEXT_INPUT
+}
+
 func parseSimpleSingleChoiceGroup(questionKey string, responseSlotDef sd.ResponseDef, response *studytypes.SurveyItemResponse, questionOptionSep string) map[string]interface{} {
 	responseCols := map[string]interface{}{}
 
@@ -51,7 +56,7 @@ func parseSimpleSingleChoiceGroup(questionKey string, responseSlotDef sd.Respons
 	return responseCols
 }
 
-func handleSingleChoiceGroupList(questionKey string, responseSlotDefs []sd.ResponseDef, response *studytypes.SurveyItemResponse, questionOptionSep string) map[string]interface{} {
+func parseSingleChoiceGroupList(questionKey string, responseSlotDefs []sd.ResponseDef, response *studytypes.SurveyItemResponse, questionOptionSep string) map[string]interface{} {
 	responseCols := map[string]interface{}{}
 
 	// Find responses:
@@ -95,5 +100,111 @@ func handleSingleChoiceGroupList(questionKey string, responseSlotDefs []sd.Respo
 			}
 		}
 	}
+	return responseCols
+}
+
+func parseSimpleMultipleChoiceGroup(questionKey string, responseSlotDef sd.ResponseDef, response *studytypes.SurveyItemResponse, questionOptionSep string) map[string]interface{} {
+	responseCols := map[string]interface{}{}
+
+	// Find responses
+	rGroup := retrieveResponseItem(response, sd.RESPONSE_ROOT_KEY+"."+responseSlotDef.ID)
+	if rGroup != nil {
+		if len(rGroup.Items) > 0 {
+			for _, option := range responseSlotDef.Options {
+				responseCols[questionKey+questionOptionSep+option.ID] = sd.FALSE_VALUE
+				if isEmbeddedCloze(option.OptionType) {
+					responseCols[questionKey+questionOptionSep+option.ID] = ""
+				}
+			}
+
+			for _, item := range rGroup.Items {
+				responseCols[questionKey+questionOptionSep+item.Key] = sd.TRUE_VALUE
+				valueKey := questionKey + questionOptionSep + item.Key
+
+				// Check if selected option is a cloze option
+				cloze := false
+				for _, option := range responseSlotDef.Options {
+					if option.ID == item.Key && option.OptionType == sd.OPTION_TYPE_CLOZE {
+						cloze = true
+					}
+				}
+
+				// Handle cloze option specifically if we found it
+				if cloze {
+					for _, item := range item.Items {
+						key := valueKey + "." + item.Key
+
+						// Check if cloze or similar data structure
+						if item.Value == "" && len(item.Items) == 1 {
+							responseCols[key] = item.Items[0].Key
+						} else {
+							responseCols[key] = item.Value
+						}
+					}
+				} else {
+					valueKey += questionOptionSep + sd.OPEN_FIELD_COL_SUFFIX
+					if _, hasKey := responseCols[valueKey]; hasKey {
+						responseCols[valueKey] = item.Value
+					}
+				}
+			}
+		}
+	}
+
+	return responseCols
+}
+
+func parseMultipleChoiceGroupList(questionKey string, responseSlotDefs []sd.ResponseDef, response *studytypes.SurveyItemResponse, questionOptionSep string) map[string]interface{} {
+	responseCols := map[string]interface{}{}
+
+	// Prepare columns:
+	for _, rSlot := range responseSlotDefs {
+		// Find responses
+		rGroup := retrieveResponseItem(response, sd.RESPONSE_ROOT_KEY+"."+rSlot.ID)
+		slotKeyPrefix := questionKey + questionOptionSep + rSlot.ID + "."
+		if rGroup != nil {
+			if len(rGroup.Items) > 0 {
+				for _, option := range rSlot.Options {
+					responseCols[slotKeyPrefix+option.ID] = sd.FALSE_VALUE
+					if isEmbeddedCloze(option.OptionType) {
+						responseCols[questionKey+questionOptionSep+option.ID] = ""
+					}
+				}
+
+				for _, item := range rGroup.Items {
+					responseCols[slotKeyPrefix+item.Key] = sd.TRUE_VALUE
+					valueKey := slotKeyPrefix + item.Key
+
+					// Check if selected option is a cloze option
+					cloze := false
+					for _, option := range rSlot.Options {
+						if option.ID == item.Key && option.OptionType == sd.OPTION_TYPE_CLOZE {
+							cloze = true
+						}
+					}
+
+					// Handle cloze option specifically if we found it
+					if cloze {
+						for _, item := range item.Items {
+							key := valueKey + "." + item.Key
+
+							// Check if cloze or similar data structure
+							if item.Value == "" && len(item.Items) == 1 {
+								responseCols[key] = item.Items[0].Key
+							} else {
+								responseCols[key] = item.Value
+							}
+						}
+					} else {
+						valueKey += questionOptionSep + sd.OPEN_FIELD_COL_SUFFIX
+						if _, hasKey := responseCols[valueKey]; hasKey {
+							responseCols[valueKey] = item.Value
+						}
+					}
+				}
+			}
+		}
+	}
+
 	return responseCols
 }
