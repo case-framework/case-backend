@@ -208,3 +208,76 @@ func parseMultipleChoiceGroupList(questionKey string, responseSlotDefs []sd.Resp
 
 	return responseCols
 }
+
+func parseSimpleCloze(questionKey string, responseSlotDef sd.ResponseDef, response *studytypes.SurveyItemResponse, questionOptionSep string) map[string]interface{} {
+	responseCols := map[string]interface{}{}
+
+	// Find responses
+	rGroup := retrieveResponseItem(response, sd.RESPONSE_ROOT_KEY+"."+responseSlotDef.ID)
+	if rGroup != nil {
+		for _, item := range rGroup.Items {
+			valueKey := questionKey + questionOptionSep + item.Key
+
+			if _, hasKey := responseCols[valueKey]; hasKey {
+				dropdown := false
+
+				// Check if dropdown
+				for _, option := range responseSlotDef.Options {
+					if option.ID == item.Key && option.OptionType == sd.OPTION_TYPE_DROPDOWN {
+						dropdown = true
+						break
+					}
+				}
+
+				if dropdown {
+					if len(item.Items) != 1 {
+						slog.Debug("multiple responses for dropdown in cloze", slog.String("questionKey", questionKey), slog.String("itemKey", item.Key))
+					} else {
+						responseCols[valueKey] = item.Items[0].Key
+					}
+				} else {
+					responseCols[valueKey] = item.Value
+				}
+			}
+		}
+	}
+	return responseCols
+}
+
+func parseClozeList(questionKey string, responseSlotDefs []sd.ResponseDef, response *studytypes.SurveyItemResponse, questionOptionSep string) map[string]interface{} {
+	responseCols := map[string]interface{}{}
+
+	// Find responses:
+	for _, rSlot := range responseSlotDefs {
+		rGroup := retrieveResponseItemByShortKey(response, rSlot.ID)
+		if rGroup == nil {
+			continue
+		}
+		for _, item := range rGroup.Items {
+			valueKey := questionKey + questionOptionSep + rSlot.ID + "." + item.Key
+
+			if _, hasKey := responseCols[valueKey]; hasKey {
+				dropdown := false
+
+				// Check if dropdown
+				for _, option := range rSlot.Options {
+					if option.ID == item.Key && option.OptionType == sd.OPTION_TYPE_DROPDOWN {
+						dropdown = true
+						break
+					}
+				}
+
+				if dropdown {
+					if len(item.Items) != 1 {
+						slog.Debug("multiple responses for dropdown in cloze", slog.String("questionKey", questionKey), slog.String("responseSlotID", rSlot.ID), slog.String("itemKey", item.Key))
+					} else {
+						responseCols[valueKey] = item.Items[0].Key
+					}
+				} else {
+					responseCols[valueKey] = item.Value
+				}
+			}
+		}
+	}
+	return responseCols
+}

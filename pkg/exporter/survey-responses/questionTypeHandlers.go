@@ -28,7 +28,8 @@ var questionTypeHandlers = map[string]QuestionTypeHandler{
 	sd.QUESTION_TYPE_EQ5D_SLIDER:                     &InputValueHandler{},
 	sd.QUESTION_TYPE_RESPONSIVE_TABLE:                &ResponsiveTableHandler{},
 	sd.QUESTION_TYPE_MATRIX:                          &MatrixHandler{},
-	// TODO: add more handlers for other question types here
+	sd.QUESTION_TYPE_CLOZE:                           &ClozeHandler{},
+	sd.QUESTION_TYPE_UNKNOWN:                         &UnknownTypeHandler{},
 }
 
 // SingleChoiceHandler implements the QuestionTypeHandler interface for single choice questions
@@ -288,6 +289,78 @@ func (h *MatrixHandler) ParseResponse(question sd.SurveyQuestion, response *stud
 					responseCols[slotKey] = value
 				}
 			}
+		}
+	}
+
+	return responseCols
+}
+
+// ClozeHandler implements the QuestionTypeHandler interface for cloze questions
+type ClozeHandler struct{}
+
+func (h *ClozeHandler) GetResponseColumnNames(question sd.SurveyQuestion, questionOptionSep string) []string {
+	colNames := []string{}
+
+	if len(question.Responses) == 1 {
+		rSlot := question.Responses[0]
+		for _, option := range rSlot.Options {
+			if option.OptionType == sd.OPTION_TYPE_DATE_INPUT || option.OptionType == sd.OPTION_TYPE_NUMBER_INPUT || option.OptionType == sd.OPTION_TYPE_TEXT_INPUT || option.OptionType == sd.OPTION_TYPE_DROPDOWN {
+				slotKey := question.ID + questionOptionSep + option.ID
+				colNames = append(colNames, slotKey)
+			}
+		}
+
+	} else {
+		for _, rSlot := range question.Responses {
+			for _, option := range rSlot.Options {
+				if option.OptionType == sd.OPTION_TYPE_DATE_INPUT || option.OptionType == sd.OPTION_TYPE_NUMBER_INPUT || option.OptionType == sd.OPTION_TYPE_TEXT_INPUT || option.OptionType == sd.OPTION_TYPE_DROPDOWN {
+					slotKey := question.ID + questionOptionSep + rSlot.ID + "." + option.ID
+					colNames = append(colNames, slotKey)
+				}
+			}
+		}
+	}
+
+	return colNames
+}
+
+func (h *ClozeHandler) ParseResponse(question sd.SurveyQuestion, response *studytypes.SurveyItemResponse, questionOptionSep string) map[string]interface{} {
+	var responseCols map[string]interface{}
+
+	if len(question.Responses) == 1 {
+		rSlot := question.Responses[0]
+		responseCols = parseSimpleCloze(question.ID, rSlot, response, questionOptionSep)
+
+	} else {
+		responseCols = parseClozeList(question.ID, question.Responses, response, questionOptionSep)
+	}
+
+	return responseCols
+}
+
+// UnknownTypeHandler implements the QuestionTypeHandler interface for unknown question types
+type UnknownTypeHandler struct{}
+
+func (h *UnknownTypeHandler) GetResponseColumnNames(question sd.SurveyQuestion, questionOptionSep string) []string {
+	colNames := []string{}
+
+	for _, rSlot := range question.Responses {
+		slotKey := question.ID + questionOptionSep + rSlot.ID
+		colNames = append(colNames, slotKey)
+	}
+
+	return colNames
+}
+
+func (h *UnknownTypeHandler) ParseResponse(question sd.SurveyQuestion, response *studytypes.SurveyItemResponse, questionOptionSep string) map[string]interface{} {
+	responseCols := map[string]interface{}{}
+
+	for _, rSlot := range question.Responses {
+		slotKey := question.ID + questionOptionSep + rSlot.ID
+
+		rGroup := retrieveResponseItem(response, sd.RESPONSE_ROOT_KEY+"."+rSlot.ID)
+		if rGroup != nil {
+			responseCols[slotKey] = rGroup
 		}
 	}
 

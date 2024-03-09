@@ -90,25 +90,6 @@ func getResponseColNamesForQuestion(
 		return []string{}
 	}
 	return qTypeHandl.GetResponseColumnNames(question, questionOptionSep)
-	/*
-
-	   case studydefinition.QUESTION_TYPE_MATRIX:
-
-	   	return processResponseForMatrix(question, response, questionOptionSep)
-
-	   case studydefinition.QUESTION_TYPE_CLOZE:
-
-	   	return processResponseForCloze(question, response, questionOptionSep)
-
-	   case studydefinition.QUESTION_TYPE_UNKNOWN:
-
-	   	return processResponseForUnknown(question, response, questionOptionSep)
-
-	   default:
-
-	   		return []string{}
-	   	}
-	*/
 }
 
 func retrieveResponseItem(response *studytypes.SurveyItemResponse, fullKey string) *studytypes.ResponseItem {
