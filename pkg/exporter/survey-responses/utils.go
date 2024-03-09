@@ -91,26 +91,6 @@ func getResponseColNamesForQuestion(
 	}
 	return qTypeHandl.GetResponseColumnNames(question, questionOptionSep)
 	/*
-	   case studydefinition.QUESTION_TYPE_TEXT_INPUT:
-
-	   	return processResponseForInputs(question, response, questionOptionSep)
-
-	   case studydefinition.QUESTION_TYPE_DATE_INPUT:
-
-	   	return processResponseForInputs(question, response, questionOptionSep)
-
-	   case studydefinition.QUESTION_TYPE_NUMBER_INPUT:
-
-	   	return processResponseForInputs(question, response, questionOptionSep)
-
-	   case studydefinition.QUESTION_TYPE_NUMERIC_SLIDER:
-
-	   	return processResponseForInputs(question, response, questionOptionSep)
-
-	   case studydefinition.QUESTION_TYPE_EQ5D_SLIDER:
-
-	   	return processResponseForInputs(question, response, questionOptionSep)
-
 	   case studydefinition.QUESTION_TYPE_RESPONSIVE_TABLE:
 
 	   	return processResponseForResponsiveTable(question, response, questionOptionSep)

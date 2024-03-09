@@ -19,6 +19,11 @@ var questionTypeHandlers = map[string]QuestionTypeHandler{
 	sd.QUESTION_TYPE_LIKERT_GROUP:                    &SingleChoiceHandler{},
 	sd.QUESTION_TYPE_RESPONSIVE_SINGLE_CHOICE_ARRAY:  &SingleChoiceHandler{},
 	sd.QUESTION_TYPE_RESPONSIVE_BIPOLAR_LIKERT_ARRAY: &SingleChoiceHandler{},
+	sd.QUESTION_TYPE_TEXT_INPUT:                      &InputValueHandler{},
+	sd.QUESTION_TYPE_DATE_INPUT:                      &InputValueHandler{},
+	sd.QUESTION_TYPE_NUMBER_INPUT:                    &InputValueHandler{},
+	sd.QUESTION_TYPE_NUMERIC_SLIDER:                  &InputValueHandler{},
+	sd.QUESTION_TYPE_EQ5D_SLIDER:                     &InputValueHandler{},
 	// TODO: add more handlers for other question types here
 }
 
@@ -157,6 +162,48 @@ func (h *ConsentHandler) ParseResponse(question sd.SurveyQuestion, response *stu
 				responseCols[slotKey] = sd.TRUE_VALUE
 			} else {
 				responseCols[slotKey] = sd.FALSE_VALUE
+			}
+		}
+	}
+	return responseCols
+}
+
+// InputValueHandler implements the QuestionTypeHandler interface for input value questions
+type InputValueHandler struct{}
+
+func (h *InputValueHandler) GetResponseColumnNames(question sd.SurveyQuestion, questionOptionSep string) []string {
+	colNames := []string{}
+	if len(question.Responses) == 1 {
+		colNames = append(colNames, question.ID)
+	} else {
+		for _, rSlot := range question.Responses {
+			slotKey := question.ID + questionOptionSep + rSlot.ID
+			colNames = append(colNames, slotKey)
+		}
+	}
+	return colNames
+}
+
+func (h *InputValueHandler) ParseResponse(question sd.SurveyQuestion, response *studytypes.SurveyItemResponse, questionOptionSep string) map[string]interface{} {
+	responseCols := map[string]interface{}{}
+	questionKey := question.ID
+	if len(question.Responses) == 1 {
+		rSlot := question.Responses[0]
+		rValue := retrieveResponseItem(response, sd.RESPONSE_ROOT_KEY+"."+rSlot.ID)
+		if rValue != nil {
+			responseCols[questionKey] = rValue.Value
+		}
+
+	} else {
+		for _, rSlot := range question.Responses {
+			// Prepare columns:
+			slotKey := questionKey + questionOptionSep + rSlot.ID
+			responseCols[slotKey] = ""
+
+			// Find responses
+			rValue := retrieveResponseItem(response, sd.RESPONSE_ROOT_KEY+"."+rSlot.ID)
+			if rValue != nil {
+				responseCols[slotKey] = rValue.Value
 			}
 		}
 	}
