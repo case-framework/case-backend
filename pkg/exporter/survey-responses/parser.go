@@ -66,58 +66,14 @@ func (rp *ResponseParser) initColumnNames() error {
 	respCols := getResponseColNamesForAllVersions(rp.surveyVersions, rp.questionOptionSep)
 	slices.Sort(respCols)
 
-	// TODO: meta headers for responses
-	// TODO: sort meta cols
-
-	/*for _, colName := range rp.columns.MetaColumns {
-		if strings.Contains(colName, "metaInit") {
-			if !rp.includeMeta.InitTimes {
-				continue
-			}
-			v, ok := parsedResponse.Meta.Initialised[colName]
-			if !ok {
-				res[colName] = ""
-			} else {
-				res[colName] = v
-			}
-		} else if strings.Contains(colName, "metaDisplayed") {
-			if !rp.includeMeta.DisplayedTimes {
-				continue
-			}
-			v, ok := parsedResponse.Meta.Displayed[colName]
-			if !ok {
-				res[colName] = ""
-			} else {
-				res[colName] = v
-			}
-		} else if strings.Contains(colName, "metaResponse") {
-			if !rp.includeMeta.ResponsedTimes {
-				continue
-			}
-			v, ok := parsedResponse.Meta.Responded[colName]
-			if !ok {
-				res[colName] = ""
-			} else {
-				res[colName] = v
-			}
-		} else if strings.Contains(colName, "metaPosition") {
-			if !rp.includeMeta.Postion {
-				continue
-			}
-			v, ok := parsedResponse.Meta.Position[colName]
-			if !ok {
-				res[colName] = ""
-			} else {
-				res[colName] = v
-			}
-		}
-	}*/
+	metaCols := getMetaColNamesForAllVersions(rp.surveyVersions, rp.includeMeta, rp.questionOptionSep)
+	slices.Sort(metaCols)
 
 	rp.columns = ColumnNames{
 		FixedColumns:    fixedCols,
 		ContextColumns:  ctxCols,
 		ResponseColumns: respCols,
-		MetaColumns:     []string{},
+		MetaColumns:     metaCols,
 	}
 	return nil
 }
@@ -172,7 +128,31 @@ func (rp *ResponseParser) ParseResponse(
 			parsedResponse.Responses[k] = v
 		}
 
-		// TODO: parse each meta s2lot
+		// Set meta infos
+		initColName := question.ID + rp.questionOptionSep + "metaInit"
+		parsedResponse.Meta.Initialised[initColName] = []int64{}
+
+		dispColName := question.ID + rp.questionOptionSep + "metaDisplayed"
+		parsedResponse.Meta.Displayed[dispColName] = []int64{}
+
+		respColName := question.ID + rp.questionOptionSep + "metaResponse"
+		parsedResponse.Meta.Responded[respColName] = []int64{}
+
+		positionColName := question.ID + rp.questionOptionSep + "metaPosition"
+		parsedResponse.Meta.Position[positionColName] = 0
+
+		if resp != nil {
+			if resp.Meta.Rendered != nil {
+				parsedResponse.Meta.Initialised[initColName] = resp.Meta.Rendered
+			}
+			if resp.Meta.Displayed != nil {
+				parsedResponse.Meta.Displayed[dispColName] = resp.Meta.Displayed
+			}
+			if resp.Meta.Responded != nil {
+				parsedResponse.Meta.Responded[respColName] = resp.Meta.Responded
+			}
+			parsedResponse.Meta.Position[positionColName] = resp.Meta.Position
+		}
 	}
 
 	return parsedResponse, nil

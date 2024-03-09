@@ -2,7 +2,6 @@ package apihandlers
 
 import (
 	"fmt"
-	"log"
 	"log/slog"
 	"net/http"
 	"time"
@@ -1787,8 +1786,6 @@ func (h *HttpEndpoints) getStudyResponses(c *gin.Context) {
 		return
 	}
 
-	slog.Debug("data:", slog.Any("rawResponses", rawResponses))
-
 	surveyVersions, err := studydefinition.PrepareSurveyInfosFromDB(
 		h.studyDBConn,
 		token.InstanceID,
@@ -1806,10 +1803,15 @@ func (h *HttpEndpoints) getStudyResponses(c *gin.Context) {
 		return
 	}
 
-	log.Println("surveyVersions", surveyVersions)
-
 	// TODO: include meta cols
 	var includeMeta *surveyresponses.IncludeMeta
+	/* includeMeta = &surveyresponses.IncludeMeta{
+		Postion:        true,
+		InitTimes:      true,
+		DisplayedTimes: true,
+		ResponsedTimes: true,
+	} */
+
 	questionOptionSep := "-"
 
 	respParser, err := surveyresponses.NewResponseParser(

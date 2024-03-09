@@ -45,6 +45,48 @@ func findResponse(responses []studytypes.SurveyItemResponse, key string) *studyt
 	return nil
 }
 
+func getMetaColNamesForAllVersions(
+	surveyVersions []studydefinition.SurveyVersionPreview,
+	includeMeta *IncludeMeta,
+	questionOptionSep string,
+) []string {
+	if includeMeta == nil {
+		return []string{}
+	}
+
+	colNames := map[string]bool{}
+	for _, version := range surveyVersions {
+		for _, question := range version.Questions {
+			if includeMeta.InitTimes {
+				colName := question.ID + questionOptionSep + "metaInit"
+				colNames[colName] = true
+			}
+
+			if includeMeta.DisplayedTimes {
+				colName := question.ID + questionOptionSep + "metaDisplayed"
+				colNames[colName] = true
+			}
+
+			if includeMeta.ResponsedTimes {
+				colName := question.ID + questionOptionSep + "metaResponse"
+				colNames[colName] = true
+			}
+
+			if includeMeta.Postion {
+				colName := question.ID + questionOptionSep + "metaPosition"
+				colNames[colName] = true
+			}
+		}
+	}
+
+	uniqueColNames := []string{}
+	for colName := range colNames {
+		uniqueColNames = append(uniqueColNames, colName)
+	}
+
+	return uniqueColNames
+}
+
 func getResponseColNamesForAllVersions(
 	surveyVersions []studydefinition.SurveyVersionPreview,
 	questionOptionSep string,
