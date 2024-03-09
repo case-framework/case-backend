@@ -11,12 +11,14 @@ type QuestionTypeHandler interface {
 }
 
 var questionTypeHandlers = map[string]QuestionTypeHandler{
-	sd.QUESTION_TYPE_SINGLE_CHOICE:   &SingleChoiceHandler{},
-	sd.QUESTION_TYPE_MULTIPLE_CHOICE: &MultipleChoiceHandler{},
-	sd.QUESTION_TYPE_CONSENT:         &ConsentHandler{},
-	sd.QUESTION_TYPE_DROPDOWN:        &SingleChoiceHandler{},
-	sd.QUESTION_TYPE_LIKERT:          &SingleChoiceHandler{},
-	sd.QUESTION_TYPE_LIKERT_GROUP:    &SingleChoiceHandler{},
+	sd.QUESTION_TYPE_SINGLE_CHOICE:                   &SingleChoiceHandler{},
+	sd.QUESTION_TYPE_MULTIPLE_CHOICE:                 &MultipleChoiceHandler{},
+	sd.QUESTION_TYPE_CONSENT:                         &ConsentHandler{},
+	sd.QUESTION_TYPE_DROPDOWN:                        &SingleChoiceHandler{},
+	sd.QUESTION_TYPE_LIKERT:                          &SingleChoiceHandler{},
+	sd.QUESTION_TYPE_LIKERT_GROUP:                    &SingleChoiceHandler{},
+	sd.QUESTION_TYPE_RESPONSIVE_SINGLE_CHOICE_ARRAY:  &SingleChoiceHandler{},
+	sd.QUESTION_TYPE_RESPONSIVE_BIPOLAR_LIKERT_ARRAY: &SingleChoiceHandler{},
 	// TODO: add more handlers for other question types here
 }
 

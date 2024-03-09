@@ -91,20 +91,6 @@ func getResponseColNamesForQuestion(
 	}
 	return qTypeHandl.GetResponseColumnNames(question, questionOptionSep)
 	/*
-
-
-	   case studydefinition.QUESTION_TYPE_LIKERT_GROUP:
-
-	   	return handleSingleChoiceGroupList(question.ID, question.Responses, response, questionOptionSep)
-
-	   case studydefinition.QUESTION_TYPE_RESPONSIVE_SINGLE_CHOICE_ARRAY:
-
-	   	return processResponseForSingleChoice(question, response, questionOptionSep)
-
-	   case studydefinition.QUESTION_TYPE_RESPONSIVE_BIPOLAR_LIKERT_ARRAY:
-
-	   	return processResponseForSingleChoice(question, response, questionOptionSep)
-
 	   case studydefinition.QUESTION_TYPE_TEXT_INPUT:
 
 	   	return processResponseForInputs(question, response, questionOptionSep)
