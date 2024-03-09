@@ -1,6 +1,8 @@
 package surveyresponses
 
 import (
+	"log/slog"
+
 	sd "github.com/case-framework/case-backend/pkg/exporter/survey-definition"
 	studytypes "github.com/case-framework/case-backend/pkg/types/study"
 )
@@ -25,6 +27,7 @@ var questionTypeHandlers = map[string]QuestionTypeHandler{
 	sd.QUESTION_TYPE_NUMERIC_SLIDER:                  &InputValueHandler{},
 	sd.QUESTION_TYPE_EQ5D_SLIDER:                     &InputValueHandler{},
 	sd.QUESTION_TYPE_RESPONSIVE_TABLE:                &ResponsiveTableHandler{},
+	sd.QUESTION_TYPE_MATRIX:                          &MatrixHandler{},
 	// TODO: add more handlers for other question types here
 }
 
@@ -235,6 +238,56 @@ func (h *ResponsiveTableHandler) ParseResponse(question sd.SurveyQuestion, respo
 
 		if rItem != nil {
 			responseCols[slotKey] = rItem.Value
+		}
+	}
+
+	return responseCols
+}
+
+// MatrixHandler implements the QuestionTypeHandler interface for matrix questions
+type MatrixHandler struct{}
+
+func (h *MatrixHandler) GetResponseColumnNames(question sd.SurveyQuestion, questionOptionSep string) []string {
+	colNames := []string{}
+
+	for _, rSlot := range question.Responses {
+		slotKey := question.ID + questionOptionSep + rSlot.ID
+		colNames = append(colNames, slotKey)
+	}
+
+	return colNames
+}
+
+func (h *MatrixHandler) ParseResponse(question sd.SurveyQuestion, response *studytypes.SurveyItemResponse, questionOptionSep string) map[string]interface{} {
+	responseCols := map[string]interface{}{}
+
+	for _, rSlot := range question.Responses {
+		slotKey := question.ID + questionOptionSep + rSlot.ID
+
+		rGroup := retrieveResponseItem(response, sd.RESPONSE_ROOT_KEY+"."+rSlot.ID)
+
+		if rSlot.ResponseType == sd.QUESTION_TYPE_MATRIX_RADIO_ROW {
+			if rGroup != nil {
+				if len(rGroup.Items) != 1 {
+					slog.Debug("unexpected response group for question", slog.String("questionKey", question.ID))
+				} else {
+					selection := rGroup.Items[0]
+					responseCols[slotKey] = selection.Key
+				}
+			}
+		} else {
+			if rGroup != nil {
+				if len(rGroup.Items) != 1 {
+					slog.Debug("unexpected response group for question", slog.String("questionKey", question.ID))
+				} else {
+					selection := rGroup.Items[0]
+					value := selection.Key
+					if selection.Value != "" {
+						value = selection.Value
+					}
+					responseCols[slotKey] = value
+				}
+			}
 		}
 	}
 

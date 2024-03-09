@@ -91,9 +91,6 @@ func getResponseColNamesForQuestion(
 	}
 	return qTypeHandl.GetResponseColumnNames(question, questionOptionSep)
 	/*
-	   case studydefinition.QUESTION_TYPE_RESPONSIVE_TABLE:
-
-	   	return processResponseForResponsiveTable(question, response, questionOptionSep)
 
 	   case studydefinition.QUESTION_TYPE_MATRIX:
 
