@@ -14,6 +14,7 @@ var questionTypeHandlers = map[string]QuestionTypeHandler{
 	sd.QUESTION_TYPE_SINGLE_CHOICE:   &SingleChoiceHandler{},
 	sd.QUESTION_TYPE_MULTIPLE_CHOICE: &MultipleChoiceHandler{},
 	sd.QUESTION_TYPE_CONSENT:         &ConsentHandler{},
+	sd.QUESTION_TYPE_DROPDOWN:        &SingleChoiceHandler{},
 	// TODO: add more handlers for other question types here
 }
 

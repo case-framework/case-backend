@@ -92,10 +92,6 @@ func getResponseColNamesForQuestion(
 	return qTypeHandl.GetResponseColumnNames(question, questionOptionSep)
 	/*
 
-	   case studydefinition.QUESTION_TYPE_CONSENT:
-
-	   	return processResponseForConsent(question, response, questionOptionSep)
-
 	   case studydefinition.QUESTION_TYPE_DROPDOWN:
 
 	   	return processResponseForSingleChoice(question, response, questionOptionSep)
