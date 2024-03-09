@@ -2,6 +2,7 @@ package apihandlers
 
 import (
 	"fmt"
+	"log"
 	"log/slog"
 	"net/http"
 	"time"
@@ -16,6 +17,7 @@ import (
 
 	studydefinition "github.com/case-framework/case-backend/pkg/exporter/survey-definition"
 	surveydefinition "github.com/case-framework/case-backend/pkg/exporter/survey-definition"
+	surveyresponses "github.com/case-framework/case-backend/pkg/exporter/survey-responses"
 	studyTypes "github.com/case-framework/case-backend/pkg/types/study"
 )
 
@@ -1693,6 +1695,7 @@ func (h *HttpEndpoints) getSurveyInfo(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getResponsesCount(c *gin.Context) {
+
 	// TODO: implement
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
@@ -1758,7 +1761,9 @@ func (h *HttpEndpoints) getStudyResponses(c *gin.Context) {
 		return
 	}
 
-	slog.Info("getting study responses", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+	useShortKeys := c.DefaultQuery("shortKeys", "false") == "true"
+
+	slog.Info("getting study responses", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey))
 
 	query, err := apihelpers.ParsePaginatedQueryFromCtx(c)
 	if err != nil || query == nil {
@@ -1766,7 +1771,7 @@ func (h *HttpEndpoints) getStudyResponses(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
-	query.Filter["surveyKey"] = surveyKey
+	query.Filter["key"] = surveyKey
 
 	rawResponses, paginationInfo, err := h.studyDBConn.GetResponses(
 		token.InstanceID,
@@ -1782,16 +1787,64 @@ func (h *HttpEndpoints) getStudyResponses(c *gin.Context) {
 		return
 	}
 
-	slog.Any("rawResponses", rawResponses)
-	slog.Any("paginationInfo", paginationInfo)
+	slog.Debug("data:", slog.Any("rawResponses", rawResponses))
 
-	// TODO: use data exporter to prep flat json
+	surveyVersions, err := studydefinition.PrepareSurveyInfosFromDB(
+		h.studyDBConn,
+		token.InstanceID,
+		studyKey,
+		surveyKey,
+		&surveydefinition.ExtractOptions{
+			UseLabelLang: "",
+			IncludeItems: nil,
+			ExcludeItems: nil,
+		},
+	)
+	if err != nil {
+		slog.Error("failed to get survey versions", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get survey versions"})
+		return
+	}
 
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
-	/*c.JSON(http.StatusOK, gin.H{
-		// "responses":  responses,
+	log.Println("surveyVersions", surveyVersions)
+
+	// TODO: include meta cols
+	var includeMeta *surveyresponses.IncludeMeta
+	questionOptionSep := "-"
+
+	respParser, err := surveyresponses.NewResponseParser(
+		surveyKey,
+		surveyVersions,
+		useShortKeys,
+		includeMeta,
+		questionOptionSep,
+	)
+	if err != nil {
+		slog.Error("failed to create response parser", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create response parser"})
+		return
+	}
+
+	responses := make([]map[string]interface{}, len(rawResponses))
+
+	for i, rawResp := range rawResponses {
+		resp, err := respParser.ParseResponse(&rawResp)
+		if err != nil {
+			slog.Error("failed to parse response", slog.String("error", err.Error()))
+			continue
+		}
+		output, err := respParser.ResponseToFlatObj(resp)
+		if err != nil {
+			slog.Error("failed to convert response to flat object", slog.String("error", err.Error()))
+			continue
+		}
+		responses[i] = output
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"responses":  responses,
 		"pagination": paginationInfo,
-	})*/
+	})
 }
 
 func (h *HttpEndpoints) getStudyResponseById(c *gin.Context) {

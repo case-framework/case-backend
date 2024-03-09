@@ -45,3 +45,13 @@ const (
 	OPTION_TYPE_EMBEDDED_CLOZE_NUMBER_INPUT = "embedded_cloze_number"
 	OPTION_TYPE_EMBEDDED_CLOZE_DROPDOWN     = "embedded_cloze_dropdown"
 )
+
+const (
+	RESPONSE_ROOT_KEY = "rg"
+)
+
+const (
+	OPEN_FIELD_COL_SUFFIX = "open"
+	TRUE_VALUE            = "TRUE"
+	FALSE_VALUE           = "FALSE"
+)
