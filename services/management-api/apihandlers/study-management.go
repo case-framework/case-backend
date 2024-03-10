@@ -1753,32 +1753,32 @@ func (h *HttpEndpoints) getStudyResponses(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 
 	studyKey := c.Param("studyKey")
-	surveyKey := c.DefaultQuery("surveyKey", "")
+
+	query, err := apihelpers.ParseResponseExportQueryFromCtx(c)
+	if err != nil || query == nil {
+		slog.Error("failed to parse query", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	surveyKey := query.SurveyKey
 	if surveyKey == "" {
 		slog.Error("surveyKey is required", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "surveyKey is required"})
 		return
 	}
 
-	useShortKeys := c.DefaultQuery("shortKeys", "false") == "true"
+	query.PaginationInfos.Filter["key"] = surveyKey
 
 	slog.Info("getting study responses", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey))
-
-	query, err := apihelpers.ParsePaginatedQueryFromCtx(c)
-	if err != nil || query == nil {
-		slog.Error("failed to parse paginated query", slog.String("error", err.Error()))
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
-		return
-	}
-	query.Filter["key"] = surveyKey
 
 	rawResponses, paginationInfo, err := h.studyDBConn.GetResponses(
 		token.InstanceID,
 		studyKey,
-		query.Filter,
-		query.Sort,
-		query.Page,
-		query.Limit,
+		query.PaginationInfos.Filter,
+		query.PaginationInfos.Sort,
+		query.PaginationInfos.Page,
+		query.PaginationInfos.Limit,
 	)
 	if err != nil {
 		slog.Error("failed to get study responses", slog.String("error", err.Error()))
@@ -1803,23 +1803,12 @@ func (h *HttpEndpoints) getStudyResponses(c *gin.Context) {
 		return
 	}
 
-	// TODO: include meta cols
-	var includeMeta *surveyresponses.IncludeMeta
-	/* includeMeta = &surveyresponses.IncludeMeta{
-		Postion:        true,
-		InitTimes:      true,
-		DisplayedTimes: true,
-		ResponsedTimes: true,
-	} */
-
-	questionOptionSep := "-"
-
 	respParser, err := surveyresponses.NewResponseParser(
 		surveyKey,
 		surveyVersions,
-		useShortKeys,
-		includeMeta,
-		questionOptionSep,
+		query.UseShortKeys,
+		query.IncludeMeta,
+		query.QuestionOptionSep,
 	)
 	if err != nil {
 		slog.Error("failed to create response parser", slog.String("error", err.Error()))
@@ -1857,13 +1846,11 @@ func (h *HttpEndpoints) getStudyResponseById(c *gin.Context) {
 
 	slog.Info("getting study response by ID", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("responseID", responseID))
 
-	itemSlotKeySep := c.DefaultQuery("itemSlotKeySep", "-")
-	useShortKeys := c.DefaultQuery("shortKeys", "false") == "true"
-	includeMeta := &surveyresponses.IncludeMeta{
-		Postion:        false,
-		InitTimes:      false,
-		DisplayedTimes: false,
-		ResponsedTimes: false,
+	query, err := apihelpers.ParseResponseExportQueryFromCtx(c)
+	if err != nil {
+		slog.Error("failed to parse response export query")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
 	}
 
 	rawResponse, err := h.studyDBConn.GetResponseByID(token.InstanceID, studyKey, responseID)
@@ -1893,9 +1880,9 @@ func (h *HttpEndpoints) getStudyResponseById(c *gin.Context) {
 	respParser, err := surveyresponses.NewResponseParser(
 		rawResponse.Key,
 		surveyVersions,
-		useShortKeys,
-		includeMeta,
-		itemSlotKeySep,
+		query.UseShortKeys,
+		query.IncludeMeta,
+		query.QuestionOptionSep,
 	)
 	if err != nil {
 		slog.Error("failed to create response parser", slog.String("error", err.Error()))
