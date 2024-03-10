@@ -71,6 +71,8 @@ const (
 	ENV_LOG_MAX_BACKUPS = "LOG_MAX_BACKUPS"
 	ENV_LOG_LEVEL       = "LOG_LEVEL"
 	ENV_LOG_INCLUDE_SRC = "LOG_INCLUDE_SRC"
+
+	ENV_FILESTORE_PATH = "FILESTORE_PATH"
 )
 
 type Config struct {
@@ -92,6 +94,8 @@ type Config struct {
 	ManagementUserDBConfig db.DBConfig `json:"management_user_db_config"`
 	MessagingDBConfig      db.DBConfig `json:"messaging_db_config"`
 	StudyDBConfig          db.DBConfig `json:"study_db_config"`
+
+	FilestorePath string `json:"filestore_path"`
 }
 
 func init() {
@@ -103,11 +107,28 @@ func init() {
 	}
 }
 
+func getAndCheckFilestorePath() string {
+	// To store dynamically generated files
+	fsPath := os.Getenv(ENV_FILESTORE_PATH)
+	if fsPath == "" {
+		slog.Error("Filestore path not set")
+		panic("Filestore path not set")
+	}
+
+	if _, err := os.Stat(fsPath); os.IsNotExist(err) {
+		slog.Error("Filestore path does not exist", slog.String("path", fsPath))
+		panic("Filestore path does not exist")
+	}
+	return fsPath
+}
+
 func initConfig() Config {
 	conf := Config{}
 	conf.GinDebugMode = os.Getenv(ENV_GIN_DEBUG_MODE) == "true"
 	conf.Port = os.Getenv(ENV_MANAGEMENT_API_LISTEN_PORT)
 	conf.AllowOrigins = strings.Split(os.Getenv(ENV_CORS_ALLOW_ORIGINS), ",")
+
+	conf.FilestorePath = getAndCheckFilestorePath()
 
 	// JWT configs
 	conf.ManagementUserJWTSignKey = os.Getenv(ENV_MANAGEMENT_USER_JWT_SIGN_KEY)
