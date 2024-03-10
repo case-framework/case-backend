@@ -1850,8 +1850,74 @@ func (h *HttpEndpoints) getStudyResponses(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getStudyResponseById(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	responseID := c.Param("responseID")
+
+	slog.Info("getting study response by ID", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("responseID", responseID))
+
+	itemSlotKeySep := c.DefaultQuery("itemSlotKeySep", "-")
+	useShortKeys := c.DefaultQuery("shortKeys", "false") == "true"
+	includeMeta := &surveyresponses.IncludeMeta{
+		Postion:        false,
+		InitTimes:      false,
+		DisplayedTimes: false,
+		ResponsedTimes: false,
+	}
+
+	rawResponse, err := h.studyDBConn.GetResponseByID(token.InstanceID, studyKey, responseID)
+	if err != nil {
+		slog.Error("failed to get study response by ID", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study response by ID"})
+		return
+	}
+
+	surveyVersions, err := studydefinition.PrepareSurveyInfosFromDB(
+		h.studyDBConn,
+		token.InstanceID,
+		studyKey,
+		rawResponse.Key,
+		&surveydefinition.ExtractOptions{
+			UseLabelLang: "",
+			IncludeItems: nil,
+			ExcludeItems: nil,
+		},
+	)
+	if err != nil {
+		slog.Error("failed to get survey versions", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get survey versions"})
+		return
+	}
+
+	respParser, err := surveyresponses.NewResponseParser(
+		rawResponse.Key,
+		surveyVersions,
+		useShortKeys,
+		includeMeta,
+		itemSlotKeySep,
+	)
+	if err != nil {
+		slog.Error("failed to create response parser", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create response parser"})
+		return
+	}
+
+	resp, err := respParser.ParseResponse(&rawResponse)
+	if err != nil {
+		slog.Error("failed to parse response", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse response"})
+		return
+	}
+
+	output, err := respParser.ResponseToFlatObj(resp)
+	if err != nil {
+		slog.Error("failed to convert response to flat object", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to convert response to flat object"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"response": output})
 }
 
 func (h *HttpEndpoints) deleteStudyResponses(c *gin.Context) {
