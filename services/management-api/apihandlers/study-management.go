@@ -1908,8 +1908,44 @@ func (h *HttpEndpoints) getStudyResponseById(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) deleteStudyResponses(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	query, err := apihelpers.ParseResponseExportQueryFromCtx(c)
+	if err != nil {
+		slog.Error("failed to parse response export query")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	controlField := c.DefaultQuery("controlField", "")
+	if controlField != studyKey {
+		slog.Error("controlField does not match studyKey", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to delete study responses"})
+		return
+	}
+
+	surveyKey := query.SurveyKey
+	if surveyKey == "" {
+		slog.Error("surveyKey is required", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "surveyKey is required"})
+		return
+	}
+
+	filter := query.PaginationInfos.Filter
+	filter["key"] = surveyKey // ensure surveyKey is included in the filter
+
+	slog.Info("deleting study responses", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey))
+
+	err = h.studyDBConn.DeleteResponses(token.InstanceID, studyKey, filter)
+	if err != nil {
+		slog.Error("failed to delete study responses", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete study responses"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "study responses deleted"})
 }
 
 func (h *HttpEndpoints) deleteStudyResponse(c *gin.Context) {
