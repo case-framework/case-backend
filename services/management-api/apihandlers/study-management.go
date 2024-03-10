@@ -1926,8 +1926,27 @@ func (h *HttpEndpoints) deleteStudyResponses(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) deleteStudyResponse(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	responseID := c.Param("responseID")
+
+	if responseID == "" {
+		slog.Error("responseID is required", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "responseID is required"})
+		return
+	}
+
+	slog.Info("deleting study response", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("responseID", responseID))
+
+	err := h.studyDBConn.DeleteResponseByID(token.InstanceID, studyKey, responseID)
+	if err != nil {
+		slog.Error("failed to delete study response", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete study response"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "study response deleted"})
 }
 
 func (h *HttpEndpoints) getStudyParticipants(c *gin.Context) {
