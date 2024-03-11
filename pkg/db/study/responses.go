@@ -73,26 +73,15 @@ func (dbService *StudyDBService) GetResponses(instanceID string, studyKey string
 		return responses, nil, err
 	}
 
-	if limit == 0 {
-		limit = FALLBACK_PAGE_SIZE
-	}
+	paginationInfo = prepPaginationInfos(
+		totalCount,
+		page,
+		limit,
+	)
 
-	if totalCount < limit {
-		page = 1
-	}
+	skip := (paginationInfo.CurrentPage - 1) * paginationInfo.PageSize
 
-	if page < 1 {
-		page = 1
-	}
-
-	paginationInfo = &PaginationInfos{
-		TotalCount:  totalCount,
-		CurrentPage: page,
-		TotalPages:  getTotalPages(totalCount, limit),
-		PageSize:    limit,
-	}
-
-	opts := options.Find().SetSort(sort).SetSkip((page - 1) * limit).SetLimit(limit)
+	opts := options.Find().SetSort(sort).SetSkip(skip).SetLimit(paginationInfo.PageSize)
 	collection := dbService.collectionResponses(instanceID, studyKey)
 	cursor, err := collection.Find(ctx, filter, opts)
 	if err != nil {

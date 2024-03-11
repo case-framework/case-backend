@@ -11,10 +11,6 @@ import (
 	studyTypes "github.com/case-framework/case-backend/pkg/types/study"
 )
 
-const (
-	FALLBACK_PAGE_SIZE = 10
-)
-
 func (dbService *StudyDBService) CreateIndexForParticipantsCollection(instanceID string, studyKey string) error {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
@@ -71,30 +67,18 @@ func (dbService *StudyDBService) GetParticipants(instanceID string, studyKey str
 		return participants, paginationInfo, err
 	}
 
-	if limit == 0 {
-		limit = FALLBACK_PAGE_SIZE
-	}
+	paginationInfo = prepPaginationInfos(
+		count,
+		page,
+		limit,
+	)
 
-	if count < limit {
-		page = 1
-	}
-	if page < 1 {
-		page = 1
-	}
-
-	paginationInfo = &PaginationInfos{
-		PageSize:    limit,
-		TotalCount:  count,
-		CurrentPage: page,
-		TotalPages:  getTotalPages(count, limit),
-	}
-
-	skip := (page - 1) * limit
+	skip := (paginationInfo.CurrentPage - 1) * paginationInfo.PageSize
 
 	opts := options.Find()
 	opts.SetSort(sort)
 	opts.SetSkip(skip)
-	opts.SetLimit(limit)
+	opts.SetLimit(paginationInfo.PageSize)
 
 	cursor, err := dbService.collectionParticipants(instanceID, studyKey).Find(ctx, filter, opts)
 	if err != nil {
