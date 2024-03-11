@@ -2029,8 +2029,21 @@ func (h *HttpEndpoints) getStudyReports(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getStudyReport(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	reportID := c.Param("reportID")
+
+	slog.Info("getting study report", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("reportID", reportID))
+
+	report, err := h.studyDBConn.GetReportByID(token.InstanceID, studyKey, reportID)
+	if err != nil {
+		slog.Error("failed to get study report", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study report"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"report": report})
 }
 
 func (h *HttpEndpoints) getStudyFiles(c *gin.Context) {
