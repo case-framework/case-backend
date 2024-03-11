@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/apihelpers"
@@ -2074,16 +2076,96 @@ func (h *HttpEndpoints) getStudyReport(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getStudyFiles(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	query, err := apihelpers.ParsePaginatedQueryFromCtx(c)
+	if err != nil || query == nil {
+		slog.Error("failed to parse query", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	slog.Info("getting study files", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	files, paginationInfo, err := h.studyDBConn.GetParticipantFileInfos(
+		token.InstanceID,
+		studyKey,
+		query.Filter,
+		query.Page,
+		query.Limit,
+	)
+	if err != nil {
+		slog.Error("failed to get study files", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study files"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"fileInfos":  files,
+		"pagination": paginationInfo,
+	})
 }
 
+// download file
 func (h *HttpEndpoints) getStudyFile(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	fileID := c.Param("fileID")
+
+	slog.Info("getting study file", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("fileID", fileID))
+
+	fileInfo, err := h.studyDBConn.GetParticipantFileInfoByID(token.InstanceID, studyKey, fileID)
+	if err != nil {
+		slog.Error("failed to get study file info", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study file info"})
+		return
+	}
+
+	filePath := filepath.Join(h.filestorePath, fileInfo.Path)
+
+	// Return file from file system
+	filenameToSave := filepath.Base(fileInfo.Path)
+	c.Header("Content-Disposition", "attachment; filename="+filenameToSave)
+	c.File(filePath)
 }
 
 func (h *HttpEndpoints) deleteStudyFile(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	fileID := c.Param("fileID")
+
+	slog.Info("deleting study file", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("fileID", fileID))
+
+	fileInfo, err := h.studyDBConn.GetParticipantFileInfoByID(token.InstanceID, studyKey, fileID)
+	if err != nil {
+		slog.Error("failed to get study file info", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study file info"})
+		return
+	}
+
+	// remove file from file system
+	err = os.Remove(filepath.Join(h.filestorePath, fileInfo.Path))
+	if err != nil {
+		slog.Error("failed to delete study file", slog.String("error", err.Error()), slog.String("path", fileInfo.Path))
+	}
+	if fileInfo.PreviewPath != "" {
+		err := os.Remove(filepath.Join(h.filestorePath, fileInfo.PreviewPath))
+		if err != nil {
+			slog.Error("failed to delete study file preview", slog.String("error", err.Error()), slog.String("path", fileInfo.PreviewPath))
+		}
+	}
+
+	// delete file info from database
+	err = h.studyDBConn.DeleteParticipantFileInfoByID(token.InstanceID, studyKey, fileID)
+	if err != nil {
+		slog.Error("failed to delete study file", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete study file"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "study file deleted"})
 }
