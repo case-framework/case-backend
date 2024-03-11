@@ -21,6 +21,7 @@ type HttpEndpoints struct {
 	tokenSignKey       string
 	tokenExpiresIn     time.Duration
 	allowedInstanceIDs []string
+	filestorePath      string
 }
 
 func NewHTTPHandler(
@@ -30,6 +31,7 @@ func NewHTTPHandler(
 	messagingDBConn *messagingDB.MessagingDBService,
 	studyDBConn *studyDB.StudyDBService,
 	allowedInstanceIDs []string,
+	filestorePath string,
 ) *HttpEndpoints {
 	return &HttpEndpoints{
 		tokenSignKey:       tokenSignKey,
@@ -38,5 +40,6 @@ func NewHTTPHandler(
 		studyDBConn:        studyDBConn,
 		allowedInstanceIDs: allowedInstanceIDs,
 		tokenExpiresIn:     tokenExpiresIn,
+		filestorePath:      filestorePath,
 	}
 }

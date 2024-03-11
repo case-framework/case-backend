@@ -59,6 +59,7 @@ func main() {
 		messagingDBService,
 		studyDBService,
 		conf.AllowedInstanceIDs,
+		conf.FilestorePath,
 	)
 	v1APIHandlers.AddManagementAuthAPI(v1Root)
 	v1APIHandlers.AddUserManagementAPI(v1Root)
