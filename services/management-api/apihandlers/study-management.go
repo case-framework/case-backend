@@ -2074,16 +2074,54 @@ func (h *HttpEndpoints) getStudyReport(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getStudyFiles(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	query, err := apihelpers.ParsePaginatedQueryFromCtx(c)
+	if err != nil || query == nil {
+		slog.Error("failed to parse query", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	slog.Info("getting study files", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	files, paginationInfo, err := h.studyDBConn.GetParticipantFileInfos(
+		token.InstanceID,
+		studyKey,
+		query.Filter,
+		query.Page,
+		query.Limit,
+	)
+	if err != nil {
+		slog.Error("failed to get study files", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study files"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"fileInfos":  files,
+		"pagination": paginationInfo,
+	})
 }
 
+// download file
 func (h *HttpEndpoints) getStudyFile(c *gin.Context) {
+	/*token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	fileID := c.Param("fileID")
+	*/
 	// TODO: implement
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
 
 func (h *HttpEndpoints) deleteStudyFile(c *gin.Context) {
-	// TODO: implement
+	/*token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	fileID := c.Param("fileID")
+	// TODO: implement*/
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
