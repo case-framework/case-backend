@@ -4,6 +4,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	studytypes "github.com/case-framework/case-backend/pkg/types/study"
 )
@@ -51,5 +52,44 @@ func (dbService *StudyDBService) DeleteParticipantFileInfoByID(instanceID string
 }
 
 // count by query
+func (dbService *StudyDBService) CountParticipantFileInfos(instanceID string, studyKey string, query bson.M) (int64, error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	return dbService.collectionFiles(instanceID, studyKey).CountDocuments(ctx, query)
+}
 
 // get file infos by query and pagination
+var sortBySubmittedAt = bson.D{
+	primitive.E{Key: "submittedAt", Value: -1},
+}
+
+func (dbService *StudyDBService) GetParticipantFileInfos(instanceID string, studyKey string, query bson.M, page int64, limit int64) (fileInfos []studytypes.FileInfo, paginationInfo *PaginationInfos, err error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	count, err := dbService.CountParticipantFileInfos(instanceID, studyKey, query)
+	if err != nil {
+		return fileInfos, paginationInfo, err
+	}
+
+	paginationInfo = prepPaginationInfos(
+		count,
+		page,
+		limit,
+	)
+
+	opts := options.Find()
+	opts.SetSort(sortBySubmittedAt)
+	skip := (paginationInfo.CurrentPage - 1) * paginationInfo.PageSize
+	opts.SetSkip(skip)
+
+	cursor, err := dbService.collectionFiles(instanceID, studyKey).Find(ctx, query, opts)
+	if err != nil {
+		return fileInfos, paginationInfo, err
+	}
+	defer cursor.Close(ctx)
+
+	err = cursor.All(ctx, &fileInfos)
+	return fileInfos, paginationInfo, err
+}
