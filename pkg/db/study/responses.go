@@ -126,7 +126,8 @@ func (dbService *StudyDBService) FindAndExecuteOnResponses(
 	for cursor.Next(ctx) {
 		var response studyTypes.SurveyResponse
 		if err = cursor.Decode(&response); err != nil {
-			return err
+			slog.Error("Error while decoding response", slog.String("error", err.Error()))
+			continue
 		}
 
 		if err = fn(dbService, response, instanceID, studyKey, args...); err != nil {

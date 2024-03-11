@@ -1,6 +1,9 @@
 package study
 
 import (
+	"context"
+	"log/slog"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -97,3 +100,33 @@ func (dbService *StudyDBService) GetReports(instanceID string, studyKey string, 
 }
 
 // iterate over reports for query
+func (dbService *StudyDBService) FindAndExecuteOnReports(
+	ctx context.Context,
+	instanceID string, studyKey string,
+	filter bson.M,
+	fn func(instanceID string, studyKey string, report studyTypes.Report, args ...interface{}) error,
+	args ...interface{},
+) error {
+	opts := options.Find().SetSort(reportSortOnTimestamp)
+
+	cursor, err := dbService.collectionReports(instanceID, studyKey).Find(ctx, filter, opts)
+	if err != nil {
+		return err
+	}
+
+	defer cursor.Close(ctx)
+
+	for cursor.Next(ctx) {
+		var report studyTypes.Report
+		if err = cursor.Decode(&report); err != nil {
+			slog.Error("Error while decoding report", slog.String("error", err.Error()))
+			continue
+		}
+
+		if err = fn(instanceID, studyKey, report, args...); err != nil {
+			slog.Error("Error executing function on report", slog.String("reportID", report.ID.Hex()), slog.String("error", err.Error()))
+			continue
+		}
+	}
+	return nil
+}
