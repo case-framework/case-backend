@@ -61,13 +61,6 @@ func (dbService *StudyDBService) GetParticipantByID(instanceID string, studyKey 
 	return participant, err
 }
 
-type PaginationInfos struct {
-	TotalCount  int64 `json:"totalCount"`
-	CurrentPage int64 `json:"currentPage"`
-	TotalPages  int64 `json:"totalPages"`
-	PageSize    int64 `json:"pageSize"`
-}
-
 // get paginated set of participants
 func (dbService *StudyDBService) GetParticipants(instanceID string, studyKey string, filter bson.M, sort bson.M, page int64, limit int64) (participants []studyTypes.Participant, paginationInfo *PaginationInfos, err error) {
 	ctx, cancel := dbService.getContext()
@@ -85,12 +78,15 @@ func (dbService *StudyDBService) GetParticipants(instanceID string, studyKey str
 	if count < limit {
 		page = 1
 	}
+	if page < 1 {
+		page = 1
+	}
 
 	paginationInfo = &PaginationInfos{
 		PageSize:    limit,
 		TotalCount:  count,
 		CurrentPage: page,
-		TotalPages:  count / limit,
+		TotalPages:  getTotalPages(count, limit),
 	}
 
 	skip := (page - 1) * limit

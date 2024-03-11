@@ -1,6 +1,7 @@
 package apihandlers
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -13,6 +14,9 @@ import (
 	"github.com/case-framework/case-backend/pkg/utils"
 	"github.com/gin-gonic/gin"
 
+	studydefinition "github.com/case-framework/case-backend/pkg/exporter/survey-definition"
+	surveydefinition "github.com/case-framework/case-backend/pkg/exporter/survey-definition"
+	surveyresponses "github.com/case-framework/case-backend/pkg/exporter/survey-responses"
 	studyTypes "github.com/case-framework/case-backend/pkg/types/study"
 )
 
@@ -466,6 +470,21 @@ func (h *HttpEndpoints) addStudyActionEndpoints(rg *gin.RouterGroup) {
 
 func (h *HttpEndpoints) addStudyDataExporterEndpoints(rg *gin.RouterGroup) {
 	exporterGroup := rg.Group("/data-exporter")
+
+	surveyInfoGroup := exporterGroup.Group("/survey-info")
+	{
+		// get survey info
+		surveyInfoGroup.GET("/", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_READ_STUDY_CONFIG,
+			},
+			nil,
+			h.getSurveyInfo,
+		))
+	}
 
 	responsesGroup := exporterGroup.Group("/responses")
 	{
@@ -1612,7 +1631,70 @@ func (h *HttpEndpoints) runActionOnPreviousResponsesForParticipants(c *gin.Conte
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
 
+func (h *HttpEndpoints) getSurveyInfo(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	surveyKey := c.DefaultQuery("surveyKey", "")
+	if surveyKey == "" {
+		slog.Error("surveyKey is required", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "surveyKey is required"})
+		return
+	}
+
+	format := c.DefaultQuery("format", "json")
+	if format != "json" && format != "csv" {
+		slog.Error("invalid format", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey), slog.String("format", format))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid format query parameter"})
+		return
+	}
+	// includeItems, excludeItems
+	language := c.DefaultQuery("language", "en")
+	shortKeys := c.DefaultQuery("shortKeys", "false") == "true"
+
+	slog.Info("getting survey info", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey))
+
+	sInfos, err := studydefinition.PrepareSurveyInfosFromDB(
+		h.studyDBConn,
+		token.InstanceID,
+		studyKey,
+		surveyKey,
+		&surveydefinition.ExtractOptions{
+			UseLabelLang: language,
+		},
+	)
+	if err != nil {
+		slog.Error("failed to get survey info", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get survey info"})
+		return
+	}
+
+	siExp := studydefinition.NewSurveyInfoExporter(
+		sInfos,
+		surveyKey,
+		shortKeys,
+	)
+
+	if format == "json" {
+		c.Header("Content-Disposition", `attachment; filename=`+fmt.Sprintf("survey-infos_%s_%s.json", studyKey, surveyKey))
+		c.JSON(http.StatusOK, gin.H{"versions": siExp.GetSurveyInfos(), "key": surveyKey})
+		return
+	}
+
+	// CSV:
+	c.Header("Content-Disposition", `attachment; filename=`+fmt.Sprintf("survey-infos_%s_%s.csv", studyKey, surveyKey))
+	c.Header("Content-Type", "text/csv")
+	err = siExp.GetSurveyInfoCSV(c.Writer)
+	if err != nil {
+		slog.Error("failed to get survey info csv", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get survey info csv"})
+		return
+	}
+}
+
 func (h *HttpEndpoints) getResponsesCount(c *gin.Context) {
+
 	// TODO: implement
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
@@ -1668,23 +1750,226 @@ func (h *HttpEndpoints) getExportTaskResult(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getStudyResponses(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	query, err := apihelpers.ParseResponseExportQueryFromCtx(c)
+	if err != nil || query == nil {
+		slog.Error("failed to parse query", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	surveyKey := query.SurveyKey
+	if surveyKey == "" {
+		slog.Error("surveyKey is required", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "surveyKey is required"})
+		return
+	}
+
+	query.PaginationInfos.Filter["key"] = surveyKey
+
+	slog.Info("getting study responses", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey))
+
+	rawResponses, paginationInfo, err := h.studyDBConn.GetResponses(
+		token.InstanceID,
+		studyKey,
+		query.PaginationInfos.Filter,
+		query.PaginationInfos.Sort,
+		query.PaginationInfos.Page,
+		query.PaginationInfos.Limit,
+	)
+	if err != nil {
+		slog.Error("failed to get study responses", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study responses"})
+		return
+	}
+
+	surveyVersions, err := studydefinition.PrepareSurveyInfosFromDB(
+		h.studyDBConn,
+		token.InstanceID,
+		studyKey,
+		surveyKey,
+		&surveydefinition.ExtractOptions{
+			UseLabelLang: "",
+			IncludeItems: nil,
+			ExcludeItems: nil,
+		},
+	)
+	if err != nil {
+		slog.Error("failed to get survey versions", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get survey versions"})
+		return
+	}
+
+	respParser, err := surveyresponses.NewResponseParser(
+		surveyKey,
+		surveyVersions,
+		query.UseShortKeys,
+		query.IncludeMeta,
+		query.QuestionOptionSep,
+	)
+	if err != nil {
+		slog.Error("failed to create response parser", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create response parser"})
+		return
+	}
+
+	responses := make([]map[string]interface{}, len(rawResponses))
+
+	for i, rawResp := range rawResponses {
+		resp, err := respParser.ParseResponse(&rawResp)
+		if err != nil {
+			slog.Error("failed to parse response", slog.String("error", err.Error()))
+			continue
+		}
+		output, err := respParser.ResponseToFlatObj(resp)
+		if err != nil {
+			slog.Error("failed to convert response to flat object", slog.String("error", err.Error()))
+			continue
+		}
+		responses[i] = output
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"responses":  responses,
+		"pagination": paginationInfo,
+	})
 }
 
 func (h *HttpEndpoints) getStudyResponseById(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	responseID := c.Param("responseID")
+
+	slog.Info("getting study response by ID", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("responseID", responseID))
+
+	query, err := apihelpers.ParseResponseExportQueryFromCtx(c)
+	if err != nil {
+		slog.Error("failed to parse response export query")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	rawResponse, err := h.studyDBConn.GetResponseByID(token.InstanceID, studyKey, responseID)
+	if err != nil {
+		slog.Error("failed to get study response by ID", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study response by ID"})
+		return
+	}
+
+	surveyVersions, err := studydefinition.PrepareSurveyInfosFromDB(
+		h.studyDBConn,
+		token.InstanceID,
+		studyKey,
+		rawResponse.Key,
+		&surveydefinition.ExtractOptions{
+			UseLabelLang: "",
+			IncludeItems: nil,
+			ExcludeItems: nil,
+		},
+	)
+	if err != nil {
+		slog.Error("failed to get survey versions", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get survey versions"})
+		return
+	}
+
+	respParser, err := surveyresponses.NewResponseParser(
+		rawResponse.Key,
+		surveyVersions,
+		query.UseShortKeys,
+		query.IncludeMeta,
+		query.QuestionOptionSep,
+	)
+	if err != nil {
+		slog.Error("failed to create response parser", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create response parser"})
+		return
+	}
+
+	resp, err := respParser.ParseResponse(&rawResponse)
+	if err != nil {
+		slog.Error("failed to parse response", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse response"})
+		return
+	}
+
+	output, err := respParser.ResponseToFlatObj(resp)
+	if err != nil {
+		slog.Error("failed to convert response to flat object", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to convert response to flat object"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"response": output})
 }
 
 func (h *HttpEndpoints) deleteStudyResponses(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	query, err := apihelpers.ParseResponseExportQueryFromCtx(c)
+	if err != nil {
+		slog.Error("failed to parse response export query")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	controlField := c.DefaultQuery("controlField", "")
+	if controlField != studyKey {
+		slog.Error("controlField does not match studyKey", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to delete study responses"})
+		return
+	}
+
+	surveyKey := query.SurveyKey
+	if surveyKey == "" {
+		slog.Error("surveyKey is required", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "surveyKey is required"})
+		return
+	}
+
+	filter := query.PaginationInfos.Filter
+	filter["key"] = surveyKey // ensure surveyKey is included in the filter
+
+	slog.Info("deleting study responses", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey))
+
+	err = h.studyDBConn.DeleteResponses(token.InstanceID, studyKey, filter)
+	if err != nil {
+		slog.Error("failed to delete study responses", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete study responses"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "study responses deleted"})
 }
 
 func (h *HttpEndpoints) deleteStudyResponse(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	responseID := c.Param("responseID")
+
+	if responseID == "" {
+		slog.Error("responseID is required", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "responseID is required"})
+		return
+	}
+
+	slog.Info("deleting study response", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("responseID", responseID))
+
+	err := h.studyDBConn.DeleteResponseByID(token.InstanceID, studyKey, responseID)
+	if err != nil {
+		slog.Error("failed to delete study response", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete study response"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "study response deleted"})
 }
 
 func (h *HttpEndpoints) getStudyParticipants(c *gin.Context) {
