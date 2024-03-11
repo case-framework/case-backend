@@ -2110,13 +2110,26 @@ func (h *HttpEndpoints) getStudyFiles(c *gin.Context) {
 
 // download file
 func (h *HttpEndpoints) getStudyFile(c *gin.Context) {
-	/*token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 
 	studyKey := c.Param("studyKey")
 	fileID := c.Param("fileID")
-	*/
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+
+	slog.Info("getting study file", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("fileID", fileID))
+
+	fileInfo, err := h.studyDBConn.GetParticipantFileInfoByID(token.InstanceID, studyKey, fileID)
+	if err != nil {
+		slog.Error("failed to get study file info", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study file info"})
+		return
+	}
+
+	filePath := filepath.Join(h.filestorePath, fileInfo.Path)
+
+	// Return file from file system
+	filenameToSave := filepath.Base(fileInfo.Path)
+	c.Header("Content-Disposition", "attachment; filename="+filenameToSave)
+	c.File(filePath)
 }
 
 func (h *HttpEndpoints) deleteStudyFile(c *gin.Context) {
