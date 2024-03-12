@@ -80,8 +80,8 @@ func ParseResponseExportQueryFromCtx(c *gin.Context) (*ResponseExportQuery, erro
 		return nil, err
 	}
 
-	surveyKey := c.Param("surveyKey")
-	useShortKeys, err := strconv.ParseBool(c.DefaultQuery("useShortKeys", "false"))
+	surveyKey := c.DefaultQuery("surveyKey", "")
+	useShortKeys, err := strconv.ParseBool(c.DefaultQuery("shortKeys", "false"))
 	if err != nil {
 		return nil, err
 	}
