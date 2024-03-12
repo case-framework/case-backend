@@ -2038,6 +2038,11 @@ func (h *HttpEndpoints) getStudyReports(c *gin.Context) {
 		return
 	}
 
+	reportKey := c.DefaultQuery("reportKey", "")
+	if reportKey != "" {
+		query.Filter["key"] = reportKey
+	}
+
 	reports, paginationInfo, err := h.studyDBConn.GetReports(
 		token.InstanceID,
 		studyKey,
