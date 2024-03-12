@@ -2,7 +2,7 @@ package apihelpers
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"sort"
 
@@ -12,7 +12,8 @@ import (
 func WriteRoutesToFile(router *gin.Engine, filename string) {
 	file, err := os.Create(filename)
 	if err != nil {
-		log.Fatal(err)
+		slog.Warn("Error creating file for route infos", slog.String("error", err.Error()))
+		return
 	}
 	defer file.Close()
 	routes := router.Routes()
@@ -23,8 +24,7 @@ func WriteRoutesToFile(router *gin.Engine, filename string) {
 	for _, route := range routes {
 		_, err := file.WriteString(fmt.Sprintf("%s %s\n", route.Method, route.Path))
 		if err != nil {
-			log.Fatal(err)
+			slog.Warn("Error writing route info to file", slog.String("error", err.Error()))
 		}
 	}
-
 }
