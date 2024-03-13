@@ -2131,6 +2131,13 @@ func (h *HttpEndpoints) getStudyFile(c *gin.Context) {
 
 	filePath := filepath.Join(h.filestorePath, fileInfo.Path)
 
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		slog.Error("file does not exist", slog.String("path", filePath))
+		c.JSON(http.StatusNotFound, gin.H{"error": "file does not exist"})
+		return
+	}
+
 	// Return file from file system
 	filenameToSave := filepath.Base(fileInfo.Path)
 	c.Header("Content-Disposition", "attachment; filename="+filenameToSave)
