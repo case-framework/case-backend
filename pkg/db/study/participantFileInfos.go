@@ -83,6 +83,7 @@ func (dbService *StudyDBService) GetParticipantFileInfos(instanceID string, stud
 	opts.SetSort(sortBySubmittedAt)
 	skip := (paginationInfo.CurrentPage - 1) * paginationInfo.PageSize
 	opts.SetSkip(skip)
+	opts.SetLimit(paginationInfo.PageSize)
 
 	cursor, err := dbService.collectionFiles(instanceID, studyKey).Find(ctx, query, opts)
 	if err != nil {

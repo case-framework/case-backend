@@ -2038,6 +2038,11 @@ func (h *HttpEndpoints) getStudyReports(c *gin.Context) {
 		return
 	}
 
+	reportKey := c.DefaultQuery("reportKey", "")
+	if reportKey != "" {
+		query.Filter["key"] = reportKey
+	}
+
 	reports, paginationInfo, err := h.studyDBConn.GetReports(
 		token.InstanceID,
 		studyKey,
@@ -2125,6 +2130,13 @@ func (h *HttpEndpoints) getStudyFile(c *gin.Context) {
 	}
 
 	filePath := filepath.Join(h.filestorePath, fileInfo.Path)
+
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		slog.Error("file does not exist", slog.String("path", filePath))
+		c.JSON(http.StatusNotFound, gin.H{"error": "file does not exist"})
+		return
+	}
 
 	// Return file from file system
 	filenameToSave := filepath.Base(fileInfo.Path)
