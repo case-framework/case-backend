@@ -1696,9 +1696,29 @@ func (h *HttpEndpoints) getSurveyInfo(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getResponsesCount(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	studyKey := c.Param("studyKey")
+
+	filter, err := apihelpers.ParseFilterQueryFromCtx(c)
+	if err != nil {
+		slog.Error("failed to parse filter", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	filter["key"] = c.DefaultQuery("surveyKey", "")
+
+	slog.Info("getting responses count", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	count, err := h.studyDBConn.GetResponsesCount(token.InstanceID, studyKey, filter)
+	if err != nil {
+		slog.Error("failed to get responses count", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get responses count"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"count": count})
 }
 
 func (h *HttpEndpoints) generateResponsesExport(c *gin.Context) {
@@ -1707,8 +1727,27 @@ func (h *HttpEndpoints) generateResponsesExport(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getParticipantsCount(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	filter, err := apihelpers.ParseFilterQueryFromCtx(c)
+	if err != nil {
+		slog.Error("failed to parse filter", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	slog.Info("getting participants count", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	count, err := h.studyDBConn.GetParticipantCount(token.InstanceID, studyKey, filter)
+	if err != nil {
+		slog.Error("failed to get participants count", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get participants count"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"count": count})
 }
 
 func (h *HttpEndpoints) generateParticipantsExport(c *gin.Context) {
@@ -1717,8 +1756,32 @@ func (h *HttpEndpoints) generateParticipantsExport(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getReportsCount(c *gin.Context) {
-	//	TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	filter, err := apihelpers.ParseFilterQueryFromCtx(c)
+	if err != nil {
+		slog.Error("failed to parse filter", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	reportKey := c.DefaultQuery("reportKey", "")
+	if reportKey != "" {
+		filter["key"] = reportKey
+	}
+
+	slog.Info("getting reports count", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	count, err := h.studyDBConn.GetReportCountForQuery(token.InstanceID, studyKey, filter)
+	if err != nil {
+		slog.Error("failed to get reports count", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get reports count"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"count": count})
 }
 
 func (h *HttpEndpoints) generateReportsExport(c *gin.Context) {

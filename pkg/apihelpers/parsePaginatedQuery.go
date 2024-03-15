@@ -47,6 +47,20 @@ func ParsePaginatedQueryFromCtx(c *gin.Context) (*PagenatedQuery, error) {
 		}
 	}
 
+	filter, err := ParseFilterQueryFromCtx(c)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PagenatedQuery{
+		Page:   page,
+		Limit:  limit,
+		Sort:   sort,
+		Filter: filter,
+	}, nil
+}
+
+func ParseFilterQueryFromCtx(c *gin.Context) (bson.M, error) {
 	filter := bson.M{}
 	if filterStr := c.DefaultQuery("filter", ""); filterStr != "" {
 		decodedFilterStr, err := url.QueryUnescape(filterStr)
@@ -58,12 +72,7 @@ func ParsePaginatedQueryFromCtx(c *gin.Context) (*PagenatedQuery, error) {
 		}
 	}
 
-	return &PagenatedQuery{
-		Page:   page,
-		Limit:  limit,
-		Sort:   sort,
-		Filter: filter,
-	}, nil
+	return filter, nil
 }
 
 type ResponseExportQuery struct {
