@@ -7,6 +7,7 @@ import (
 
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	pc "github.com/case-framework/case-backend/pkg/permission-checker"
+	studyTypes "github.com/case-framework/case-backend/pkg/types/study"
 	"github.com/gin-gonic/gin"
 )
 
@@ -69,5 +70,23 @@ func (h *HttpEndpoints) useAuthorisedHandler(
 		}
 
 		handler(c)
+	}
+}
+
+func (h *HttpEndpoints) onExportTaskFailed(
+	instanceID string,
+	taskID string,
+	errMsg string,
+) {
+	err := h.studyDBConn.UpdateTaskCompleted(
+		instanceID,
+		taskID,
+		studyTypes.TASK_STATUS_COMPLETED,
+		0,
+		errMsg,
+		"",
+	)
+	if err != nil {
+		slog.Error("failed to update task status", slog.String("error", err.Error()), slog.String("taskID", taskID))
 	}
 }

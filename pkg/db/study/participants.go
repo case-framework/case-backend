@@ -104,11 +104,15 @@ func (dbService *StudyDBService) FindAndExecuteOnParticipantsStates(
 	instanceID string,
 	studyKey string,
 	filter bson.M,
+	sort bson.M,
+	returnOnErr bool,
 	fn func(dbService *StudyDBService, p studyTypes.Participant, instanceID string, studyKey string, args ...interface{}) error,
 	args ...interface{},
 ) error {
+	opts := options.Find()
+	opts.SetSort(sort)
 
-	cursor, err := dbService.collectionParticipants(instanceID, studyKey).Find(ctx, filter)
+	cursor, err := dbService.collectionParticipants(instanceID, studyKey).Find(ctx, filter, opts)
 	if err != nil {
 		return err
 	}
@@ -127,6 +131,9 @@ func (dbService *StudyDBService) FindAndExecuteOnParticipantsStates(
 			args...,
 		); err != nil {
 			slog.Error("Error executing function on participant", slog.String("participantID", participant.ParticipantID), slog.String("error", err.Error()))
+			if returnOnErr {
+				return err
+			}
 			continue
 		}
 	}

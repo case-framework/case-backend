@@ -20,4 +20,5 @@ type Task struct {
 	TargetCount    int                `bson:"targetCount" json:"targetCount"`
 	ProcessedCount int                `bson:"processedCount" json:"processedCount"`
 	ResultFile     string             `bson:"resultFile" json:"resultFile"`
+	Error          string             `bson:"error,omitempty" json:"error,omitempty"`
 }

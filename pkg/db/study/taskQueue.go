@@ -55,7 +55,36 @@ func (dbService *StudyDBService) GetTaskByID(instanceID string, taskID string) (
 }
 
 // update task processed count
-func (dbService *StudyDBService) UpdateTaskProgress(instanceID string, taskID string, status string, processedCount int) error {
+func (dbService *StudyDBService) UpdateTaskProgress(instanceID string, taskID string, processedCount int) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	_id, err := primitive.ObjectIDFromHex(taskID)
+	if err != nil {
+		return err
+	}
+
+	filter := bson.M{
+		"_id": _id,
+	}
+	update := bson.M{
+		"$set": bson.M{
+			"processedCount": processedCount,
+			"updatedAt":      time.Now(),
+		},
+	}
+	_, err = dbService.collectionTaskQueue(instanceID).UpdateOne(ctx, filter, update)
+	return err
+}
+
+func (dbService *StudyDBService) UpdateTaskCompleted(
+	instanceID string,
+	taskID string,
+	status string,
+	processedCount int,
+	errMsg string,
+	resultFile string,
+) error {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
@@ -71,6 +100,9 @@ func (dbService *StudyDBService) UpdateTaskProgress(instanceID string, taskID st
 		"$set": bson.M{
 			"processedCount": processedCount,
 			"status":         status,
+			"error":          errMsg,
+			"resultFile":     resultFile,
+			"updatedAt":      time.Now(),
 		},
 	}
 	_, err = dbService.collectionTaskQueue(instanceID).UpdateOne(ctx, filter, update)
