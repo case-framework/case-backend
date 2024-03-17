@@ -1800,19 +1800,19 @@ func (h *HttpEndpoints) generateParticipantsExport(c *gin.Context) {
 		return
 	}
 
-	exportFolder := filepath.Join(h.filestorePath, token.InstanceID, "exports")
+	relativeFolderName := filepath.Join(token.InstanceID, "exports")
+	exportFolder := filepath.Join(h.filestorePath, relativeFolderName)
 	if err := os.MkdirAll(exportFolder, os.ModePerm); err != nil {
 		slog.Error("failed to create export folder", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create export folder"})
 		return
 	}
 
-	// TODO: go method to handle the export task
-
 	go func() {
 
 		// create file write
-		exportFilePath := filepath.Join(exportFolder, exportTask.ID.Hex()+".json")
+		relativeFilepath := filepath.Join(relativeFolderName, exportTask.ID.Hex()+".json")
+		exportFilePath := filepath.Join(h.filestorePath, relativeFilepath)
 		file, err := os.Create(exportFilePath)
 		if err != nil {
 			slog.Error("failed to create export file", slog.String("error", err.Error()))
@@ -1899,7 +1899,7 @@ func (h *HttpEndpoints) generateParticipantsExport(c *gin.Context) {
 			studyTypes.TASK_STATUS_COMPLETED,
 			counter,
 			"",
-			exportFilePath,
+			relativeFilepath,
 		)
 		if err != nil {
 			slog.Error("failed to update task status", slog.String("error", err.Error()))
@@ -2008,8 +2008,20 @@ func (h *HttpEndpoints) getExportTaskResult(c *gin.Context) {
 		return
 	}
 
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	resultFilePath := filepath.Join(h.filestorePath, task.ResultFile)
+
+	// file exists?
+	if _, err := os.Stat(resultFilePath); os.IsNotExist(err) {
+		slog.Error("file does not exist", slog.String("path", resultFilePath))
+		c.JSON(http.StatusNotFound, gin.H{"error": "file does not exist"})
+		return
+	}
+
+	// Return file from file system
+	filenameToSave := "participants_" + filepath.Base(task.ResultFile)
+	c.Header("Content-Disposition", "attachment; filename="+filenameToSave)
+	c.Header("Content-Type", "application/json")
+	c.File(resultFilePath)
 }
 
 func (h *HttpEndpoints) getStudyResponses(c *gin.Context) {
