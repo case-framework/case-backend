@@ -85,6 +85,7 @@ type ResponseExportQuery struct {
 	SurveyKey         string
 	UseShortKeys      bool
 	QuestionOptionSep string
+	Format            string
 	IncludeMeta       *surveyresponses.IncludeMeta
 	PaginationInfos   *PagenatedQuery
 }
@@ -103,6 +104,8 @@ func ParseResponseExportQueryFromCtx(c *gin.Context) (*ResponseExportQuery, erro
 
 	questionOptionSep := c.DefaultQuery("questionOptionSep", "-")
 
+	format := c.DefaultQuery("format", "wide")
+
 	includeMeta := &surveyresponses.IncludeMeta{}
 	// TODO
 
@@ -110,6 +113,7 @@ func ParseResponseExportQueryFromCtx(c *gin.Context) (*ResponseExportQuery, erro
 		SurveyKey:         surveyKey,
 		UseShortKeys:      useShortKeys,
 		QuestionOptionSep: questionOptionSep,
+		Format:            format,
 		IncludeMeta:       includeMeta,
 		PaginationInfos:   paginatedQuery,
 	}, nil

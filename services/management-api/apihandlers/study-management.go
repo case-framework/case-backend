@@ -1725,8 +1725,193 @@ func (h *HttpEndpoints) getResponsesCount(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) generateResponsesExport(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	studyKey := c.Param("studyKey")
+
+	query, err := apihelpers.ParseResponseExportQueryFromCtx(c)
+	if err != nil || query == nil {
+		slog.Error("failed to parse query", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	if query.SurveyKey == "" {
+		slog.Error("surveyKey is required", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "surveyKey is required"})
+		return
+	}
+
+	query.PaginationInfos.Filter["key"] = query.SurveyKey
+
+	slog.Info("generating responses export", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", query.SurveyKey))
+
+	count, err := h.studyDBConn.GetResponsesCount(token.InstanceID, studyKey, query.PaginationInfos.Filter)
+	if err != nil {
+		slog.Error("failed to get responses count", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get responses count"})
+		return
+	}
+
+	if count == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"error": "no responses to export",
+		})
+		return
+	}
+
+	surveyVersions, err := studydefinition.PrepareSurveyInfosFromDB(
+		h.studyDBConn,
+		token.InstanceID,
+		studyKey,
+		query.SurveyKey,
+		&surveydefinition.ExtractOptions{
+			UseLabelLang: "",
+			IncludeItems: nil,
+			ExcludeItems: nil,
+		},
+	)
+	if err != nil {
+		slog.Error("failed to get survey versions", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get survey versions"})
+		return
+	}
+
+	respParser, err := surveyresponses.NewResponseParser(
+		query.SurveyKey,
+		surveyVersions,
+		query.UseShortKeys,
+		query.IncludeMeta,
+		query.QuestionOptionSep,
+	)
+	if err != nil {
+		slog.Error("failed to create response parser", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create response parser"})
+		return
+	}
+
+	fileType := studyTypes.TASK_FILE_TYPE_CSV
+	if query.Format == "json" {
+		fileType = studyTypes.TASK_FILE_TYPE_JSON
+	}
+
+	exportTask, err := h.studyDBConn.CreateTask(
+		token.InstanceID,
+		token.Subject,
+		int(count),
+		fileType,
+	)
+
+	if err != nil {
+		slog.Error("failed to create export task", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create export task"})
+		return
+	}
+
+	relativeFolderName := filepath.Join(token.InstanceID, "exports")
+	exportFolder := filepath.Join(h.filestorePath, relativeFolderName)
+	if err := os.MkdirAll(exportFolder, os.ModePerm); err != nil {
+		slog.Error("failed to create export folder", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create export folder"})
+		return
+	}
+
+	go func() {
+		// create file write
+		ext := ".csv"
+		if query.Format == "json" {
+			ext = ".json"
+		}
+
+		relativeFilepath := filepath.Join(relativeFolderName, "responses_"+exportTask.ID.Hex()+ext)
+		exportFilePath := filepath.Join(h.filestorePath, relativeFilepath)
+		file, err := os.Create(exportFilePath)
+		if err != nil {
+			slog.Error("failed to create export file", slog.String("error", err.Error()))
+
+			h.onExportTaskFailed(token.InstanceID, exportTask.ID.Hex(), "failed to create export file")
+			return
+		}
+
+		defer file.Close()
+
+		exporter, err := surveyresponses.NewResponseExporter(
+			respParser,
+			file,
+			query.Format,
+		)
+		if err != nil {
+			slog.Error("failed to create response exporter", slog.String("error", err.Error()))
+
+			h.onExportTaskFailed(token.InstanceID, exportTask.ID.Hex(), "failed to create response exporter")
+			return
+		}
+
+		ctx := context.Background()
+		counter := 0
+
+		err = h.studyDBConn.FindAndExecuteOnResponses(
+			ctx,
+			token.InstanceID,
+			studyKey,
+			query.PaginationInfos.Filter,
+			query.PaginationInfos.Sort,
+			true,
+			func(dbService *studyDB.StudyDBService, r studyTypes.SurveyResponse, instanceID, studyKey string, args ...interface{}) error {
+				task := args[0].(*studyTypes.Task)
+				exporter := args[1].(*surveyresponses.ResponseExporter)
+
+				err := exporter.WriteResponse(&r)
+				if err != nil {
+					return err
+				}
+				counter += 1
+
+				err = dbService.UpdateTaskProgress(
+					instanceID,
+					task.ID.Hex(),
+					counter,
+				)
+				if err != nil {
+					slog.Error("failed to update task progress", slog.String("error", err.Error()))
+					// not a big issue, so let's try next time
+					return nil
+				}
+
+				return nil
+			},
+			&exportTask,
+			exporter,
+		)
+
+		if err != nil {
+			slog.Error("failed to export responses", slog.String("error", err.Error()))
+			h.onExportTaskFailed(token.InstanceID, exportTask.ID.Hex(), err.Error())
+			return
+		}
+
+		err = exporter.Finish()
+		if err != nil {
+			slog.Error("failed to finish export", slog.String("error", err.Error()))
+			h.onExportTaskFailed(token.InstanceID, exportTask.ID.Hex(), err.Error())
+			return
+		}
+
+		err = h.studyDBConn.UpdateTaskCompleted(
+			token.InstanceID,
+			exportTask.ID.Hex(),
+			studyTypes.TASK_STATUS_COMPLETED,
+			counter,
+			"",
+			relativeFilepath,
+		)
+		if err != nil {
+			slog.Error("failed to update task status", slog.String("error", err.Error()))
+			return
+		}
+
+	}()
+
+	c.JSON(http.StatusOK, gin.H{"task": exportTask})
 }
 
 func (h *HttpEndpoints) getParticipantsCount(c *gin.Context) {

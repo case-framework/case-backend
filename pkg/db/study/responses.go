@@ -111,6 +111,7 @@ func (dbService *StudyDBService) FindAndExecuteOnResponses(
 	instanceID string, studyKey string,
 	filter bson.M,
 	sort bson.M,
+	returnOnError bool,
 	fn func(dbService *StudyDBService, r studyTypes.SurveyResponse, instanceID string, studyKey string, args ...interface{}) error,
 	args ...interface{},
 ) error {
@@ -132,6 +133,9 @@ func (dbService *StudyDBService) FindAndExecuteOnResponses(
 
 		if err = fn(dbService, response, instanceID, studyKey, args...); err != nil {
 			slog.Error("Error while executing function on response", slog.String("responseID", response.ID.Hex()), slog.String("error", err.Error()))
+			if returnOnError {
+				return err
+			}
 			continue
 		}
 	}
