@@ -1792,6 +1792,7 @@ func (h *HttpEndpoints) generateParticipantsExport(c *gin.Context) {
 		token.InstanceID,
 		token.Subject,
 		int(count),
+		studyTypes.TASK_FILE_TYPE_JSON,
 	)
 
 	if err != nil {
@@ -2020,7 +2021,7 @@ func (h *HttpEndpoints) getExportTaskResult(c *gin.Context) {
 	// Return file from file system
 	filenameToSave := "participants_" + filepath.Base(task.ResultFile)
 	c.Header("Content-Disposition", "attachment; filename="+filenameToSave)
-	c.Header("Content-Type", "application/json")
+	c.Header("Content-Type", task.FileType)
 	c.File(resultFilePath)
 }
 

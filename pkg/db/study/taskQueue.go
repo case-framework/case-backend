@@ -15,6 +15,7 @@ func (dbService *StudyDBService) CreateTask(
 	instanceID string,
 	createdBy string,
 	targetCount int,
+	fileType string,
 ) (task studyTypes.Task, err error) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
@@ -26,6 +27,7 @@ func (dbService *StudyDBService) CreateTask(
 		Status:         studyTypes.TASK_STATUS_IN_PROGRESS,
 		TargetCount:    targetCount,
 		ProcessedCount: 0,
+		FileType:       fileType,
 	}
 
 	ret, err := dbService.collectionTaskQueue(instanceID).InsertOne(ctx, task)
