@@ -1941,8 +1941,157 @@ func (h *HttpEndpoints) getReportsCount(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) generateReportsExport(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	filter, err := apihelpers.ParseFilterQueryFromCtx(c)
+	if err != nil {
+		slog.Error("failed to parse filter", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	reportKey := c.DefaultQuery("reportKey", "")
+	if reportKey != "" {
+		filter["key"] = reportKey
+	}
+
+	slog.Info("generating reports export", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	count, err := h.studyDBConn.GetReportCountForQuery(token.InstanceID, studyKey, filter)
+	if err != nil {
+		slog.Error("failed to get reports count", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get reports count"})
+		return
+	}
+
+	if count == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"error": "no reports to export",
+		})
+		return
+	}
+
+	exportTask, err := h.studyDBConn.CreateTask(
+		token.InstanceID,
+		token.Subject,
+		int(count),
+		studyTypes.TASK_FILE_TYPE_JSON,
+	)
+
+	if err != nil {
+		slog.Error("failed to create export task", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create export task"})
+		return
+	}
+
+	relativeFolderName := filepath.Join(token.InstanceID, "exports")
+	exportFolder := filepath.Join(h.filestorePath, relativeFolderName)
+	if err := os.MkdirAll(exportFolder, os.ModePerm); err != nil {
+		slog.Error("failed to create export folder", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create export folder"})
+		return
+	}
+
+	go func() {
+		// create file write
+		relativeFilepath := filepath.Join(relativeFolderName, exportTask.ID.Hex()+".json")
+		exportFilePath := filepath.Join(h.filestorePath, relativeFilepath)
+		file, err := os.Create(exportFilePath)
+		if err != nil {
+			slog.Error("failed to create export file", slog.String("error", err.Error()))
+
+			h.onExportTaskFailed(token.InstanceID, exportTask.ID.Hex(), "failed to create export file")
+			return
+		}
+
+		defer file.Close()
+
+		_, err = file.WriteString("{\"reports\": [")
+		if err != nil {
+			slog.Error("failed to write header", slog.String("error", err.Error()))
+			h.onExportTaskFailed(token.InstanceID, exportTask.ID.Hex(), "failed to write to export file")
+			return
+		}
+
+		ctx := context.Background()
+		counter := 0
+
+		err = h.studyDBConn.FindAndExecuteOnReports(
+			ctx,
+			token.InstanceID,
+			studyKey,
+			filter,
+			true,
+			func(instanceID, studyKey string, r studyTypes.Report, args ...interface{}) error {
+				task := args[0].(*studyTypes.Task)
+
+				if counter > 0 {
+					_, err = file.WriteString(",")
+					if err != nil {
+						slog.Error("failed to write to export file", slog.String("error", err.Error()))
+						return err
+					}
+				}
+
+				// r to JSON
+				rJSON, err := json.Marshal(r)
+				if err != nil {
+					slog.Error("failed to marshal report", slog.String("error", err.Error()))
+					return err
+				}
+				_, err = file.Write(rJSON)
+				if err != nil {
+					slog.Error("failed to write to export file", slog.String("error", err.Error()))
+					return err
+				}
+
+				counter += 1
+
+				err = h.studyDBConn.UpdateTaskProgress(
+					instanceID,
+					task.ID.Hex(),
+					counter,
+				)
+				if err != nil {
+					slog.Error("failed to update task progress", slog.String("error", err.Error()))
+					// not a big issue, so let's try next time
+					return nil
+				}
+				return nil
+			},
+			&exportTask,
+		)
+
+		if err != nil {
+			slog.Error("failed to export reports", slog.String("error", err.Error()))
+			h.onExportTaskFailed(token.InstanceID, exportTask.ID.Hex(), err.Error())
+			return
+		}
+
+		_, err = file.WriteString("]}")
+		if err != nil {
+			slog.Error("failed to write footer", slog.String("error", err.Error()))
+			h.onExportTaskFailed(token.InstanceID, exportTask.ID.Hex(), "failed to write to export file")
+			return
+		}
+
+		err = h.studyDBConn.UpdateTaskCompleted(
+			token.InstanceID,
+			exportTask.ID.Hex(),
+			studyTypes.TASK_STATUS_COMPLETED,
+			counter,
+			"",
+			relativeFilepath,
+		)
+		if err != nil {
+			slog.Error("failed to update task status", slog.String("error", err.Error()))
+			return
+		}
+	}()
+
+	c.JSON(http.StatusOK, gin.H{"task": exportTask})
 }
 
 func (h *HttpEndpoints) getConfidentialResponsesCount(c *gin.Context) {

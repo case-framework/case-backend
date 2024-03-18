@@ -104,6 +104,7 @@ func (dbService *StudyDBService) FindAndExecuteOnReports(
 	ctx context.Context,
 	instanceID string, studyKey string,
 	filter bson.M,
+	returnOnErr bool,
 	fn func(instanceID string, studyKey string, report studyTypes.Report, args ...interface{}) error,
 	args ...interface{},
 ) error {
@@ -125,6 +126,9 @@ func (dbService *StudyDBService) FindAndExecuteOnReports(
 
 		if err = fn(instanceID, studyKey, report, args...); err != nil {
 			slog.Error("Error executing function on report", slog.String("reportID", report.ID.Hex()), slog.String("error", err.Error()))
+			if returnOnErr {
+				return err
+			}
 			continue
 		}
 	}

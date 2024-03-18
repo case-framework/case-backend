@@ -8,7 +8,7 @@ type Report struct {
 	ParticipantID string             `bson:"participantID" json:"participantID"` // reference to the study specific participant ID
 	ResponseID    string             `bson:"responseID" json:"responseID"`       // reference to the report
 	Timestamp     int64              `bson:"timestamp" json:"timestamp"`
-	Data          []ReportData       `bson:"data" json:"data"`
+	Data          []ReportData       `bson:"data" json:"data,omitempty"`
 }
 
 type ReportData struct {
