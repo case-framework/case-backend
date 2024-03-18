@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/apihelpers"
@@ -15,6 +16,7 @@ import (
 	managementuser "github.com/case-framework/case-backend/pkg/db/management-user"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	pc "github.com/case-framework/case-backend/pkg/permission-checker"
+	studyutils "github.com/case-framework/case-backend/pkg/study-utils"
 	"github.com/case-framework/case-backend/pkg/utils"
 	"github.com/gin-gonic/gin"
 
@@ -646,65 +648,22 @@ func (h *HttpEndpoints) addStudyDataExporterEndpoints(rg *gin.RouterGroup) {
 
 	confidentialResponsesGroup := exporterGroup.Group("/confidential-responses")
 	{
-		// count confidential responses
-		confidentialResponsesGroup.GET("/count", h.useAuthorisedHandler(
-			RequiredPermission{
-				ResourceType:        pc.RESOURCE_TYPE_STUDY,
-				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
-				ExtractResourceKeys: getStudyKeyFromParams,
-				Action:              pc.ACTION_GET_CONFIDENTIAL_RESPONSES,
-			},
-			nil,
-			h.getConfidentialResponsesCount,
-		))
 
 		// start export generation for confidential responses
-		confidentialResponsesGroup.GET("/", h.useAuthorisedHandler(
-			RequiredPermission{
-				ResourceType:        pc.RESOURCE_TYPE_STUDY,
-				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
-				ExtractResourceKeys: getStudyKeyFromParams,
-				Action:              pc.ACTION_GET_CONFIDENTIAL_RESPONSES,
-			},
-			nil,
-			h.generateConfidentialResponsesExport,
-		))
+		confidentialResponsesGroup.POST("/",
+			mw.RequirePayload(),
+			h.useAuthorisedHandler(
+				RequiredPermission{
+					ResourceType:        pc.RESOURCE_TYPE_STUDY,
+					ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+					ExtractResourceKeys: getStudyKeyFromParams,
+					Action:              pc.ACTION_GET_CONFIDENTIAL_RESPONSES,
+				},
+				nil,
+				h.getConfidentialResponses,
+			),
+		)
 
-		// delete confidential response
-		confidentialResponsesGroup.GET("/:id", h.useAuthorisedHandler(
-			RequiredPermission{
-				ResourceType:        pc.RESOURCE_TYPE_STUDY,
-				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
-				ExtractResourceKeys: getStudyKeyFromParams,
-				Action:              pc.ACTION_GET_CONFIDENTIAL_RESPONSES,
-			},
-			nil,
-			h.deleteConfidentialResponse,
-		))
-
-		// get export status
-		confidentialResponsesGroup.GET("/task/:taskID", h.useAuthorisedHandler(
-			RequiredPermission{
-				ResourceType:        pc.RESOURCE_TYPE_STUDY,
-				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
-				ExtractResourceKeys: getStudyKeyFromParams,
-				Action:              pc.ACTION_GET_CONFIDENTIAL_RESPONSES,
-			},
-			nil,
-			h.getExportTaskStatus,
-		))
-
-		// get export result
-		confidentialResponsesGroup.GET("/task/:taskID/result", h.useAuthorisedHandler(
-			RequiredPermission{
-				ResourceType:        pc.RESOURCE_TYPE_STUDY,
-				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
-				ExtractResourceKeys: getStudyKeyFromParams,
-				Action:              pc.ACTION_GET_CONFIDENTIAL_RESPONSES,
-			},
-			nil,
-			h.getExportTaskResult,
-		))
 	}
 }
 
@@ -2279,19 +2238,107 @@ func (h *HttpEndpoints) generateReportsExport(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"task": exportTask})
 }
 
-func (h *HttpEndpoints) getConfidentialResponsesCount(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+type ConfidentialResponsesExportQuery struct {
+	ParticipantIDs []string `json:"participantIDs"`
+	KeyFilter      string   `json:"keyFilter"`
 }
 
-func (h *HttpEndpoints) deleteConfidentialResponse(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+func parseSlots(respItem *studyTypes.ResponseItem, slotKey string) map[string]string {
+	parsedResp := map[string]string{}
+	if respItem == nil {
+		return parsedResp
+	}
+
+	currentSlotKey := slotKey + "." + respItem.Key
+	if strings.HasSuffix(slotKey, "-") {
+		currentSlotKey = slotKey + respItem.Key
+	}
+
+	if respItem.Items == nil || len(respItem.Items) == 0 {
+		parsedResp[currentSlotKey] = respItem.Value
+		return parsedResp
+	}
+
+	for _, subItem := range respItem.Items {
+		r := parseSlots(subItem, currentSlotKey)
+		for k, v := range r {
+			parsedResp[k] = v
+		}
+	}
+	return parsedResp
 }
 
-func (h *HttpEndpoints) generateConfidentialResponsesExport(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+func confidentialResponseExport(resp studyTypes.SurveyResponse, realPID string) map[string]string {
+	parsedResp := map[string]string{
+		"participantID": realPID,
+	}
+
+	for _, r := range resp.Responses {
+		slotKey := r.Key + "-"
+
+		slots := parseSlots(r.Response, slotKey)
+		for k, v := range slots {
+			parsedResp[k] = v
+		}
+	}
+
+	return parsedResp
+}
+
+func (h *HttpEndpoints) getConfidentialResponses(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	var query ConfidentialResponsesExportQuery
+	if err := c.ShouldBindJSON(&query); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	if len(query.ParticipantIDs) == 0 {
+		slog.Error("participantIDs is required", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "participantIDs is required"})
+		return
+	}
+
+	slog.Info("getting confidential responses", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	study, err := h.studyDBConn.GetStudy(token.InstanceID, studyKey)
+	if err != nil {
+		slog.Error("failed to get study", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study"})
+		return
+	}
+
+	studySecretKey := study.SecretKey
+	idMappingMethod := study.Configs.IdMappingMethod
+	globalSecret := h.globalStudySecret
+
+	results := []map[string]string{}
+
+	for _, pID := range query.ParticipantIDs {
+		// confidentialID := studyTypes.GetConfidentialParticipantID(token.InstanceID, studyKey, pID)
+		confidentialID, err := studyutils.ProfileIDtoParticipantID(pID, globalSecret, studySecretKey, idMappingMethod)
+		if err != nil {
+			slog.Error("failed to get confidential participantID", slog.String("error", err.Error()))
+			continue
+		}
+		slog.Info("getting confidential responses for participant", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("participantID", pID))
+
+		responses, err := h.studyDBConn.FindConfidentialResponses(token.InstanceID, studyKey, confidentialID, query.KeyFilter)
+		if err != nil {
+			slog.Error("failed to get confidential responses", slog.String("error", err.Error()))
+			continue
+		}
+
+		for _, r := range responses {
+			results = append(results, confidentialResponseExport(r, pID))
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"responses": results})
 }
 
 func (h *HttpEndpoints) getExportTaskStatus(c *gin.Context) {
