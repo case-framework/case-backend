@@ -36,26 +36,14 @@ func ParsePaginatedQueryFromCtx(c *gin.Context) (*PagenatedQuery, error) {
 		limit = 10
 	}
 
-	sort := bson.M{}
-	if sortStr := c.DefaultQuery("sort", ""); sortStr != "" {
-		decodedSortStr, err := url.QueryUnescape(sortStr)
-		if err != nil {
-			return nil, err
-		}
-		if err := json.Unmarshal([]byte(decodedSortStr), &sort); err != nil {
-			return nil, err
-		}
+	sort, err := ParseSortQueryFromCtx(c)
+	if err != nil {
+		return nil, err
 	}
 
-	filter := bson.M{}
-	if filterStr := c.DefaultQuery("filter", ""); filterStr != "" {
-		decodedFilterStr, err := url.QueryUnescape(filterStr)
-		if err != nil {
-			return nil, err
-		}
-		if err := json.Unmarshal([]byte(decodedFilterStr), &filter); err != nil {
-			return nil, err
-		}
+	filter, err := ParseFilterQueryFromCtx(c)
+	if err != nil {
+		return nil, err
 	}
 
 	return &PagenatedQuery{
@@ -66,10 +54,38 @@ func ParsePaginatedQueryFromCtx(c *gin.Context) (*PagenatedQuery, error) {
 	}, nil
 }
 
+func ParseFilterQueryFromCtx(c *gin.Context) (bson.M, error) {
+	return ParseEscapedJSONQueryFromContext(c, "filter")
+}
+
+func ParseSortQueryFromCtx(c *gin.Context) (bson.M, error) {
+	return ParseEscapedJSONQueryFromContext(c, "sort")
+}
+
+func ParseEscapedJSONQueryFromContext(c *gin.Context, key string) (bson.M, error) {
+	jsonStr := c.DefaultQuery(key, "")
+	if jsonStr == "" {
+		return nil, nil
+	}
+
+	decodedJSONStr, err := url.QueryUnescape(jsonStr)
+	if err != nil {
+		return nil, err
+	}
+
+	jsonMap := bson.M{}
+	if err := json.Unmarshal([]byte(decodedJSONStr), &jsonMap); err != nil {
+		return nil, err
+	}
+
+	return jsonMap, nil
+}
+
 type ResponseExportQuery struct {
 	SurveyKey         string
 	UseShortKeys      bool
 	QuestionOptionSep string
+	Format            string
 	IncludeMeta       *surveyresponses.IncludeMeta
 	PaginationInfos   *PagenatedQuery
 }
@@ -88,6 +104,8 @@ func ParseResponseExportQueryFromCtx(c *gin.Context) (*ResponseExportQuery, erro
 
 	questionOptionSep := c.DefaultQuery("questionOptionSep", "-")
 
+	format := c.DefaultQuery("format", "wide")
+
 	includeMeta := &surveyresponses.IncludeMeta{}
 	// TODO
 
@@ -95,6 +113,7 @@ func ParseResponseExportQueryFromCtx(c *gin.Context) (*ResponseExportQuery, erro
 		SurveyKey:         surveyKey,
 		UseShortKeys:      useShortKeys,
 		QuestionOptionSep: questionOptionSep,
+		Format:            format,
 		IncludeMeta:       includeMeta,
 		PaginationInfos:   paginatedQuery,
 	}, nil

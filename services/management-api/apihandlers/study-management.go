@@ -1,11 +1,14 @@
 package apihandlers
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/apihelpers"
@@ -13,9 +16,11 @@ import (
 	managementuser "github.com/case-framework/case-backend/pkg/db/management-user"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	pc "github.com/case-framework/case-backend/pkg/permission-checker"
+	studyutils "github.com/case-framework/case-backend/pkg/study-utils"
 	"github.com/case-framework/case-backend/pkg/utils"
 	"github.com/gin-gonic/gin"
 
+	studyDB "github.com/case-framework/case-backend/pkg/db/study"
 	studydefinition "github.com/case-framework/case-backend/pkg/exporter/survey-definition"
 	surveydefinition "github.com/case-framework/case-backend/pkg/exporter/survey-definition"
 	surveyresponses "github.com/case-framework/case-backend/pkg/exporter/survey-responses"
@@ -643,65 +648,22 @@ func (h *HttpEndpoints) addStudyDataExporterEndpoints(rg *gin.RouterGroup) {
 
 	confidentialResponsesGroup := exporterGroup.Group("/confidential-responses")
 	{
-		// count confidential responses
-		confidentialResponsesGroup.GET("/count", h.useAuthorisedHandler(
-			RequiredPermission{
-				ResourceType:        pc.RESOURCE_TYPE_STUDY,
-				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
-				ExtractResourceKeys: getStudyKeyFromParams,
-				Action:              pc.ACTION_GET_CONFIDENTIAL_RESPONSES,
-			},
-			nil,
-			h.getConfidentialResponsesCount,
-		))
 
 		// start export generation for confidential responses
-		confidentialResponsesGroup.GET("/", h.useAuthorisedHandler(
-			RequiredPermission{
-				ResourceType:        pc.RESOURCE_TYPE_STUDY,
-				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
-				ExtractResourceKeys: getStudyKeyFromParams,
-				Action:              pc.ACTION_GET_CONFIDENTIAL_RESPONSES,
-			},
-			nil,
-			h.generateConfidentialResponsesExport,
-		))
+		confidentialResponsesGroup.POST("/",
+			mw.RequirePayload(),
+			h.useAuthorisedHandler(
+				RequiredPermission{
+					ResourceType:        pc.RESOURCE_TYPE_STUDY,
+					ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+					ExtractResourceKeys: getStudyKeyFromParams,
+					Action:              pc.ACTION_GET_CONFIDENTIAL_RESPONSES,
+				},
+				nil,
+				h.getConfidentialResponses,
+			),
+		)
 
-		// delete confidential response
-		confidentialResponsesGroup.GET("/:id", h.useAuthorisedHandler(
-			RequiredPermission{
-				ResourceType:        pc.RESOURCE_TYPE_STUDY,
-				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
-				ExtractResourceKeys: getStudyKeyFromParams,
-				Action:              pc.ACTION_GET_CONFIDENTIAL_RESPONSES,
-			},
-			nil,
-			h.deleteConfidentialResponse,
-		))
-
-		// get export status
-		confidentialResponsesGroup.GET("/task/:taskID", h.useAuthorisedHandler(
-			RequiredPermission{
-				ResourceType:        pc.RESOURCE_TYPE_STUDY,
-				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
-				ExtractResourceKeys: getStudyKeyFromParams,
-				Action:              pc.ACTION_GET_CONFIDENTIAL_RESPONSES,
-			},
-			nil,
-			h.getExportTaskStatus,
-		))
-
-		// get export result
-		confidentialResponsesGroup.GET("/task/:taskID/result", h.useAuthorisedHandler(
-			RequiredPermission{
-				ResourceType:        pc.RESOURCE_TYPE_STUDY,
-				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
-				ExtractResourceKeys: getStudyKeyFromParams,
-				Action:              pc.ACTION_GET_CONFIDENTIAL_RESPONSES,
-			},
-			nil,
-			h.getExportTaskResult,
-		))
 	}
 }
 
@@ -1696,59 +1658,752 @@ func (h *HttpEndpoints) getSurveyInfo(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getResponsesCount(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	studyKey := c.Param("studyKey")
+
+	filter, err := apihelpers.ParseFilterQueryFromCtx(c)
+	if err != nil {
+		slog.Error("failed to parse filter", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	filter["key"] = c.DefaultQuery("surveyKey", "")
+
+	slog.Info("getting responses count", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	count, err := h.studyDBConn.GetResponsesCount(token.InstanceID, studyKey, filter)
+	if err != nil {
+		slog.Error("failed to get responses count", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get responses count"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"count": count})
 }
 
 func (h *HttpEndpoints) generateResponsesExport(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	studyKey := c.Param("studyKey")
+
+	query, err := apihelpers.ParseResponseExportQueryFromCtx(c)
+	if err != nil || query == nil {
+		slog.Error("failed to parse query", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	if query.SurveyKey == "" {
+		slog.Error("surveyKey is required", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "surveyKey is required"})
+		return
+	}
+
+	query.PaginationInfos.Filter["key"] = query.SurveyKey
+
+	slog.Info("generating responses export", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", query.SurveyKey))
+
+	count, err := h.studyDBConn.GetResponsesCount(token.InstanceID, studyKey, query.PaginationInfos.Filter)
+	if err != nil {
+		slog.Error("failed to get responses count", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get responses count"})
+		return
+	}
+
+	if count == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"error": "no responses to export",
+		})
+		return
+	}
+
+	surveyVersions, err := studydefinition.PrepareSurveyInfosFromDB(
+		h.studyDBConn,
+		token.InstanceID,
+		studyKey,
+		query.SurveyKey,
+		&surveydefinition.ExtractOptions{
+			UseLabelLang: "",
+			IncludeItems: nil,
+			ExcludeItems: nil,
+		},
+	)
+	if err != nil {
+		slog.Error("failed to get survey versions", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get survey versions"})
+		return
+	}
+
+	respParser, err := surveyresponses.NewResponseParser(
+		query.SurveyKey,
+		surveyVersions,
+		query.UseShortKeys,
+		query.IncludeMeta,
+		query.QuestionOptionSep,
+	)
+	if err != nil {
+		slog.Error("failed to create response parser", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create response parser"})
+		return
+	}
+
+	fileType := studyTypes.TASK_FILE_TYPE_CSV
+	if query.Format == "json" {
+		fileType = studyTypes.TASK_FILE_TYPE_JSON
+	}
+
+	exportTask, err := h.studyDBConn.CreateTask(
+		token.InstanceID,
+		token.Subject,
+		int(count),
+		fileType,
+	)
+
+	if err != nil {
+		slog.Error("failed to create export task", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create export task"})
+		return
+	}
+
+	relativeFolderName := filepath.Join(token.InstanceID, "exports")
+	exportFolder := filepath.Join(h.filestorePath, relativeFolderName)
+	if err := os.MkdirAll(exportFolder, os.ModePerm); err != nil {
+		slog.Error("failed to create export folder", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create export folder"})
+		return
+	}
+
+	go func() {
+		// create file write
+		ext := ".csv"
+		if query.Format == "json" {
+			ext = ".json"
+		}
+
+		relativeFilepath := filepath.Join(relativeFolderName, "responses_"+exportTask.ID.Hex()+ext)
+		exportFilePath := filepath.Join(h.filestorePath, relativeFilepath)
+		file, err := os.Create(exportFilePath)
+		if err != nil {
+			slog.Error("failed to create export file", slog.String("error", err.Error()))
+
+			h.onExportTaskFailed(token.InstanceID, exportTask.ID.Hex(), "failed to create export file")
+			return
+		}
+
+		defer file.Close()
+
+		exporter, err := surveyresponses.NewResponseExporter(
+			respParser,
+			file,
+			query.Format,
+		)
+		if err != nil {
+			slog.Error("failed to create response exporter", slog.String("error", err.Error()))
+
+			h.onExportTaskFailed(token.InstanceID, exportTask.ID.Hex(), "failed to create response exporter")
+			return
+		}
+
+		ctx := context.Background()
+		counter := 0
+
+		err = h.studyDBConn.FindAndExecuteOnResponses(
+			ctx,
+			token.InstanceID,
+			studyKey,
+			query.PaginationInfos.Filter,
+			query.PaginationInfos.Sort,
+			true,
+			func(dbService *studyDB.StudyDBService, r studyTypes.SurveyResponse, instanceID, studyKey string, args ...interface{}) error {
+				task := args[0].(*studyTypes.Task)
+				exporter := args[1].(*surveyresponses.ResponseExporter)
+
+				err := exporter.WriteResponse(&r)
+				if err != nil {
+					return err
+				}
+				counter += 1
+
+				err = dbService.UpdateTaskProgress(
+					instanceID,
+					task.ID.Hex(),
+					counter,
+				)
+				if err != nil {
+					slog.Error("failed to update task progress", slog.String("error", err.Error()))
+					// not a big issue, so let's try next time
+					return nil
+				}
+
+				return nil
+			},
+			&exportTask,
+			exporter,
+		)
+
+		if err != nil {
+			slog.Error("failed to export responses", slog.String("error", err.Error()))
+			h.onExportTaskFailed(token.InstanceID, exportTask.ID.Hex(), err.Error())
+			return
+		}
+
+		err = exporter.Finish()
+		if err != nil {
+			slog.Error("failed to finish export", slog.String("error", err.Error()))
+			h.onExportTaskFailed(token.InstanceID, exportTask.ID.Hex(), err.Error())
+			return
+		}
+
+		err = h.studyDBConn.UpdateTaskCompleted(
+			token.InstanceID,
+			exportTask.ID.Hex(),
+			studyTypes.TASK_STATUS_COMPLETED,
+			counter,
+			"",
+			relativeFilepath,
+		)
+		if err != nil {
+			slog.Error("failed to update task status", slog.String("error", err.Error()))
+			return
+		}
+
+	}()
+
+	c.JSON(http.StatusOK, gin.H{"task": exportTask})
 }
 
 func (h *HttpEndpoints) getParticipantsCount(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	filter, err := apihelpers.ParseFilterQueryFromCtx(c)
+	if err != nil {
+		slog.Error("failed to parse filter", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	slog.Info("getting participants count", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	count, err := h.studyDBConn.GetParticipantCount(token.InstanceID, studyKey, filter)
+	if err != nil {
+		slog.Error("failed to get participants count", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get participants count"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"count": count})
 }
 
 func (h *HttpEndpoints) generateParticipantsExport(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	filter, err := apihelpers.ParseFilterQueryFromCtx(c)
+	if err != nil {
+		slog.Error("failed to parse filter", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	sort, err := apihelpers.ParseSortQueryFromCtx(c)
+	if err != nil {
+		slog.Error("failed to parse sort", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	slog.Info("generating participants export", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	count, err := h.studyDBConn.GetParticipantCount(token.InstanceID, studyKey, filter)
+	if err != nil {
+		slog.Error("failed to get participants count", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get participants count"})
+		return
+	}
+
+	if count == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"error": "no participants to export",
+		})
+		return
+	}
+
+	exportTask, err := h.studyDBConn.CreateTask(
+		token.InstanceID,
+		token.Subject,
+		int(count),
+		studyTypes.TASK_FILE_TYPE_JSON,
+	)
+
+	if err != nil {
+		slog.Error("failed to create export task", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create export task"})
+		return
+	}
+
+	relativeFolderName := filepath.Join(token.InstanceID, "exports")
+	exportFolder := filepath.Join(h.filestorePath, relativeFolderName)
+	if err := os.MkdirAll(exportFolder, os.ModePerm); err != nil {
+		slog.Error("failed to create export folder", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create export folder"})
+		return
+	}
+
+	go func() {
+
+		// create file write
+		relativeFilepath := filepath.Join(relativeFolderName, "participants_"+exportTask.ID.Hex()+".json")
+		exportFilePath := filepath.Join(h.filestorePath, relativeFilepath)
+		file, err := os.Create(exportFilePath)
+		if err != nil {
+			slog.Error("failed to create export file", slog.String("error", err.Error()))
+
+			h.onExportTaskFailed(token.InstanceID, exportTask.ID.Hex(), "failed to create export file")
+			return
+		}
+
+		defer file.Close()
+
+		_, err = file.WriteString("{\"participants\": [")
+		if err != nil {
+			slog.Error("failed to write header", slog.String("error", err.Error()))
+			h.onExportTaskFailed(token.InstanceID, exportTask.ID.Hex(), "failed to write to export file")
+			return
+		}
+
+		ctx := context.Background()
+		counter := 0
+
+		err = h.studyDBConn.FindAndExecuteOnParticipantsStates(
+			ctx,
+			token.InstanceID,
+			studyKey,
+			filter,
+			sort,
+			true,
+			func(dbService *studyDB.StudyDBService, p studyTypes.Participant, instanceID, studyKey string, args ...interface{}) error {
+				task := args[0].(*studyTypes.Task)
+
+				if counter > 0 {
+					_, err = file.WriteString(",")
+					if err != nil {
+						slog.Error("failed to write to export file", slog.String("error", err.Error()))
+						return err
+					}
+				}
+
+				// p to JSON
+				pJSON, err := json.Marshal(p)
+				if err != nil {
+					slog.Error("failed to marshal participant", slog.String("error", err.Error()))
+					return err
+				}
+				_, err = file.Write(pJSON)
+				if err != nil {
+					slog.Error("failed to write to export file", slog.String("error", err.Error()))
+					return err
+				}
+
+				counter += 1
+
+				err = dbService.UpdateTaskProgress(
+					instanceID,
+					task.ID.Hex(),
+					counter,
+				)
+				if err != nil {
+					slog.Error("failed to update task progress", slog.String("error", err.Error()))
+					// not a big issue, so let's try next time
+					return nil
+				}
+
+				return nil
+			},
+			&exportTask,
+		)
+		if err != nil {
+			slog.Error("failed to export participants", slog.String("error", err.Error()))
+			h.onExportTaskFailed(token.InstanceID, exportTask.ID.Hex(), err.Error())
+			return
+		}
+
+		_, err = file.WriteString("]}")
+		if err != nil {
+			slog.Error("failed to write footer", slog.String("error", err.Error()))
+			h.onExportTaskFailed(token.InstanceID, exportTask.ID.Hex(), "failed to write to export file")
+			return
+		}
+
+		err = h.studyDBConn.UpdateTaskCompleted(
+			token.InstanceID,
+			exportTask.ID.Hex(),
+			studyTypes.TASK_STATUS_COMPLETED,
+			counter,
+			"",
+			relativeFilepath,
+		)
+		if err != nil {
+			slog.Error("failed to update task status", slog.String("error", err.Error()))
+			return
+		}
+	}()
+
+	c.JSON(http.StatusOK, gin.H{"task": exportTask})
 }
 
 func (h *HttpEndpoints) getReportsCount(c *gin.Context) {
-	//	TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	filter, err := apihelpers.ParseFilterQueryFromCtx(c)
+	if err != nil {
+		slog.Error("failed to parse filter", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	reportKey := c.DefaultQuery("reportKey", "")
+	if reportKey != "" {
+		filter["key"] = reportKey
+	}
+
+	slog.Info("getting reports count", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	count, err := h.studyDBConn.GetReportCountForQuery(token.InstanceID, studyKey, filter)
+	if err != nil {
+		slog.Error("failed to get reports count", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get reports count"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"count": count})
 }
 
 func (h *HttpEndpoints) generateReportsExport(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	filter, err := apihelpers.ParseFilterQueryFromCtx(c)
+	if err != nil {
+		slog.Error("failed to parse filter", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	reportKey := c.DefaultQuery("reportKey", "")
+	if reportKey != "" {
+		filter["key"] = reportKey
+	}
+
+	slog.Info("generating reports export", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	count, err := h.studyDBConn.GetReportCountForQuery(token.InstanceID, studyKey, filter)
+	if err != nil {
+		slog.Error("failed to get reports count", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get reports count"})
+		return
+	}
+
+	if count == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"error": "no reports to export",
+		})
+		return
+	}
+
+	exportTask, err := h.studyDBConn.CreateTask(
+		token.InstanceID,
+		token.Subject,
+		int(count),
+		studyTypes.TASK_FILE_TYPE_JSON,
+	)
+
+	if err != nil {
+		slog.Error("failed to create export task", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create export task"})
+		return
+	}
+
+	relativeFolderName := filepath.Join(token.InstanceID, "exports")
+	exportFolder := filepath.Join(h.filestorePath, relativeFolderName)
+	if err := os.MkdirAll(exportFolder, os.ModePerm); err != nil {
+		slog.Error("failed to create export folder", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create export folder"})
+		return
+	}
+
+	go func() {
+		// create file write
+		relativeFilepath := filepath.Join(relativeFolderName, "reports_"+exportTask.ID.Hex()+".json")
+		exportFilePath := filepath.Join(h.filestorePath, relativeFilepath)
+		file, err := os.Create(exportFilePath)
+		if err != nil {
+			slog.Error("failed to create export file", slog.String("error", err.Error()))
+
+			h.onExportTaskFailed(token.InstanceID, exportTask.ID.Hex(), "failed to create export file")
+			return
+		}
+
+		defer file.Close()
+
+		_, err = file.WriteString("{\"reports\": [")
+		if err != nil {
+			slog.Error("failed to write header", slog.String("error", err.Error()))
+			h.onExportTaskFailed(token.InstanceID, exportTask.ID.Hex(), "failed to write to export file")
+			return
+		}
+
+		ctx := context.Background()
+		counter := 0
+
+		err = h.studyDBConn.FindAndExecuteOnReports(
+			ctx,
+			token.InstanceID,
+			studyKey,
+			filter,
+			true,
+			func(instanceID, studyKey string, r studyTypes.Report, args ...interface{}) error {
+				task := args[0].(*studyTypes.Task)
+
+				if counter > 0 {
+					_, err = file.WriteString(",")
+					if err != nil {
+						slog.Error("failed to write to export file", slog.String("error", err.Error()))
+						return err
+					}
+				}
+
+				// r to JSON
+				rJSON, err := json.Marshal(r)
+				if err != nil {
+					slog.Error("failed to marshal report", slog.String("error", err.Error()))
+					return err
+				}
+				_, err = file.Write(rJSON)
+				if err != nil {
+					slog.Error("failed to write to export file", slog.String("error", err.Error()))
+					return err
+				}
+
+				counter += 1
+
+				err = h.studyDBConn.UpdateTaskProgress(
+					instanceID,
+					task.ID.Hex(),
+					counter,
+				)
+				if err != nil {
+					slog.Error("failed to update task progress", slog.String("error", err.Error()))
+					// not a big issue, so let's try next time
+					return nil
+				}
+				return nil
+			},
+			&exportTask,
+		)
+
+		if err != nil {
+			slog.Error("failed to export reports", slog.String("error", err.Error()))
+			h.onExportTaskFailed(token.InstanceID, exportTask.ID.Hex(), err.Error())
+			return
+		}
+
+		_, err = file.WriteString("]}")
+		if err != nil {
+			slog.Error("failed to write footer", slog.String("error", err.Error()))
+			h.onExportTaskFailed(token.InstanceID, exportTask.ID.Hex(), "failed to write to export file")
+			return
+		}
+
+		err = h.studyDBConn.UpdateTaskCompleted(
+			token.InstanceID,
+			exportTask.ID.Hex(),
+			studyTypes.TASK_STATUS_COMPLETED,
+			counter,
+			"",
+			relativeFilepath,
+		)
+		if err != nil {
+			slog.Error("failed to update task status", slog.String("error", err.Error()))
+			return
+		}
+	}()
+
+	c.JSON(http.StatusOK, gin.H{"task": exportTask})
 }
 
-func (h *HttpEndpoints) getConfidentialResponsesCount(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+type ConfidentialResponsesExportQuery struct {
+	ParticipantIDs []string `json:"participantIDs"`
+	KeyFilter      string   `json:"keyFilter"`
 }
 
-func (h *HttpEndpoints) deleteConfidentialResponse(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+func parseSlots(respItem *studyTypes.ResponseItem, slotKey string) map[string]string {
+	parsedResp := map[string]string{}
+	if respItem == nil {
+		return parsedResp
+	}
+
+	currentSlotKey := slotKey + "." + respItem.Key
+	if strings.HasSuffix(slotKey, "-") {
+		currentSlotKey = slotKey + respItem.Key
+	}
+
+	if respItem.Items == nil || len(respItem.Items) == 0 {
+		parsedResp[currentSlotKey] = respItem.Value
+		return parsedResp
+	}
+
+	for _, subItem := range respItem.Items {
+		r := parseSlots(subItem, currentSlotKey)
+		for k, v := range r {
+			parsedResp[k] = v
+		}
+	}
+	return parsedResp
 }
 
-func (h *HttpEndpoints) generateConfidentialResponsesExport(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+func confidentialResponseExport(resp studyTypes.SurveyResponse, realPID string) map[string]string {
+	parsedResp := map[string]string{
+		"participantID": realPID,
+	}
+
+	for _, r := range resp.Responses {
+		slotKey := r.Key + "-"
+
+		slots := parseSlots(r.Response, slotKey)
+		for k, v := range slots {
+			parsedResp[k] = v
+		}
+	}
+
+	return parsedResp
+}
+
+func (h *HttpEndpoints) getConfidentialResponses(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	var query ConfidentialResponsesExportQuery
+	if err := c.ShouldBindJSON(&query); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	if len(query.ParticipantIDs) == 0 {
+		slog.Error("participantIDs is required", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "participantIDs is required"})
+		return
+	}
+
+	slog.Info("getting confidential responses", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	study, err := h.studyDBConn.GetStudy(token.InstanceID, studyKey)
+	if err != nil {
+		slog.Error("failed to get study", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study"})
+		return
+	}
+
+	studySecretKey := study.SecretKey
+	idMappingMethod := study.Configs.IdMappingMethod
+	globalSecret := h.globalStudySecret
+
+	results := []map[string]string{}
+
+	for _, pID := range query.ParticipantIDs {
+		// confidentialID := studyTypes.GetConfidentialParticipantID(token.InstanceID, studyKey, pID)
+		confidentialID, err := studyutils.ProfileIDtoParticipantID(pID, globalSecret, studySecretKey, idMappingMethod)
+		if err != nil {
+			slog.Error("failed to get confidential participantID", slog.String("error", err.Error()))
+			continue
+		}
+		slog.Info("getting confidential responses for participant", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("participantID", pID))
+
+		responses, err := h.studyDBConn.FindConfidentialResponses(token.InstanceID, studyKey, confidentialID, query.KeyFilter)
+		if err != nil {
+			slog.Error("failed to get confidential responses", slog.String("error", err.Error()))
+			continue
+		}
+
+		for _, r := range responses {
+			results = append(results, confidentialResponseExport(r, pID))
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"responses": results})
 }
 
 func (h *HttpEndpoints) getExportTaskStatus(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	taskID := c.Param("taskID")
+
+	slog.Info("getting export task status", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("taskID", taskID))
+
+	task, err := h.studyDBConn.GetTaskByID(token.InstanceID, taskID)
+	if err != nil {
+		slog.Error("failed to get export task status", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get export task status"})
+		return
+	}
+
+	if task.CreatedBy != token.Subject && !token.IsAdmin {
+		slog.Warn("user is not allowed to get task status", slog.String("userID", token.Subject), slog.String("taskID", taskID))
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"task": task})
 }
 
 func (h *HttpEndpoints) getExportTaskResult(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	taskID := c.Param("taskID")
+
+	slog.Info("getting export task result", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("taskID", taskID))
+
+	task, err := h.studyDBConn.GetTaskByID(token.InstanceID, taskID)
+	if err != nil {
+		slog.Error("failed to get export task result", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get export task result"})
+		return
+	}
+
+	if task.CreatedBy != token.Subject && !token.IsAdmin {
+		slog.Warn("user is not allowed to get task result", slog.String("userID", token.Subject), slog.String("taskID", taskID))
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+
+	if task.Status != studyTypes.TASK_STATUS_COMPLETED {
+		slog.Error("task is not completed", slog.String("taskID", taskID), slog.String("status", task.Status))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "task is not completed"})
+		return
+	}
+
+	resultFilePath := filepath.Join(h.filestorePath, task.ResultFile)
+
+	// file exists?
+	if _, err := os.Stat(resultFilePath); os.IsNotExist(err) {
+		slog.Error("file does not exist", slog.String("path", resultFilePath))
+		c.JSON(http.StatusNotFound, gin.H{"error": "file does not exist"})
+		return
+	}
+
+	// Return file from file system
+	filenameToSave := filepath.Base(task.ResultFile)
+	c.Header("Content-Disposition", "attachment; filename="+filenameToSave)
+	c.Header("Content-Type", task.FileType)
+	c.File(resultFilePath)
 }
 
 func (h *HttpEndpoints) getStudyResponses(c *gin.Context) {

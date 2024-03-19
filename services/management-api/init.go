@@ -64,6 +64,8 @@ const (
 	ENV_STUDY_DB_USE_NO_CURSOR_TIMEOUT = "STUDY_DB_USE_NO_CURSOR_TIMEOUT"
 	ENV_STUDY_DB_MAX_POOL_SIZE         = "STUDY_DB_MAX_POOL_SIZE"
 
+	ENV_STUDY_GLOBAL_SECRET = "STUDY_GLOBAL_SECRET"
+
 	ENV_LOG_TO_FILE     = "LOG_TO_FILE"
 	ENV_LOG_FILENAME    = "LOG_FILENAME"
 	ENV_LOG_MAX_SIZE    = "LOG_MAX_SIZE"
@@ -94,6 +96,8 @@ type Config struct {
 	ManagementUserDBConfig db.DBConfig `json:"management_user_db_config"`
 	MessagingDBConfig      db.DBConfig `json:"messaging_db_config"`
 	StudyDBConfig          db.DBConfig `json:"study_db_config"`
+
+	StudyGlobalSecret string `json:"study_global_secret"`
 
 	FilestorePath string `json:"filestore_path"`
 }
@@ -156,6 +160,13 @@ func initConfig() Config {
 
 	// Study db configs
 	conf.StudyDBConfig = readStudyDBConfig()
+
+	// Study global secret
+	conf.StudyGlobalSecret = os.Getenv(ENV_STUDY_GLOBAL_SECRET)
+	if conf.StudyGlobalSecret == "" {
+		slog.Error("Study global secret not set - configure STUDY_GLOBAL_SECRET env variable.")
+		panic("Study global secret not set")
+	}
 
 	// Allowed instance IDs
 	conf.AllowedInstanceIDs = readInstaceIDs()

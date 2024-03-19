@@ -170,12 +170,12 @@ func (rp *ResponseParser) ResponseToStrList(
 
 	// add fixed columns
 	for _, colName := range rp.columns.FixedColumns {
-		out = append(out, result[colName].(string))
+		out = append(out, valueToStr(result[colName]))
 	}
 
 	// add context columns
 	for _, colName := range rp.columns.ContextColumns {
-		out = append(out, result[colName].(string))
+		out = append(out, valueToStr(result[colName]))
 	}
 
 	// add response item columns
@@ -186,6 +186,44 @@ func (rp *ResponseParser) ResponseToStrList(
 	// add meta columns
 	for _, colName := range rp.columns.MetaColumns {
 		out = append(out, valueToStr(result[colName]))
+	}
+
+	return out, nil
+}
+
+func (rp *ResponseParser) ResponseToLongFormat(
+	parsedResponse ParsedResponse,
+) ([][]string, error) {
+	result, err := rp.ResponseToFlatObj(parsedResponse)
+	if err != nil {
+		return nil, err
+	}
+
+	out := [][]string{}
+
+	fixedValues := []string{}
+	for _, colName := range rp.columns.FixedColumns {
+		fixedValues = append(fixedValues, valueToStr(result[colName]))
+	}
+
+	for _, colName := range rp.columns.ContextColumns {
+		fixedValues = append(fixedValues, valueToStr(result[colName]))
+	}
+
+	for _, colName := range rp.columns.ResponseColumns {
+		currentRespLine := []string{}
+		currentRespLine = append(currentRespLine, fixedValues...)
+		currentRespLine = append(currentRespLine, colName)
+		currentRespLine = append(currentRespLine, valueToStr(result[colName]))
+		out = append(out, currentRespLine)
+	}
+
+	for _, colName := range rp.columns.MetaColumns {
+		currentRespLine := []string{}
+		currentRespLine = append(currentRespLine, fixedValues...)
+		currentRespLine = append(currentRespLine, colName)
+		currentRespLine = append(currentRespLine, valueToStr(result[colName]))
+		out = append(out, currentRespLine)
 	}
 
 	return out, nil
