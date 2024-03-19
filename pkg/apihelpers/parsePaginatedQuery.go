@@ -63,9 +63,10 @@ func ParseSortQueryFromCtx(c *gin.Context) (bson.M, error) {
 }
 
 func ParseEscapedJSONQueryFromContext(c *gin.Context, key string) (bson.M, error) {
+	jsonMap := bson.M{}
 	jsonStr := c.DefaultQuery(key, "")
 	if jsonStr == "" {
-		return nil, nil
+		return jsonMap, nil
 	}
 
 	decodedJSONStr, err := url.QueryUnescape(jsonStr)
@@ -73,7 +74,6 @@ func ParseEscapedJSONQueryFromContext(c *gin.Context, key string) (bson.M, error
 		return nil, err
 	}
 
-	jsonMap := bson.M{}
 	if err := json.Unmarshal([]byte(decodedJSONStr), &jsonMap); err != nil {
 		return nil, err
 	}
