@@ -84,6 +84,10 @@ func initConfig() config {
 	conf.Port = os.Getenv(ENV_SMTP_BRIDGE_API_LISTEN_PORT)
 	conf.AllowOrigins = strings.Split(os.Getenv(ENV_CORS_ALLOW_ORIGINS), ",")
 
+	if (conf.Port == "") || (conf.Port == "0") {
+		panic("SMTP Bridge API listen port not set. Please set the SMTP_BRIDGE_API_LISTEN_PORT environment variable.")
+	}
+
 	apiKeys := os.Getenv(ENV_API_KEYS)
 	if apiKeys != "" {
 		conf.ApiKeys = strings.Split(apiKeys, ",")

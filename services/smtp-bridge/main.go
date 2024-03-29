@@ -31,12 +31,12 @@ func main() {
 	smtpClients, err := sc.NewSmtpClients(conf.LowPrioSMTPServerConfigYAML)
 	if err != nil {
 		slog.Error("Error creating SMTP clients", slog.String("error", err.Error()))
-		return
+		panic("Error creating SMTP clients")
 	}
 	highPrioSmtpClients, err := sc.NewSmtpClients(conf.HighPrioSMTPServerConfigYAML)
 	if err != nil {
 		slog.Error("Error creating high priority SMTP clients", slog.String("error", err.Error()))
-		return
+		panic("Error creating high priority SMTP clients")
 	}
 
 	// Add handlers

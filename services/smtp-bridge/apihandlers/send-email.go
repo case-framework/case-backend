@@ -16,7 +16,7 @@ const (
 )
 
 func (h *HttpEndpoints) AddRoutes(rg *gin.RouterGroup) {
-	auth := rg.Group("/auth")
+	auth := rg.Group("/")
 
 	auth.POST("/send-email",
 		mw.HasValidAPIKey(h.apiKeys),
@@ -76,5 +76,5 @@ func (h *HttpEndpoints) sendEmail(c *gin.Context) {
 			break
 		}
 	}
-
+	c.JSON(http.StatusOK, gin.H{"message": "email sent"})
 }
