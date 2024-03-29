@@ -6,8 +6,11 @@ import (
 
 	"github.com/case-framework/case-backend/pkg/apihelpers"
 	"github.com/case-framework/case-backend/services/smtp-bridge/apihandlers"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+
+	sc "github.com/case-framework/case-backend/pkg/smtp-client"
 )
 
 var conf config
@@ -25,11 +28,24 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
+	smtpClients, err := sc.NewSmtpClients(conf.LowPrioSMTPServerConfigYAML)
+	if err != nil {
+		slog.Error("Error creating SMTP clients", slog.String("error", err.Error()))
+		return
+	}
+	highPrioSmtpClients, err := sc.NewSmtpClients(conf.HighPrioSMTPServerConfigYAML)
+	if err != nil {
+		slog.Error("Error creating high priority SMTP clients", slog.String("error", err.Error()))
+		return
+	}
+
 	// Add handlers
 	router.GET("/", apihandlers.HealthCheckHandle)
 	root := router.Group("/")
 	apiModule := apihandlers.NewHTTPHandler(
-		[]string{},
+		conf.ApiKeys,
+		highPrioSmtpClients,
+		smtpClients,
 	)
 
 	apiModule.AddRoutes(root)
@@ -39,7 +55,7 @@ func main() {
 	}
 
 	slog.Info("Starting SMTP Bridge API on port " + conf.Port)
-	err := router.Run(":" + conf.Port)
+	err = router.Run(":" + conf.Port)
 	if err != nil {
 		slog.Error("Exited SMTP Bridge API", slog.String("error", err.Error()))
 		return

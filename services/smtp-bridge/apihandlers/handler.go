@@ -3,6 +3,7 @@ package apihandlers
 import (
 	"net/http"
 
+	sc "github.com/case-framework/case-backend/pkg/smtp-client"
 	"github.com/gin-gonic/gin"
 )
 
@@ -11,13 +12,19 @@ func HealthCheckHandle(c *gin.Context) {
 }
 
 type HttpEndpoints struct {
-	apiKeys []string
+	apiKeys             []string
+	highPrioSmtpClients *sc.SmtpClients
+	lowPrioSmtpClients  *sc.SmtpClients
 }
 
 func NewHTTPHandler(
 	apiKeys []string,
+	highPrioSmtpClients *sc.SmtpClients,
+	lowPrioSmtpClients *sc.SmtpClients,
 ) *HttpEndpoints {
 	return &HttpEndpoints{
-		apiKeys: apiKeys,
+		apiKeys:             apiKeys,
+		highPrioSmtpClients: highPrioSmtpClients,
+		lowPrioSmtpClients:  lowPrioSmtpClients,
 	}
 }
