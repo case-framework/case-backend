@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -14,8 +13,6 @@ import (
 	"github.com/case-framework/case-backend/pkg/utils"
 
 	"github.com/gin-gonic/gin"
-
-	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 // Environment variables
@@ -103,7 +100,7 @@ type Config struct {
 }
 
 func init() {
-	initLogger()
+	readConfigForAndInitLogger()
 
 	conf = initConfig()
 	if !conf.GinDebugMode {
@@ -177,69 +174,32 @@ func readInstaceIDs() []string {
 	return strings.Split(os.Getenv(ENV_INSTANCE_IDS), ",")
 }
 
-func initLogger() {
+func readConfigForAndInitLogger() {
 	level := os.Getenv(ENV_LOG_LEVEL)
-	opts := &slog.HandlerOptions{
-		Level:     logLevelFromString(level),
-		AddSource: os.Getenv(ENV_LOG_INCLUDE_SRC) == "true",
-		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
-			if a.Key == slog.SourceKey {
-				source, _ := a.Value.Any().(*slog.Source)
-				if source != nil {
-					source.File = filepath.Base(source.File)
-					source.Function = strings.Replace(source.Function, "github.com/case-framework/case-backend", "", -1)
-				}
-			}
-			return a
-		},
-	}
-
+	includeSrc := os.Getenv(ENV_LOG_INCLUDE_SRC) == "true"
 	logToFile := os.Getenv(ENV_LOG_TO_FILE) == "true"
-	if logToFile {
-		logFilename := os.Getenv(ENV_LOG_FILENAME)
-		maxSize, err := strconv.Atoi(os.Getenv(ENV_LOG_MAX_SIZE))
-		if err != nil {
-			panic(err)
-		}
-		maxAge, err := strconv.Atoi(os.Getenv(ENV_LOG_MAX_AGE))
-		if err != nil {
-			panic(err)
-		}
-		maxBackups, err := strconv.Atoi(os.Getenv(ENV_LOG_MAX_BACKUPS))
-		if err != nil {
-			panic(err)
-		}
 
-		logTarget := &lumberjack.Logger{
-			Filename:   logFilename,
-			MaxSize:    maxSize, // megabytes
-			MaxAge:     maxAge,  // days
-			Compress:   true,    // compress old files
-			MaxBackups: maxBackups,
-		}
-		handler := slog.NewJSONHandler(logTarget, opts)
-		logger := slog.New(handler)
-		slog.SetDefault(logger)
-	} else {
-		handler := slog.NewJSONHandler(os.Stdout, opts)
-		logger := slog.New(handler)
-		slog.SetDefault(logger)
+	if !logToFile {
+		utils.InitLogger(level, includeSrc, "", 0, 0, 0)
+		return
 	}
-}
 
-func logLevelFromString(level string) slog.Level {
-	switch level {
-	case "debug":
-		return slog.LevelDebug
-	case "info":
-		return slog.LevelInfo
-	case "warn":
-		return slog.LevelWarn
-	case "error":
-		return slog.LevelError
-	default:
-		return slog.LevelInfo
+	logFilename := os.Getenv(ENV_LOG_FILENAME)
+	logFileMaxSize, err := strconv.Atoi(os.Getenv(ENV_LOG_MAX_SIZE))
+	if err != nil {
+		panic(err)
 	}
+	logFileMaxAge, err := strconv.Atoi(os.Getenv(ENV_LOG_MAX_AGE))
+	if err != nil {
+		panic(err)
+	}
+
+	logFileMaxBackups, err := strconv.Atoi(os.Getenv(ENV_LOG_MAX_BACKUPS))
+	if err != nil {
+		panic(err)
+	}
+
+	utils.InitLogger(level, includeSrc, logFilename, logFileMaxSize, logFileMaxAge, logFileMaxBackups)
 }
 
 func readManagementUserDBConfig() db.DBConfig {
