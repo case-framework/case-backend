@@ -24,6 +24,9 @@ const (
 	ENV_LOG_INCLUDE_SRC = "LOG_INCLUDE_SRC"
 
 	ENV_API_KEYS = "API_KEYS"
+
+	ENV_HIGH_PRIO_SMTP_SERVER_CONFIG_YAML = "HIGH_PRIO_SMTP_SERVER_CONFIG_YAML"
+	ENV_LOW_PRIO_SMTP_SERVER_CONFIG_YAML  = "LOW_PRIO_SMTP_SERVER_CONFIG_YAML"
 )
 
 type config struct {
@@ -33,6 +36,9 @@ type config struct {
 	Port         string   `json:"port"`
 
 	ApiKeys []string `json:"api_keys"`
+
+	HighPrioSMTPServerConfigYAML string `json:"high_prio_smtp_server_config_yaml"`
+	LowPrioSMTPServerConfigYAML  string `json:"low_prio_smtp_server_config_yaml"`
 }
 
 func init() {
@@ -86,6 +92,9 @@ func initConfig() config {
 	if len(conf.ApiKeys) == 0 {
 		panic("No API keys provided for SMTP Bridge API. Please set the API_KEYS environment variable.")
 	}
+
+	conf.HighPrioSMTPServerConfigYAML = os.Getenv(ENV_HIGH_PRIO_SMTP_SERVER_CONFIG_YAML)
+	conf.LowPrioSMTPServerConfigYAML = os.Getenv(ENV_LOW_PRIO_SMTP_SERVER_CONFIG_YAML)
 
 	return conf
 }

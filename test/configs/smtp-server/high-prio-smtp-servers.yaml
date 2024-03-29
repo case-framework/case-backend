@@ -1,0 +1,19 @@
+from: '"Message Bot" <noreply-or-replyto@example.com>'
+sender: test@test.de
+replyTo:
+- no-reply@example.org
+servers:
+- host: test.example.com
+  port: 234
+  connections: 2
+  sendTimeout: 5
+  auth:
+    user: testuser
+    password: testpassword
+- host: test2.example.com
+  port: 235
+  connections: 2
+  sendTimeout: 5
+  auth:
+    user: testuser2
+    password: testpassword2

@@ -1,7 +1,11 @@
 package apihandlers
 
 import (
+	"log/slog"
+	"net/http"
+
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
+	sc "github.com/case-framework/case-backend/pkg/smtp-client"
 	"github.com/gin-gonic/gin"
 )
 
@@ -14,16 +18,20 @@ func (h *HttpEndpoints) AddRoutes(rg *gin.RouterGroup) {
 		h.sendEmail)
 }
 
-type HeaderOverrides struct {
-	From    string   `json:"from"`
-	Sender  string   `json:"sender"`
-	ReplyTo []string `json:"replyTo"`
-	NoReply bool     `json:"noReply"`
+type SendEmailReq struct {
+	To              []string           `json:"to"`
+	Subject         string             `json:"subject"`
+	Content         string             `json:"content"`
+	HighPrio        bool               `json:"highPrio"`
+	HeaderOverrides sc.HeaderOverrides `json:"headerOverrides"`
 }
 
-type SendEmailReq struct {
-	To       []string `json:"to"`
-	Subject  string   `json:"subject"`
-	Content  string   `json:"content"`
-	HighPrio bool     `json:"highPrio"`
+func (h *HttpEndpoints) sendEmail(c *gin.Context) {
+	var req SendEmailReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
 }
