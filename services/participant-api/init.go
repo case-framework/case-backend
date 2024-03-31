@@ -14,9 +14,9 @@ import (
 
 // Environment variables
 const (
-	ENV_GIN_DEBUG_MODE             = "GIN_DEBUG_MODE"
-	ENV_MANAGEMENT_API_LISTEN_PORT = "MANAGEMENT_API_LISTEN_PORT"
-	ENV_CORS_ALLOW_ORIGINS         = "CORS_ALLOW_ORIGINS"
+	ENV_GIN_DEBUG_MODE              = "GIN_DEBUG_MODE"
+	ENV_PARTICIPANT_API_LISTEN_PORT = "PARTICIPANT_API_LISTEN_PORT"
+	ENV_CORS_ALLOW_ORIGINS          = "CORS_ALLOW_ORIGINS"
 
 	ENV_PARTICIPANT_USER_JWT_SIGN_KEY   = "PARTICIPANT_USER_JWT_SIGN_KEY"
 	ENV_PARTICIPANT_USER_JWT_EXPIRES_IN = "PARTICIPANT_USER_JWT_EXPIRES_IN"
@@ -104,7 +104,7 @@ func init() {
 func initConfig() ParticipantApiConfig {
 	conf := ParticipantApiConfig{}
 	conf.GinDebugMode = os.Getenv(ENV_GIN_DEBUG_MODE) == "true"
-	conf.Port = os.Getenv(ENV_MANAGEMENT_API_LISTEN_PORT)
+	conf.Port = os.Getenv(ENV_PARTICIPANT_API_LISTEN_PORT)
 	conf.AllowOrigins = strings.Split(os.Getenv(ENV_CORS_ALLOW_ORIGINS), ",")
 
 	conf.FilestorePath = getAndCheckParticipantFilestorePath()
