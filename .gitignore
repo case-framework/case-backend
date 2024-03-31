@@ -1,4 +1,6 @@
 logs
 test/run-management-api.sh
+test/run-smtp-bridge.sh
 management-api-routes.txt
+smtp-bridge-api-routes.txt
 storage

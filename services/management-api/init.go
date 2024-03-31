@@ -1,10 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"log/slog"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -100,7 +98,15 @@ type Config struct {
 }
 
 func init() {
-	readConfigForAndInitLogger()
+	utils.ReadConfigFromEnvAndInitLogger(
+		ENV_LOG_LEVEL,
+		ENV_LOG_INCLUDE_SRC,
+		ENV_LOG_TO_FILE,
+		ENV_LOG_FILENAME,
+		ENV_LOG_MAX_SIZE,
+		ENV_LOG_MAX_AGE,
+		ENV_LOG_MAX_BACKUPS,
+	)
 
 	conf = initConfig()
 	if !conf.GinDebugMode {
@@ -166,176 +172,58 @@ func initConfig() Config {
 	}
 
 	// Allowed instance IDs
-	conf.AllowedInstanceIDs = readInstaceIDs()
+	conf.AllowedInstanceIDs = readInstanceIDs()
 	return conf
 }
 
-func readInstaceIDs() []string {
+func readInstanceIDs() []string {
 	return strings.Split(os.Getenv(ENV_INSTANCE_IDS), ",")
 }
 
-func readConfigForAndInitLogger() {
-	level := os.Getenv(ENV_LOG_LEVEL)
-	includeSrc := os.Getenv(ENV_LOG_INCLUDE_SRC) == "true"
-	logToFile := os.Getenv(ENV_LOG_TO_FILE) == "true"
-
-	if !logToFile {
-		utils.InitLogger(level, includeSrc, "", 0, 0, 0)
-		return
-	}
-
-	logFilename := os.Getenv(ENV_LOG_FILENAME)
-	logFileMaxSize, err := strconv.Atoi(os.Getenv(ENV_LOG_MAX_SIZE))
-	if err != nil {
-		panic(err)
-	}
-	logFileMaxAge, err := strconv.Atoi(os.Getenv(ENV_LOG_MAX_AGE))
-	if err != nil {
-		panic(err)
-	}
-
-	logFileMaxBackups, err := strconv.Atoi(os.Getenv(ENV_LOG_MAX_BACKUPS))
-	if err != nil {
-		panic(err)
-	}
-
-	utils.InitLogger(level, includeSrc, logFilename, logFileMaxSize, logFileMaxAge, logFileMaxBackups)
-}
-
 func readManagementUserDBConfig() db.DBConfig {
-	connStr := os.Getenv(ENV_MANAGEMENT_USER_DB_CONNECTION_STR)
-	username := os.Getenv(ENV_MANAGEMENT_USER_DB_USERNAME)
-	password := os.Getenv(ENV_MANAGEMENT_USER_DB_PASSWORD)
-	prefix := os.Getenv(ENV_MANAGEMENT_USER_DB_CONNECTION_PREFIX) // Used in test mode
-	if connStr == "" || username == "" || password == "" {
-		slog.Error("Couldn't read DB credentials for management user DB.")
-		panic("Couldn't read DB credentials for management user DB.")
-	}
-	URI := fmt.Sprintf(`mongodb%s://%s:%s@%s`, prefix, username, password, connStr)
-
-	var err error
-	Timeout, err := strconv.Atoi(os.Getenv(ENV_MANAGEMENT_USER_DB_TIMEOUT))
-	if err != nil {
-		slog.Error("error during initConfig", slog.String("error", err.Error()), ENV_MANAGEMENT_USER_DB_TIMEOUT, os.Getenv(ENV_MANAGEMENT_USER_DB_TIMEOUT))
-		panic(err)
-	}
-
-	IdleConnTimeout, err := strconv.Atoi(os.Getenv(ENV_MANAGEMENT_USER_DB_IDLE_CONN_TIMEOUT))
-	if err != nil {
-		slog.Error("error during initConfig", slog.String("error", err.Error()), ENV_MANAGEMENT_USER_DB_IDLE_CONN_TIMEOUT, os.Getenv(ENV_MANAGEMENT_USER_DB_IDLE_CONN_TIMEOUT))
-		panic(err)
-	}
-
-	mps, err := strconv.Atoi(os.Getenv(ENV_MANAGEMENT_USER_DB_MAX_POOL_SIZE))
-	MaxPoolSize := uint64(mps)
-	if err != nil {
-		slog.Error("error during initConfig", slog.String("error", err.Error()), ENV_MANAGEMENT_USER_DB_MAX_POOL_SIZE, os.Getenv(ENV_MANAGEMENT_USER_DB_MAX_POOL_SIZE))
-		panic(err)
-	}
-
-	noCursorTimeout := os.Getenv(ENV_MANAGEMENT_USER_DB_USE_NO_CURSOR_TIMEOUT) == "true"
-	DBNamePrefix := os.Getenv(ENV_MANAGEMENT_USER_DB_NAME_PREFIX)
-	InstanceIDs := readInstaceIDs()
-
-	return db.DBConfig{
-		URI:             URI,
-		Timeout:         Timeout,
-		IdleConnTimeout: IdleConnTimeout,
-		MaxPoolSize:     MaxPoolSize,
-		NoCursorTimeout: noCursorTimeout,
-		DBNamePrefix:    DBNamePrefix,
-		InstanceIDs:     InstanceIDs,
-	}
+	return db.ReadDBConfigFromEnv(
+		"management user DB",
+		ENV_MANAGEMENT_USER_DB_CONNECTION_STR,
+		ENV_MANAGEMENT_USER_DB_USERNAME,
+		ENV_MANAGEMENT_USER_DB_PASSWORD,
+		ENV_MANAGEMENT_USER_DB_CONNECTION_PREFIX,
+		ENV_MANAGEMENT_USER_DB_TIMEOUT,
+		ENV_MANAGEMENT_USER_DB_IDLE_CONN_TIMEOUT,
+		ENV_MANAGEMENT_USER_DB_MAX_POOL_SIZE,
+		ENV_MANAGEMENT_USER_DB_USE_NO_CURSOR_TIMEOUT,
+		ENV_MANAGEMENT_USER_DB_NAME_PREFIX,
+		readInstanceIDs(),
+	)
 }
 
 func readMessagingDBConfig() db.DBConfig {
-	connStr := os.Getenv(ENV_MESSAGING_DB_CONNECTION_STR)
-	username := os.Getenv(ENV_MESSAGING_DB_USERNAME)
-	password := os.Getenv(ENV_MESSAGING_DB_PASSWORD)
-	prefix := os.Getenv(ENV_MESSAGING_DB_CONNECTION_PREFIX) // Used in test mode
-	if connStr == "" || username == "" || password == "" {
-		slog.Error("Couldn't read DB credentials for messaging DB.")
-		panic("Couldn't read DB credentials for messaging DB.")
-	}
-	URI := fmt.Sprintf(`mongodb%s://%s:%s@%s`, prefix, username, password, connStr)
-
-	var err error
-	Timeout, err := strconv.Atoi(os.Getenv(ENV_MESSAGING_DB_TIMEOUT))
-	if err != nil {
-		slog.Error("error during initConfig", slog.String("error", err.Error()), ENV_MESSAGING_DB_TIMEOUT, os.Getenv(ENV_MESSAGING_DB_TIMEOUT))
-		panic(err)
-	}
-
-	IdleConnTimeout, err := strconv.Atoi(os.Getenv(ENV_MESSAGING_DB_IDLE_CONN_TIMEOUT))
-	if err != nil {
-		slog.Error("error during initConfig", slog.String("error", err.Error()), ENV_MESSAGING_DB_IDLE_CONN_TIMEOUT, os.Getenv(ENV_MESSAGING_DB_IDLE_CONN_TIMEOUT))
-		panic(err)
-	}
-
-	mps, err := strconv.Atoi(os.Getenv(ENV_MESSAGING_DB_MAX_POOL_SIZE))
-	MaxPoolSize := uint64(mps)
-	if err != nil {
-		slog.Error("error during initConfig", slog.String("error", err.Error()), ENV_MESSAGING_DB_MAX_POOL_SIZE, os.Getenv(ENV_MESSAGING_DB_MAX_POOL_SIZE))
-		panic(err)
-	}
-
-	noCursorTimeout := os.Getenv(ENV_MESSAGING_DB_USE_NO_CURSOR_TIMEOUT) == "true"
-	DBNamePrefix := os.Getenv(ENV_MESSAGING_DB_NAME_PREFIX)
-	InstanceIDs := readInstaceIDs()
-
-	return db.DBConfig{
-		URI:             URI,
-		Timeout:         Timeout,
-		IdleConnTimeout: IdleConnTimeout,
-		MaxPoolSize:     MaxPoolSize,
-		NoCursorTimeout: noCursorTimeout,
-		DBNamePrefix:    DBNamePrefix,
-		InstanceIDs:     InstanceIDs,
-	}
+	return db.ReadDBConfigFromEnv(
+		"messaging DB",
+		ENV_MESSAGING_DB_CONNECTION_STR,
+		ENV_MESSAGING_DB_USERNAME,
+		ENV_MESSAGING_DB_PASSWORD,
+		ENV_MESSAGING_DB_CONNECTION_PREFIX,
+		ENV_MESSAGING_DB_TIMEOUT,
+		ENV_MESSAGING_DB_IDLE_CONN_TIMEOUT,
+		ENV_MESSAGING_DB_MAX_POOL_SIZE,
+		ENV_MESSAGING_DB_USE_NO_CURSOR_TIMEOUT,
+		ENV_MESSAGING_DB_NAME_PREFIX,
+		readInstanceIDs(),
+	)
 }
 
 func readStudyDBConfig() db.DBConfig {
-	connStr := os.Getenv(ENV_STUDY_DB_CONNECTION_STR)
-	username := os.Getenv(ENV_STUDY_DB_USERNAME)
-	password := os.Getenv(ENV_STUDY_DB_PASSWORD)
-	prefix := os.Getenv(ENV_STUDY_DB_CONNECTION_PREFIX) // Used in test mode
-	if connStr == "" || username == "" || password == "" {
-		slog.Error("Couldn't read DB credentials for study DB.")
-		panic("Couldn't read DB credentials for study DB.")
-	}
-	URI := fmt.Sprintf(`mongodb%s://%s:%s@%s`, prefix, username, password, connStr)
-
-	var err error
-	Timeout, err := strconv.Atoi(os.Getenv(ENV_STUDY_DB_TIMEOUT))
-	if err != nil {
-		slog.Error("error during initConfig", slog.String("error", err.Error()), ENV_STUDY_DB_TIMEOUT, os.Getenv(ENV_STUDY_DB_TIMEOUT))
-		panic(err)
-	}
-
-	IdleConnTimeout, err := strconv.Atoi(os.Getenv(ENV_STUDY_DB_IDLE_CONN_TIMEOUT))
-	if err != nil {
-		slog.Error("error during initConfig", slog.String("error", err.Error()), ENV_STUDY_DB_IDLE_CONN_TIMEOUT, os.Getenv(ENV_STUDY_DB_IDLE_CONN_TIMEOUT))
-		panic(err)
-	}
-
-	mps, err := strconv.Atoi(os.Getenv(ENV_STUDY_DB_MAX_POOL_SIZE))
-	MaxPoolSize := uint64(mps)
-	if err != nil {
-		slog.Error("error during initConfig", slog.String("error", err.Error()), ENV_STUDY_DB_MAX_POOL_SIZE, os.Getenv(ENV_STUDY_DB_MAX_POOL_SIZE))
-		panic(err)
-	}
-
-	noCursorTimeout := os.Getenv(ENV_STUDY_DB_USE_NO_CURSOR_TIMEOUT) == "true"
-	DBNamePrefix := os.Getenv(ENV_STUDY_DB_NAME_PREFIX)
-	InstanceIDs := readInstaceIDs()
-
-	return db.DBConfig{
-		URI:             URI,
-		Timeout:         Timeout,
-		IdleConnTimeout: IdleConnTimeout,
-		MaxPoolSize:     MaxPoolSize,
-		NoCursorTimeout: noCursorTimeout,
-		DBNamePrefix:    DBNamePrefix,
-		InstanceIDs:     InstanceIDs,
-	}
+	return db.ReadDBConfigFromEnv(
+		"study DB",
+		ENV_STUDY_DB_CONNECTION_STR,
+		ENV_STUDY_DB_USERNAME,
+		ENV_STUDY_DB_PASSWORD,
+		ENV_STUDY_DB_CONNECTION_PREFIX,
+		ENV_STUDY_DB_TIMEOUT,
+		ENV_STUDY_DB_IDLE_CONN_TIMEOUT,
+		ENV_STUDY_DB_MAX_POOL_SIZE,
+		ENV_STUDY_DB_USE_NO_CURSOR_TIMEOUT,
+		ENV_STUDY_DB_NAME_PREFIX,
+		readInstanceIDs(),
+	)
 }

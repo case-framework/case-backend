@@ -72,8 +72,8 @@ func main() {
 	}
 
 	// Start the server
+	slog.Info("Starting Management API on port " + conf.Port)
 	if !conf.UseMTLS {
-		slog.Info("Starting Management API on port " + conf.Port)
 		err := router.Run(":" + conf.Port)
 		if err != nil {
 			slog.Error("Exited Management API", slog.String("error", err.Error()))
