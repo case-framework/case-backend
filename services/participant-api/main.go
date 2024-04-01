@@ -10,6 +10,8 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
+	globalinfosDB "github.com/case-framework/case-backend/pkg/db/global-infos"
+	userDB "github.com/case-framework/case-backend/pkg/db/participant-user"
 	studyDB "github.com/case-framework/case-backend/pkg/db/study"
 )
 
@@ -19,6 +21,18 @@ func main() {
 	studyDBService, err := studyDB.NewStudyDBService(conf.StudyDBConfig)
 	if err != nil {
 		slog.Error("Error connecting to Study DB", slog.String("error", err.Error()))
+		return
+	}
+
+	userDbService, err := userDB.NewParticipantUserDBService(conf.ParticipantUserDBConfig)
+	if err != nil {
+		slog.Error("Error connecting to Participant User DB", slog.String("error", err.Error()))
+		return
+	}
+
+	globalInfosDBService, err := globalinfosDB.NewGlobalInfosDBService(conf.GlobalInfosDBConfig)
+	if err != nil {
+		slog.Error("Error connecting to Global Infos DB", slog.String("error", err.Error()))
 		return
 	}
 
@@ -42,6 +56,8 @@ func main() {
 		conf.ParticipantUserJWTSignKey,
 		conf.ParticipantUserJWTExpiresIn,
 		studyDBService,
+		userDbService,
+		globalInfosDBService,
 		conf.AllowedInstanceIDs,
 		conf.StudyGlobalSecret,
 		conf.FilestorePath,

@@ -29,6 +29,16 @@ const (
 
 	ENV_INSTANCE_IDS = "INSTANCE_IDS"
 
+	ENV_GLOBAL_INFOS_DB_CONNECTION_STR        = "GLOBAL_INFOS_DB_CONNECTION_STR"
+	ENV_GLOBAL_INFOS_DB_USERNAME              = "GLOBAL_INFOS_DB_USERNAME"
+	ENV_GLOBAL_INFOS_DB_PASSWORD              = "GLOBAL_INFOS_DB_PASSWORD"
+	ENV_GLOBAL_INFOS_DB_CONNECTION_PREFIX     = "GLOBAL_INFOS_DB_CONNECTION_PREFIX"
+	ENV_GLOBAL_INFOS_DB_NAME_PREFIX           = "GLOBAL_INFOS_DB_NAME_PREFIX"
+	ENV_GLOBAL_INFOS_DB_TIMEOUT               = "GLOBAL_INFOS_DB_TIMEOUT"
+	ENV_GLOBAL_INFOS_DB_IDLE_CONN_TIMEOUT     = "GLOBAL_INFOS_DB_IDLE_CONN_TIMEOUT"
+	ENV_GLOBAL_INFOS_DB_USE_NO_CURSOR_TIMEOUT = "GLOBAL_INFOS_DB_USE_NO_CURSOR_TIMEOUT"
+	ENV_GLOBAL_INFOS_DB_MAX_POOL_SIZE         = "GLOBAL_INFOS_DB_MAX_POOL_SIZE"
+
 	ENV_PARTICIPANT_USER_DB_CONNECTION_STR        = "PARTICIPANT_USER_DB_CONNECTION_STR"
 	ENV_PARTICIPANT_USER_DB_USERNAME              = "PARTICIPANT_USER_DB_USERNAME"
 	ENV_PARTICIPANT_USER_DB_PASSWORD              = "PARTICIPANT_USER_DB_PASSWORD"
@@ -82,7 +92,9 @@ type ParticipantApiConfig struct {
 	UseMTLS          bool                        `json:"use_mtls"`
 	CertificatePaths apihelpers.CertificatePaths `json:"certificate_paths"`
 
-	StudyDBConfig db.DBConfig `json:"study_db_config"`
+	StudyDBConfig           db.DBConfig `json:"study_db_config"`
+	ParticipantUserDBConfig db.DBConfig `json:"participant_user_db_config"`
+	GlobalInfosDBConfig     db.DBConfig `json:"global_infos_db_config"`
 
 	StudyGlobalSecret string `json:"study_global_secret"`
 
@@ -140,6 +152,8 @@ func initConfig() ParticipantApiConfig {
 
 	// Study db configs
 	conf.StudyDBConfig = readStudyDBConfig()
+	conf.ParticipantUserDBConfig = readParticipantUserDBConfig()
+	conf.GlobalInfosDBConfig = readGlobalInfosDBConfig()
 
 	// Study global secret
 	conf.StudyGlobalSecret = os.Getenv(ENV_STUDY_GLOBAL_SECRET)
@@ -169,6 +183,38 @@ func readStudyDBConfig() db.DBConfig {
 		ENV_STUDY_DB_MAX_POOL_SIZE,
 		ENV_STUDY_DB_USE_NO_CURSOR_TIMEOUT,
 		ENV_STUDY_DB_NAME_PREFIX,
+		readInstanceIDs(),
+	)
+}
+
+func readParticipantUserDBConfig() db.DBConfig {
+	return db.ReadDBConfigFromEnv(
+		"participant user DB",
+		ENV_PARTICIPANT_USER_DB_CONNECTION_STR,
+		ENV_PARTICIPANT_USER_DB_USERNAME,
+		ENV_PARTICIPANT_USER_DB_PASSWORD,
+		ENV_PARTICIPANT_USER_DB_CONNECTION_PREFIX,
+		ENV_PARTICIPANT_USER_DB_TIMEOUT,
+		ENV_PARTICIPANT_USER_DB_IDLE_CONN_TIMEOUT,
+		ENV_PARTICIPANT_USER_DB_MAX_POOL_SIZE,
+		ENV_PARTICIPANT_USER_DB_USE_NO_CURSOR_TIMEOUT,
+		ENV_PARTICIPANT_USER_DB_NAME_PREFIX,
+		readInstanceIDs(),
+	)
+}
+
+func readGlobalInfosDBConfig() db.DBConfig {
+	return db.ReadDBConfigFromEnv(
+		"global infos DB",
+		ENV_GLOBAL_INFOS_DB_CONNECTION_STR,
+		ENV_GLOBAL_INFOS_DB_USERNAME,
+		ENV_GLOBAL_INFOS_DB_PASSWORD,
+		ENV_GLOBAL_INFOS_DB_CONNECTION_PREFIX,
+		ENV_GLOBAL_INFOS_DB_TIMEOUT,
+		ENV_GLOBAL_INFOS_DB_IDLE_CONN_TIMEOUT,
+		ENV_GLOBAL_INFOS_DB_MAX_POOL_SIZE,
+		ENV_GLOBAL_INFOS_DB_USE_NO_CURSOR_TIMEOUT,
+		ENV_GLOBAL_INFOS_DB_NAME_PREFIX,
 		readInstanceIDs(),
 	)
 }
