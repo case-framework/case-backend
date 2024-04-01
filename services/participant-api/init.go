@@ -166,7 +166,7 @@ func getAndCheckParticipantFilestorePath() string {
 	// To store dynamically generated files
 	fsPath := os.Getenv(ENV_PARTICIPANT_FILESTORE_PATH)
 	if fsPath == "" {
-		slog.Error("Filestore path not set")
+		slog.Error("Filestore path not set - configure PARTICIPANT_FILESTORE_PATH env variable.")
 		panic("Filestore path not set")
 	}
 
