@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
+	umUtils "github.com/case-framework/case-backend/pkg/user-management/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -41,7 +42,7 @@ func (h *HttpEndpoints) loginWithEmail(c *gin.Context) {
 		return
 	}
 
-	// TODO: sanitize email
+	req.Email = umUtils.SanitizeEmail(req.Email)
 
 	// TODO: get user from db
 

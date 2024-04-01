@@ -123,7 +123,7 @@ func (dbService *ManagementUserDBService) ensureIndexes() error {
 			ctx,
 			mongo.IndexModel{
 				Keys:    bson.D{{Key: "createdAt", Value: 1}},
-				Options: options.Index().SetExpireAfterSeconds(REMOVE_SESSIONS_AFTER), // 2 days
+				Options: options.Index().SetExpireAfterSeconds(REMOVE_SESSIONS_AFTER),
 			},
 		)
 		if err != nil {
