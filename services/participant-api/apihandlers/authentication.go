@@ -1,12 +1,24 @@
 package apihandlers
 
 import (
+	"errors"
 	"log/slog"
+	"math/rand"
 	"net/http"
+	"time"
 
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
+	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
+	"github.com/case-framework/case-backend/pkg/user-management/pwhash"
 	umUtils "github.com/case-framework/case-backend/pkg/user-management/utils"
 	"github.com/gin-gonic/gin"
+
+	userTypes "github.com/case-framework/case-backend/pkg/user-management/types"
+)
+
+const (
+	loginFailedAttemptWindow = 5 * 60 // to count the login failures, seconds
+	allowedPasswordAttempts  = 10
 )
 
 func (h *HttpEndpoints) AddParticipantAuthAPI(rg *gin.RouterGroup) {
@@ -44,20 +56,108 @@ func (h *HttpEndpoints) loginWithEmail(c *gin.Context) {
 
 	req.Email = umUtils.SanitizeEmail(req.Email)
 
-	// TODO: get user from db
+	user, err := h.userDBConn.GetUserByAccountID(req.InstanceID, req.Email)
+	if err != nil {
+		slog.Warn("login attempt with wrong email address", slog.String("email", req.Email), slog.String("instanceID", req.InstanceID), slog.String("error", err.Error()))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
+		return
+	}
 
-	// TODO: check rate limiter
+	if umUtils.HasMoreAttemptsRecently(user.Account.FailedLoginAttempts, allowedPasswordAttempts, loginFailedAttemptWindow) {
+		slog.Warn("login attempt with too many failed attempts", slog.String("email", req.Email), slog.String("instanceID", req.InstanceID))
 
-	// TODO: check password
+		if err := h.userDBConn.SaveFailedLoginAttempt(req.InstanceID, user.ID.Hex()); err != nil {
+			slog.Error("failed to save failed login attempt", slog.String("error", err.Error()))
+		}
+		time.Sleep(time.Duration(rand.Intn(5)) * time.Second)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
+		return
+	}
 
-	// TODO: generate token
+	match, err := pwhash.ComparePasswordWithHash(user.Account.Password, req.Password)
+	if err != nil || !match {
+		if err == nil {
+			err = errors.New("passwords do not match")
+		}
+		slog.Warn("login attempt with wrong password", slog.String("email", req.Email), slog.String("instanceID", req.InstanceID), slog.String("error", err.Error()))
+		if err := h.userDBConn.SaveFailedLoginAttempt(req.InstanceID, user.ID.Hex()); err != nil {
+			slog.Error("failed to save failed login attempt", slog.String("error", err.Error()))
+		}
+		time.Sleep(time.Duration(rand.Intn(10)) * time.Second)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
+		return
+	}
 
-	// TODO: generate refresh token
+	// generate jwt
+	mainProfileID, otherProfileIDs := umUtils.GetMainAndOtherProfiles(user)
 
-	// TODO: update timestamps
+	token, err := jwthandling.GenerateNewParticipantUserToken(
+		h.tokenExpiresIn,
+		user.ID.Hex(),
+		req.InstanceID,
+		mainProfileID,
+		map[string]string{},
+		user.Account.AccountConfirmedAt > 0,
+		nil,
+		otherProfileIDs,
+		h.tokenSignKey,
+	)
+	if err != nil {
+		slog.Error("failed to generate token", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
 
-	// TODO: cleanup invalid tokens (e.g. for password refresh)
+	// generate refresh token
+	renewToken, err := umUtils.GenerateUniqueTokenString()
+	if err != nil {
+		slog.Error("failed to generate renew token", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
 
-	// TODO: return token
+	err = h.userDBConn.CreateRenewToken(req.InstanceID, user.ID.Hex(), renewToken, 0)
+	if err != nil {
+		slog.Error("failed to save renew token", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
 
+	// update timestamps
+	user.Timestamps.LastLogin = time.Now().Unix()
+	user.Timestamps.MarkedForDeletion = 0
+	user.Account.VerificationCode = userTypes.VerificationCode{}
+	user.Account.FailedLoginAttempts = umUtils.RemoveAttemptsOlderThan(user.Account.FailedLoginAttempts, 3600)
+	user.Account.PasswordResetTriggers = umUtils.RemoveAttemptsOlderThan(user.Account.PasswordResetTriggers, 7200)
+
+	user, err = h.userDBConn.UpdateUser(req.InstanceID, user)
+	if err != nil {
+		slog.Error("failed to update user", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	// cleanup tokens for password reset (user can login now...)
+	if err := h.globalInfosDBConn.DeleteAllTempTokenForUser(
+		req.InstanceID,
+		user.ID.Hex(),
+		userTypes.TOKEN_PURPOSE_PASSWORD_RESET,
+	); err != nil {
+		slog.Error("failed to delete temp tokens", slog.String("error", err.Error()))
+	}
+
+	slog.Info("login successful", slog.String("subject", user.ID.Hex()), slog.String("instanceID", req.InstanceID))
+
+	user.Account.Password = ""
+	user.Account.VerificationCode = userTypes.VerificationCode{}
+
+	c.JSON(http.StatusOK, gin.H{
+		"token": gin.H{
+			"accessToken":     token,
+			"refreshToken":    renewToken,
+			"expiresIn":       h.tokenExpiresIn.Seconds(),
+			"selectedProfile": mainProfileID,
+		},
+		"user": user,
+	})
 }

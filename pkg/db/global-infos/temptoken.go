@@ -35,3 +35,18 @@ func (dbService *GlobalInfosDBService) CreateIndexForTemptokens() error {
 	)
 	return err
 }
+
+func (dbService *GlobalInfosDBService) DeleteAllTempTokenForUser(instanceID string, userID string, purpose string) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	filter := bson.M{"instanceID": instanceID, "userID": userID}
+	if len(purpose) > 0 {
+		filter["purpose"] = purpose
+	}
+	_, err := dbService.collectionTemptokens().DeleteMany(ctx, filter)
+	if err != nil {
+		return err
+	}
+	return nil
+}

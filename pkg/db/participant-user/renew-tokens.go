@@ -1,9 +1,13 @@
 package participantuser
 
 import (
+	"time"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+
+	userTypes "github.com/case-framework/case-backend/pkg/user-management/types"
 )
 
 const (
@@ -38,5 +42,23 @@ func (dbService *ParticipantUserDBService) CreateIndexForRenewTokens(instanceID 
 			},
 		},
 	)
+	return err
+}
+
+func (dbService *ParticipantUserDBService) CreateRenewToken(instanceID string, userID string, token string, lifeTimeInSec int) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	ttl := time.Duration(lifeTimeInSec) * time.Second
+	if lifeTimeInSec <= 0 {
+		ttl = time.Duration(RENEW_TOKEN_DEFAULT_LIFETIME) * time.Second
+	}
+	renewToken := userTypes.RenewToken{
+		UserID:     userID,
+		RenewToken: token,
+		ExpiresAt:  time.Now().Add(ttl),
+	}
+
+	_, err := dbService.collectionRenewTokens(instanceID).InsertOne(ctx, renewToken)
 	return err
 }
