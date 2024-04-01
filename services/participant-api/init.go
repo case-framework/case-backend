@@ -8,6 +8,7 @@ import (
 
 	"github.com/case-framework/case-backend/pkg/apihelpers"
 	"github.com/case-framework/case-backend/pkg/db"
+	"github.com/case-framework/case-backend/pkg/pwhash"
 	"github.com/case-framework/case-backend/pkg/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -59,6 +60,10 @@ const (
 	ENV_LOG_INCLUDE_SRC = "LOG_INCLUDE_SRC"
 
 	ENV_PARTICIPANT_FILESTORE_PATH = "PARTICIPANT_FILESTORE_PATH"
+
+	ENV_ARGON2_MEMORY      = "ARGON2_MEMORY"
+	ENV_ARGON2_ITERATIONS  = "ARGON2_ITERATIONS"
+	ENV_ARGON2_PARALLELISM = "ARGON2_PARALLELISM"
 )
 
 type ParticipantApiConfig struct {
@@ -99,6 +104,12 @@ func init() {
 	if !conf.GinDebugMode {
 		gin.SetMode(gin.ReleaseMode)
 	}
+
+	pwhash.InitArgonParamsFromEnv(
+		ENV_ARGON2_MEMORY,
+		ENV_ARGON2_ITERATIONS,
+		ENV_ARGON2_PARALLELISM,
+	)
 }
 
 func initConfig() ParticipantApiConfig {

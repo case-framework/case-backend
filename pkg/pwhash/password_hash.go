@@ -36,18 +36,22 @@ type hashParams struct {
 	keyLength   uint32
 }
 
-func init() {
-	a2m, err := strconv.Atoi(os.Getenv("ARGON2_MEMORY"))
+func InitArgonParamsFromEnv(
+	envA2memory string,
+	envA2iterations string,
+	envA2parallelism string,
+) {
+	a2m, err := strconv.Atoi(os.Getenv(envA2memory))
 	if err == nil && a2m > 0 {
 		argon2Memory = uint32(a2m)
 	}
 
-	a2i, err := strconv.Atoi(os.Getenv("ARGON2_ITERATIONS"))
+	a2i, err := strconv.Atoi(os.Getenv(envA2iterations))
 	if err == nil && a2i > 0 {
 		argon2Iterations = uint32(a2i)
 	}
 
-	a2p, err := strconv.Atoi(os.Getenv("ARGON2_PARALLELISM"))
+	a2p, err := strconv.Atoi(os.Getenv(envA2parallelism))
 	if err == nil && a2p > 0 {
 		argon2Parallelism = uint8(a2p)
 	}
