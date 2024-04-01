@@ -7,7 +7,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
-	studyTypes "github.com/case-framework/case-backend/pkg/types/study"
+	studyTypes "github.com/case-framework/case-backend/pkg/study/study"
 )
 
 // create task

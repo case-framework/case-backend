@@ -8,7 +8,7 @@ import (
 
 	"github.com/case-framework/case-backend/pkg/apihelpers"
 	"github.com/case-framework/case-backend/pkg/db"
-	"github.com/case-framework/case-backend/pkg/pwhash"
+	"github.com/case-framework/case-backend/pkg/user-management/pwhash"
 	"github.com/case-framework/case-backend/pkg/utils"
 	"github.com/gin-gonic/gin"
 )

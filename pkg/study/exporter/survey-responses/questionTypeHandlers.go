@@ -3,8 +3,8 @@ package surveyresponses
 import (
 	"log/slog"
 
-	sd "github.com/case-framework/case-backend/pkg/exporter/survey-definition"
-	studytypes "github.com/case-framework/case-backend/pkg/types/study"
+	sd "github.com/case-framework/case-backend/pkg/study/exporter/survey-definition"
+	studytypes "github.com/case-framework/case-backend/pkg/study/study"
 )
 
 type QuestionTypeHandler interface {

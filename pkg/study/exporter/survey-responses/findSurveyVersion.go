@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"time"
 
-	sd "github.com/case-framework/case-backend/pkg/exporter/survey-definition"
+	sd "github.com/case-framework/case-backend/pkg/study/exporter/survey-definition"
 )
 
 func findSurveyVersion(

@@ -16,15 +16,15 @@ import (
 	managementuser "github.com/case-framework/case-backend/pkg/db/management-user"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	pc "github.com/case-framework/case-backend/pkg/permission-checker"
-	studyutils "github.com/case-framework/case-backend/pkg/study-utils"
+	studyutils "github.com/case-framework/case-backend/pkg/study/utils"
 	"github.com/case-framework/case-backend/pkg/utils"
 	"github.com/gin-gonic/gin"
 
 	studyDB "github.com/case-framework/case-backend/pkg/db/study"
-	studydefinition "github.com/case-framework/case-backend/pkg/exporter/survey-definition"
-	surveydefinition "github.com/case-framework/case-backend/pkg/exporter/survey-definition"
-	surveyresponses "github.com/case-framework/case-backend/pkg/exporter/survey-responses"
-	studyTypes "github.com/case-framework/case-backend/pkg/types/study"
+	studydefinition "github.com/case-framework/case-backend/pkg/study/exporter/survey-definition"
+	surveydefinition "github.com/case-framework/case-backend/pkg/study/exporter/survey-definition"
+	surveyresponses "github.com/case-framework/case-backend/pkg/study/exporter/survey-responses"
+	studyTypes "github.com/case-framework/case-backend/pkg/study/study"
 )
 
 func (h *HttpEndpoints) AddStudyManagementAPI(rg *gin.RouterGroup) {

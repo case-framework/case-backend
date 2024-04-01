@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"testing"
 
-	studytypes "github.com/case-framework/case-backend/pkg/types/study"
+	studytypes "github.com/case-framework/case-backend/pkg/study/study"
 )
 
 func TestIsItemGroup(t *testing.T) {

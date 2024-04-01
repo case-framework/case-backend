@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"strings"
 
-	studydefinition "github.com/case-framework/case-backend/pkg/exporter/survey-definition"
-	studytypes "github.com/case-framework/case-backend/pkg/types/study"
+	studydefinition "github.com/case-framework/case-backend/pkg/study/exporter/survey-definition"
+	studytypes "github.com/case-framework/case-backend/pkg/study/study"
 )
 
 func valueToStr(resultVal interface{}) string {

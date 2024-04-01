@@ -9,7 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	studyTypes "github.com/case-framework/case-backend/pkg/types/study"
+	studyTypes "github.com/case-framework/case-backend/pkg/study/study"
 )
 
 func (dbService *StudyDBService) CreateIndexForReportsCollection(instanceID string, studyKey string) error {
