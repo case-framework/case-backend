@@ -1,6 +1,7 @@
 package participantuser
 
 import (
+	"errors"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -46,6 +47,31 @@ func (dbService *ParticipantUserDBService) CreateIndexForParticipantUsers(instan
 		},
 	)
 	return err
+}
+
+func (dbService *ParticipantUserDBService) AddUser(instanceID string, user umTypes.User) (id string, err error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	filter := bson.M{"account.accountID": user.Account.AccountID}
+	upsert := true
+	opts := options.UpdateOptions{
+		Upsert: &upsert,
+	}
+	res, err := dbService.collectionParticipantUsers(instanceID).UpdateOne(ctx, filter, bson.M{
+		"$setOnInsert": user,
+	}, &opts)
+	if err != nil {
+		return
+	}
+
+	if res.UpsertedCount < 1 {
+		err = errors.New("user already exists")
+		return
+	}
+
+	id = res.UpsertedID.(primitive.ObjectID).Hex()
+	return
 }
 
 func (dbService *ParticipantUserDBService) GetUserByAccountID(instanceID, accountID string) (umTypes.User, error) {
@@ -96,4 +122,13 @@ func (dbService *ParticipantUserDBService) UpdateUser(instanceID string, updated
 	// Set last update time
 	updatedUser.Timestamps.UpdatedAt = time.Now().Unix()
 	return dbService._updateUserInDB(instanceID, updatedUser)
+}
+
+func (dbService *ParticipantUserDBService) CountRecentlyCreatedUsers(instanceID string, interval int64) (count int64, err error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	filter := bson.M{"timestamps.createdAt": bson.M{"$gt": time.Now().Unix() - interval}}
+	count, err = dbService.collectionParticipantUsers(instanceID).CountDocuments(ctx, filter)
+	return
 }

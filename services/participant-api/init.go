@@ -3,6 +3,7 @@ package main
 import (
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -10,7 +11,10 @@ import (
 	"github.com/case-framework/case-backend/pkg/db"
 	"github.com/case-framework/case-backend/pkg/user-management/pwhash"
 	"github.com/case-framework/case-backend/pkg/utils"
+
 	"github.com/gin-gonic/gin"
+
+	umUtils "github.com/case-framework/case-backend/pkg/user-management/utils"
 )
 
 // Environment variables
@@ -74,6 +78,10 @@ const (
 	ENV_ARGON2_MEMORY      = "ARGON2_MEMORY"
 	ENV_ARGON2_ITERATIONS  = "ARGON2_ITERATIONS"
 	ENV_ARGON2_PARALLELISM = "ARGON2_PARALLELISM"
+
+	ENV_NEW_USER_RATE_LIMIT = "NEW_USER_RATE_LIMIT"
+
+	ENV_WEEKDAY_ASSIGNATION_WEIGHTS = "WEEKDAY_ASSIGNATION_WEIGHTS"
 )
 
 type ParticipantApiConfig struct {
@@ -99,6 +107,8 @@ type ParticipantApiConfig struct {
 	StudyGlobalSecret string `json:"study_global_secret"`
 
 	FilestorePath string `json:"filestore_path"`
+
+	MaxNewUsersPer5Minutes int `json:"max_new_users_per_5_minutes"`
 }
 
 func init() {
@@ -164,6 +174,20 @@ func initConfig() ParticipantApiConfig {
 
 	// Allowed instance IDs
 	conf.AllowedInstanceIDs = readInstanceIDs()
+
+	// Rate limit for new users
+	conf.MaxNewUsersPer5Minutes = 50
+	v := os.Getenv(ENV_NEW_USER_RATE_LIMIT)
+	if v != "" {
+		conf.MaxNewUsersPer5Minutes, err = strconv.Atoi(v)
+		if err != nil {
+			slog.Error("cannot parse max new users per 5 minutes", slog.String("value", v), slog.String("error", err.Error()))
+			panic(err)
+		}
+	}
+
+	umUtils.InitWeekdayAssignationStrategyFromEnv(ENV_WEEKDAY_ASSIGNATION_WEIGHTS)
+
 	return conf
 }
 

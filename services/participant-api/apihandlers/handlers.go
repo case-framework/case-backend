@@ -15,14 +15,15 @@ func HealthCheckHandle(c *gin.Context) {
 }
 
 type HttpEndpoints struct {
-	studyDBConn        *studyDB.StudyDBService
-	userDBConn         *userDB.ParticipantUserDBService
-	globalInfosDBConn  *globalinfosDB.GlobalInfosDBService
-	tokenSignKey       string
-	tokenExpiresIn     time.Duration
-	allowedInstanceIDs []string
-	globalStudySecret  string
-	filestorePath      string
+	studyDBConn           *studyDB.StudyDBService
+	userDBConn            *userDB.ParticipantUserDBService
+	globalInfosDBConn     *globalinfosDB.GlobalInfosDBService
+	tokenSignKey          string
+	tokenExpiresIn        time.Duration
+	allowedInstanceIDs    []string
+	globalStudySecret     string
+	filestorePath         string
+	maxNewUsersPer5Minute int
 }
 
 func NewHTTPHandler(
@@ -34,15 +35,17 @@ func NewHTTPHandler(
 	allowedInstanceIDs []string,
 	globalStudySecret string,
 	filestorePath string,
+	maxNewUsersPer5Minute int,
 ) *HttpEndpoints {
 	return &HttpEndpoints{
-		tokenSignKey:       tokenSignKey,
-		studyDBConn:        studyDBConn,
-		userDBConn:         userDBConn,
-		globalInfosDBConn:  globalInfosDBConn,
-		allowedInstanceIDs: allowedInstanceIDs,
-		globalStudySecret:  globalStudySecret,
-		tokenExpiresIn:     tokenExpiresIn,
-		filestorePath:      filestorePath,
+		tokenSignKey:          tokenSignKey,
+		studyDBConn:           studyDBConn,
+		userDBConn:            userDBConn,
+		globalInfosDBConn:     globalInfosDBConn,
+		allowedInstanceIDs:    allowedInstanceIDs,
+		globalStudySecret:     globalStudySecret,
+		tokenExpiresIn:        tokenExpiresIn,
+		filestorePath:         filestorePath,
+		maxNewUsersPer5Minute: maxNewUsersPer5Minute,
 	}
 }

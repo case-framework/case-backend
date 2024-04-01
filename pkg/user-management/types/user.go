@@ -7,6 +7,8 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+const ACCOUNT_TYPE_EMAIL = "email"
+
 type User struct {
 	ID primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 

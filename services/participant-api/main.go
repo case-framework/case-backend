@@ -61,6 +61,7 @@ func main() {
 		conf.AllowedInstanceIDs,
 		conf.StudyGlobalSecret,
 		conf.FilestorePath,
+		conf.MaxNewUsersPer5Minutes,
 	)
 	v1APIHandlers.AddParticipantAuthAPI(v1Root)
 
