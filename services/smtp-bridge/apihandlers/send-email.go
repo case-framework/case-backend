@@ -6,7 +6,8 @@ import (
 	"time"
 
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
-	sc "github.com/case-framework/case-backend/pkg/smtp-client"
+
+	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 
 	"github.com/gin-gonic/gin"
 )
@@ -25,11 +26,11 @@ func (h *HttpEndpoints) AddRoutes(rg *gin.RouterGroup) {
 }
 
 type SendEmailReq struct {
-	To              []string            `json:"to"`
-	Subject         string              `json:"subject"`
-	Content         string              `json:"content"`
-	HighPrio        bool                `json:"highPrio"`
-	HeaderOverrides *sc.HeaderOverrides `json:"headerOverrides"`
+	To              []string                        `json:"to"`
+	Subject         string                          `json:"subject"`
+	Content         string                          `json:"content"`
+	HighPrio        bool                            `json:"highPrio"`
+	HeaderOverrides *messagingTypes.HeaderOverrides `json:"headerOverrides"`
 }
 
 func (h *HttpEndpoints) sendEmail(c *gin.Context) {

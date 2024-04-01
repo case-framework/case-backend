@@ -4,6 +4,9 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+
+	userTypes "github.com/case-framework/case-backend/pkg/user-management/types"
+	umUtils "github.com/case-framework/case-backend/pkg/user-management/utils"
 )
 
 func (dbService *GlobalInfosDBService) CreateIndexForTemptokens() error {
@@ -34,6 +37,23 @@ func (dbService *GlobalInfosDBService) CreateIndexForTemptokens() error {
 		},
 	)
 	return err
+}
+
+func (dbService *GlobalInfosDBService) AddTempToken(t userTypes.TempToken) (token string, err error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	t.Token, err = umUtils.GenerateUniqueTokenString()
+	if err != nil {
+		return token, err
+	}
+
+	_, err = dbService.collectionTemptokens().InsertOne(ctx, t)
+	if err != nil {
+		return token, err
+	}
+	token = t.Token
+	return
 }
 
 func (dbService *GlobalInfosDBService) DeleteAllTempTokenForUser(instanceID string, userID string, purpose string) error {

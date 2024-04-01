@@ -31,8 +31,7 @@ func TestGenerateUniqueTokenString(t *testing.T) {
 
 func TestGetExpirationTime(t *testing.T) {
 	t.Run("with negative days", func(t *testing.T) {
-		resUnix := GetExpirationTime(time.Hour * 24 * -5)
-		resTime := time.Unix(resUnix, 0)
+		resTime := GetExpirationTime(time.Hour * 24 * -5)
 		expected := time.Now().AddDate(0, 0, -5)
 		if resTime.Year() != expected.Year() || resTime.Month() != expected.Month() || resTime.Day() != expected.Day() {
 			t.Errorf("date values don't match. result: %s, expected %s", resTime.String(), expected.String())
@@ -41,8 +40,7 @@ func TestGetExpirationTime(t *testing.T) {
 	})
 
 	t.Run("with zero days", func(t *testing.T) {
-		resUnix := GetExpirationTime(time.Hour * 24 * 0)
-		resTime := time.Unix(resUnix, 0)
+		resTime := GetExpirationTime(time.Hour * 24 * 0)
 		expected := time.Now()
 		if resTime.Year() != expected.Year() || resTime.Month() != expected.Month() || resTime.Day() != expected.Day() {
 			t.Errorf("date values don't match. result: %s, expected %s", resTime.String(), expected.String())
@@ -51,8 +49,8 @@ func TestGetExpirationTime(t *testing.T) {
 	})
 
 	t.Run("with positive days", func(t *testing.T) {
-		resUnix := GetExpirationTime(time.Hour * 24 * 5)
-		resTime := time.Unix(resUnix, 0)
+		resTime := GetExpirationTime(time.Hour * 24 * 5)
+
 		expected := time.Now().AddDate(0, 0, 5)
 		if resTime.Year() != expected.Year() || resTime.Month() != expected.Month() || resTime.Day() != expected.Day() {
 			t.Errorf("date values don't match. result: %s, expected %s", resTime.String(), expected.String())

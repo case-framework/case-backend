@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log/slog"
 	"os"
 	"strconv"
@@ -9,6 +10,8 @@ import (
 
 	"github.com/case-framework/case-backend/pkg/apihelpers"
 	"github.com/case-framework/case-backend/pkg/db"
+	httpclient "github.com/case-framework/case-backend/pkg/http-client"
+	emailsending "github.com/case-framework/case-backend/pkg/messaging/email-sending"
 	"github.com/case-framework/case-backend/pkg/user-management/pwhash"
 	"github.com/case-framework/case-backend/pkg/utils"
 
@@ -63,6 +66,16 @@ const (
 	ENV_STUDY_DB_USE_NO_CURSOR_TIMEOUT = "STUDY_DB_USE_NO_CURSOR_TIMEOUT"
 	ENV_STUDY_DB_MAX_POOL_SIZE         = "STUDY_DB_MAX_POOL_SIZE"
 
+	ENV_MESSAGING_DB_CONNECTION_STR        = "MESSAGING_DB_CONNECTION_STR"
+	ENV_MESSAGING_DB_USERNAME              = "MESSAGING_DB_USERNAME"
+	ENV_MESSAGING_DB_PASSWORD              = "MESSAGING_DB_PASSWORD"
+	ENV_MESSAGING_DB_CONNECTION_PREFIX     = "MESSAGING_DB_CONNECTION_PREFIX"
+	ENV_MESSAGING_DB_NAME_PREFIX           = "MESSAGING_DB_NAME_PREFIX"
+	ENV_MESSAGING_DB_TIMEOUT               = "MESSAGING_DB_TIMEOUT"
+	ENV_MESSAGING_DB_IDLE_CONN_TIMEOUT     = "MESSAGING_DB_IDLE_CONN_TIMEOUT"
+	ENV_MESSAGING_DB_USE_NO_CURSOR_TIMEOUT = "MESSAGING_DB_USE_NO_CURSOR_TIMEOUT"
+	ENV_MESSAGING_DB_MAX_POOL_SIZE         = "MESSAGING_DB_MAX_POOL_SIZE"
+
 	ENV_STUDY_GLOBAL_SECRET = "STUDY_GLOBAL_SECRET"
 
 	ENV_LOG_TO_FILE     = "LOG_TO_FILE"
@@ -82,6 +95,13 @@ const (
 	ENV_NEW_USER_RATE_LIMIT = "NEW_USER_RATE_LIMIT"
 
 	ENV_WEEKDAY_ASSIGNATION_WEIGHTS = "WEEKDAY_ASSIGNATION_WEIGHTS"
+
+	ENV_EMAIL_CONTACT_VERIFICATION_TOKEN_TTL = "EMAIL_CONTACT_VERIFICATION_TOKEN_TTL"
+
+	ENV_GLOBAL_EMAIL_TEMPLATE_CONSTANTS_JSON = "GLOBAL_EMAIL_TEMPLATE_CONSTANTS_JSON"
+	ENV_EMAIL_CLIENT_ADDRESS                 = "EMAIL_CLIENT_ADDRESS"
+	ENV_EMAIL_CLIENT_API_KEY                 = "EMAIL_CLIENT_API_KEY"
+	ENV_EMAIL_CLIENT_TIMEOUT                 = "EMAIL_CLIENT_TIMEOUT"
 )
 
 type ParticipantApiConfig struct {
@@ -103,12 +123,15 @@ type ParticipantApiConfig struct {
 	StudyDBConfig           db.DBConfig `json:"study_db_config"`
 	ParticipantUserDBConfig db.DBConfig `json:"participant_user_db_config"`
 	GlobalInfosDBConfig     db.DBConfig `json:"global_infos_db_config"`
+	MessagingDBConfig       db.DBConfig `json:"messaging_db_config"`
 
 	StudyGlobalSecret string `json:"study_global_secret"`
 
 	FilestorePath string `json:"filestore_path"`
 
 	MaxNewUsersPer5Minutes int `json:"max_new_users_per_5_minutes"`
+
+	EmailContactVerificationTokenTTL time.Duration `json:"email_contact_verification_token_ttl"`
 }
 
 func init() {
@@ -164,6 +187,7 @@ func initConfig() ParticipantApiConfig {
 	conf.StudyDBConfig = readStudyDBConfig()
 	conf.ParticipantUserDBConfig = readParticipantUserDBConfig()
 	conf.GlobalInfosDBConfig = readGlobalInfosDBConfig()
+	conf.MessagingDBConfig = readMessagingDBConfig()
 
 	// Study global secret
 	conf.StudyGlobalSecret = os.Getenv(ENV_STUDY_GLOBAL_SECRET)
@@ -186,7 +210,22 @@ func initConfig() ParticipantApiConfig {
 		}
 	}
 
+	// Weekday assignation weights override
 	umUtils.InitWeekdayAssignationStrategyFromEnv(ENV_WEEKDAY_ASSIGNATION_WEIGHTS)
+
+	// Email contact verification token TTL
+	conf.EmailContactVerificationTokenTTL = 7 * 24 * time.Hour
+	overrideVal := os.Getenv(ENV_EMAIL_CONTACT_VERIFICATION_TOKEN_TTL)
+	if overrideVal != "" {
+		conf.EmailContactVerificationTokenTTL, err = utils.ParseDurationString(overrideVal)
+		if err != nil {
+			slog.Error("couln't parse config value", slog.String("error", err.Error()), slog.String(ENV_EMAIL_CONTACT_VERIFICATION_TOKEN_TTL, overrideVal))
+		}
+	}
+	slog.Debug("Email contact verification token TTL", slog.Float64("ttl", conf.EmailContactVerificationTokenTTL.Hours()))
+
+	// Load message sending config
+	initMessageSendingConfig()
 
 	return conf
 }
@@ -243,6 +282,22 @@ func readGlobalInfosDBConfig() db.DBConfig {
 	)
 }
 
+func readMessagingDBConfig() db.DBConfig {
+	return db.ReadDBConfigFromEnv(
+		"messaging DB",
+		ENV_MESSAGING_DB_CONNECTION_STR,
+		ENV_MESSAGING_DB_USERNAME,
+		ENV_MESSAGING_DB_PASSWORD,
+		ENV_MESSAGING_DB_CONNECTION_PREFIX,
+		ENV_MESSAGING_DB_TIMEOUT,
+		ENV_MESSAGING_DB_IDLE_CONN_TIMEOUT,
+		ENV_MESSAGING_DB_MAX_POOL_SIZE,
+		ENV_MESSAGING_DB_USE_NO_CURSOR_TIMEOUT,
+		ENV_MESSAGING_DB_NAME_PREFIX,
+		readInstanceIDs(),
+	)
+}
+
 func getAndCheckParticipantFilestorePath() string {
 	// To store dynamically generated files
 	fsPath := os.Getenv(ENV_PARTICIPANT_FILESTORE_PATH)
@@ -256,4 +311,54 @@ func getAndCheckParticipantFilestorePath() string {
 		panic("Filestore path does not exist")
 	}
 	return fsPath
+}
+
+func initMessageSendingConfig() {
+	emailsending.InitMessageSendingVariables(
+		loadEmailClientHTTPConfig(),
+		loadGlobalEmailTemplateConstants(),
+	)
+}
+
+func loadEmailClientHTTPConfig() httpclient.ClientConfig {
+	timeOut := 60 * time.Second
+	if v := os.Getenv(ENV_EMAIL_CLIENT_TIMEOUT); v != "" {
+		var err error
+		timeOut, err = time.ParseDuration(v)
+		if err != nil {
+			slog.Error("error parsing email client timeout", slog.String("value", v), slog.String("error", err.Error()))
+		}
+	}
+	return httpclient.ClientConfig{
+		RootURL: os.Getenv(ENV_EMAIL_CLIENT_ADDRESS),
+		APIKey:  os.Getenv(ENV_EMAIL_CLIENT_API_KEY),
+		Timeout: timeOut,
+	}
+}
+
+func loadGlobalEmailTemplateConstants() map[string]string {
+	// if filename defined through env variable, use it
+	filename := os.Getenv(ENV_GLOBAL_EMAIL_TEMPLATE_CONSTANTS_JSON)
+	if filename == "" {
+		return nil
+	}
+
+	// load file
+	file, err := os.Open(filename)
+	if err != nil {
+		slog.Error("error loading global email template constants file", slog.String("filename", filename), slog.String("error", err.Error()))
+		return nil
+	}
+	defer file.Close()
+
+	// parse file
+	var config map[string]string
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(&config)
+	if err != nil {
+		slog.Error("error parsing global email template constants file", slog.String("filename", filename), slog.String("error", err.Error()))
+		return nil
+	}
+
+	return config
 }

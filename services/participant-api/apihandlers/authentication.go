@@ -95,7 +95,7 @@ func (h *HttpEndpoints) loginWithEmail(c *gin.Context) {
 	mainProfileID, otherProfileIDs := umUtils.GetMainAndOtherProfiles(user)
 
 	token, err := jwthandling.GenerateNewParticipantUserToken(
-		h.tokenExpiresIn,
+		h.ttls.AccessToken,
 		user.ID.Hex(),
 		req.InstanceID,
 		mainProfileID,
@@ -158,7 +158,7 @@ func (h *HttpEndpoints) loginWithEmail(c *gin.Context) {
 		"token": gin.H{
 			"accessToken":     token,
 			"refreshToken":    renewToken,
-			"expiresIn":       h.tokenExpiresIn.Seconds(),
+			"expiresIn":       h.ttls.AccessToken.Seconds(),
 			"selectedProfile": mainProfileID,
 		},
 		"user": user,
@@ -251,11 +251,64 @@ func (h *HttpEndpoints) signupWithEmail(c *gin.Context) {
 	}
 	newUser.ID, _ = primitive.ObjectIDFromHex(id)
 
-	// contact verification
+	// contact verification in go routine
+	go h.prepAndSendEmailVerification(
+		newUser.ID.Hex(),
+		req.InstanceID,
+		req.Email,
+		req.PreferredLanguage,
+		h.ttls.EmailContactVerificationToken,
+	)
 
 	// generate jwt
+	mainProfileID, otherProfileIDs := umUtils.GetMainAndOtherProfiles(newUser)
+
+	token, err := jwthandling.GenerateNewParticipantUserToken(
+		h.ttls.AccessToken,
+		newUser.ID.Hex(),
+		req.InstanceID,
+		mainProfileID,
+		map[string]string{},
+		newUser.Account.AccountConfirmedAt > 0,
+		nil,
+		otherProfileIDs,
+		h.tokenSignKey,
+	)
+	if err != nil {
+		slog.Error("failed to generate token", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
 
 	// generate refresh token
+	renewToken, err := umUtils.GenerateUniqueTokenString()
+	if err != nil {
+		slog.Error("failed to generate renew token", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	// generate refresh token
+	err = h.userDBConn.CreateRenewToken(req.InstanceID, newUser.ID.Hex(), renewToken, 0)
+	if err != nil {
+		slog.Error("failed to save renew token", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
 
 	// return tokens and user
+	slog.Info("login successful", slog.String("subject", newUser.ID.Hex()), slog.String("instanceID", req.InstanceID))
+
+	newUser.Account.Password = ""
+	newUser.Account.VerificationCode = userTypes.VerificationCode{}
+
+	c.JSON(http.StatusOK, gin.H{
+		"token": gin.H{
+			"accessToken":     token,
+			"refreshToken":    renewToken,
+			"expiresIn":       h.ttls.AccessToken.Seconds(),
+			"selectedProfile": mainProfileID,
+		},
+		"user": newUser,
+	})
 }

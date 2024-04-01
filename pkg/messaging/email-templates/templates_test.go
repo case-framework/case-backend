@@ -3,7 +3,7 @@ package emailtemplates
 import (
 	"testing"
 
-	messagingTypes "github.com/case-framework/case-backend/pkg/types/messaging"
+	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 )
 
 func TestTemplateLanguageSelection(t *testing.T) {

@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	globalinfosDB "github.com/case-framework/case-backend/pkg/db/global-infos"
+	messagingDB "github.com/case-framework/case-backend/pkg/db/messaging"
 	userDB "github.com/case-framework/case-backend/pkg/db/participant-user"
 	studyDB "github.com/case-framework/case-backend/pkg/db/study"
 )
@@ -36,6 +37,12 @@ func main() {
 		return
 	}
 
+	messagingDBService, err := messagingDB.NewMessagingDBService(conf.MessagingDBConfig)
+	if err != nil {
+		slog.Error("Error connecting to Messaging DB", slog.String("error", err.Error()))
+		return
+	}
+
 	// Start webserver
 	router := gin.Default()
 	router.Use(cors.New(cors.Config{
@@ -54,14 +61,18 @@ func main() {
 
 	v1APIHandlers := apihandlers.NewHTTPHandler(
 		conf.ParticipantUserJWTSignKey,
-		conf.ParticipantUserJWTExpiresIn,
 		studyDBService,
 		userDbService,
 		globalInfosDBService,
+		messagingDBService,
 		conf.AllowedInstanceIDs,
 		conf.StudyGlobalSecret,
 		conf.FilestorePath,
 		conf.MaxNewUsersPer5Minutes,
+		apihandlers.TTLs{
+			AccessToken:                   conf.ParticipantUserJWTExpiresIn,
+			EmailContactVerificationToken: conf.EmailContactVerificationTokenTTL,
+		},
 	)
 	v1APIHandlers.AddParticipantAuthAPI(v1Root)
 

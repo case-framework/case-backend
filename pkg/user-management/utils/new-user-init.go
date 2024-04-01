@@ -31,6 +31,7 @@ func InitNewEmailUser(
 		},
 		Timestamps: userTypes.Timestamps{
 			CreatedAt: time.Now().Unix(),
+			LastLogin: time.Now().Unix(),
 		},
 	}
 	newUser.AddNewEmail(email, false)

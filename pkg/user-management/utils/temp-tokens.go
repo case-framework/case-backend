@@ -30,10 +30,10 @@ func GenerateUniqueTokenString() (string, error) {
 	return tokenStr, nil
 }
 
-func GetExpirationTime(validityPeriod time.Duration) int64 {
-	return time.Now().Add(validityPeriod).Unix()
+func GetExpirationTime(validityPeriod time.Duration) time.Time {
+	return time.Now().Add(validityPeriod)
 }
 
-func ReachedExpirationTime(t int64) bool {
-	return time.Now().After(time.Unix(t, 0))
+func ReachedExpirationTime(t time.Time) bool {
+	return time.Now().After(t)
 }

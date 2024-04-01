@@ -8,7 +8,7 @@ import (
 	"strings"
 	"text/template"
 
-	messagingTypes "github.com/case-framework/case-backend/pkg/types/messaging"
+	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 )
 
 func GetTemplateTranslation(tDef messagingTypes.EmailTemplate, lang string) messagingTypes.LocalizedTemplate {

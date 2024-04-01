@@ -6,9 +6,9 @@ import (
 	"time"
 
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
-	emailtemplates "github.com/case-framework/case-backend/pkg/email-templates"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
-	messagingTypes "github.com/case-framework/case-backend/pkg/types/messaging"
+	emailtemplates "github.com/case-framework/case-backend/pkg/messaging/email-templates"
+	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 	"github.com/gin-gonic/gin"
 
 	pc "github.com/case-framework/case-backend/pkg/permission-checker"
