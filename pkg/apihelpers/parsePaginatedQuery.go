@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"strconv"
 
-	surveyresponses "github.com/case-framework/case-backend/pkg/exporter/survey-responses"
+	surveyresponses "github.com/case-framework/case-backend/pkg/study/exporter/survey-responses"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 )

@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -64,4 +65,40 @@ func logLevelFromString(level string) slog.Level {
 	default:
 		return slog.LevelInfo
 	}
+}
+
+func ReadConfigFromEnvAndInitLogger(
+	envLogLevel string,
+	envLogIncludeSrc string,
+	envLogToFile string,
+	envLogFilename string,
+	envLogMaxSize string,
+	envLogMaxAge string,
+	envLogMaxBackups string,
+) {
+	level := os.Getenv(envLogLevel)
+	includeSrc := os.Getenv(envLogIncludeSrc) == "true"
+	logToFile := os.Getenv(envLogToFile) == "true"
+
+	if !logToFile {
+		InitLogger(level, includeSrc, "", 0, 0, 0)
+		return
+	}
+
+	logFilename := os.Getenv(envLogFilename)
+	logFileMaxSize, err := strconv.Atoi(os.Getenv(envLogMaxSize))
+	if err != nil {
+		panic(err)
+	}
+	logFileMaxAge, err := strconv.Atoi(os.Getenv(envLogMaxAge))
+	if err != nil {
+		panic(err)
+	}
+
+	logFileMaxBackups, err := strconv.Atoi(os.Getenv(envLogMaxBackups))
+	if err != nil {
+		panic(err)
+	}
+
+	InitLogger(level, includeSrc, logFilename, logFileMaxSize, logFileMaxAge, logFileMaxBackups)
 }

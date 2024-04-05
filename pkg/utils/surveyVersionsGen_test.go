@@ -3,7 +3,7 @@ package utils
 import (
 	"testing"
 
-	studyTypes "github.com/case-framework/case-backend/pkg/types/study"
+	studyTypes "github.com/case-framework/case-backend/pkg/study/study"
 )
 
 func TestGenerateSurveyVersionID(t *testing.T) {

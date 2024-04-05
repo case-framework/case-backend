@@ -1,7 +1,7 @@
 package messaging
 
 import (
-	messagingTypes "github.com/case-framework/case-backend/pkg/types/messaging"
+	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"

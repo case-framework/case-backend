@@ -5,7 +5,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	messagingTypes "github.com/case-framework/case-backend/pkg/types/messaging"
+	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 )
 
 // find all email templates with study key empty

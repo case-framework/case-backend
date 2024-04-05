@@ -8,7 +8,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/net/context"
 
-	studyTypes "github.com/case-framework/case-backend/pkg/types/study"
+	studyTypes "github.com/case-framework/case-backend/pkg/study/study"
 )
 
 func (dbService *StudyDBService) CreateIndexForParticipantsCollection(instanceID string, studyKey string) error {

@@ -6,6 +6,7 @@ import (
 	"net/textproto"
 	"time"
 
+	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 	"github.com/jordan-wright/email"
 )
 
@@ -13,7 +14,7 @@ func (sc *SmtpClients) SendMail(
 	to []string,
 	subject string,
 	htmlContent string,
-	overrides *HeaderOverrides,
+	overrides *messagingTypes.HeaderOverrides,
 ) error {
 	sc.counter += 1
 	if len(sc.connectionPool) < 1 {
