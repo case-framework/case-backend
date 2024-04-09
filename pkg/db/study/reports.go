@@ -25,6 +25,11 @@ func (dbService *StudyDBService) CreateIndexForReportsCollection(instanceID stri
 		},
 		{
 			Keys: bson.D{
+				{Key: "timestamp", Value: 1},
+			},
+		},
+		{
+			Keys: bson.D{
 				{Key: "participantID", Value: 1},
 				{Key: "key", Value: 1},
 				{Key: "timestamp", Value: 1},

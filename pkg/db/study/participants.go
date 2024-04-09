@@ -30,6 +30,11 @@ func (dbService *StudyDBService) CreateIndexForParticipantsCollection(instanceID
 		},
 		{
 			Keys: bson.D{
+				{Key: "enteredAt", Value: 1},
+			},
+		},
+		{
+			Keys: bson.D{
 				{Key: "messages.scheduledFor", Value: 1},
 				{Key: "studyStatus", Value: 1},
 			},
