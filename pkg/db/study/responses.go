@@ -37,6 +37,11 @@ func (dbService *StudyDBService) CreateIndexForResponsesCollection(instanceID st
 		},
 		{
 			Keys: bson.D{
+				{Key: "arrivedAt", Value: 1},
+			},
+		},
+		{
+			Keys: bson.D{
 				{Key: "key", Value: 1},
 			},
 		},
