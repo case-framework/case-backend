@@ -1,7 +1,10 @@
 package apihandlers
 
 import (
+	"encoding/json"
+	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
 	muDB "github.com/case-framework/case-backend/pkg/db/management-user"
@@ -11,7 +14,21 @@ import (
 )
 
 func HealthCheckHandle(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	serviceInfos := make(map[string]interface{})
+	infos, err := os.ReadFile("serviceInfos.json")
+	if err != nil {
+		slog.Debug("Error reading serviceInfos.json", slog.String("error", err.Error()))
+	} else {
+		err = json.Unmarshal(infos, &serviceInfos)
+		if err != nil {
+			slog.Debug("Error unmarshalling serviceInfos.json", slog.String("error", err.Error()))
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":       "ok",
+		"serviceInfos": serviceInfos,
+	})
 }
 
 type HttpEndpoints struct {
