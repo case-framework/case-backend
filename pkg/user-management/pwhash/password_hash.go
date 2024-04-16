@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"strconv"
 	"strings"
@@ -55,6 +56,18 @@ func InitArgonParamsFromEnv(
 	if err == nil && a2p > 0 {
 		argon2Parallelism = uint8(a2p)
 	}
+}
+
+func InitArgonParams(
+	memory uint32,
+	iterations uint32,
+	parallelism uint8,
+) {
+	argon2Memory = memory
+	argon2Iterations = iterations
+	argon2Parallelism = parallelism
+
+	slog.Info("Argon2 parameters initialized", slog.Int("memory", int(argon2Memory)), slog.Int("iterations", int(argon2Iterations)), slog.Int("parallelism", int(argon2Parallelism)))
 }
 
 // HashPassword to create password hash
