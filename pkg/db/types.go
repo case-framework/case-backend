@@ -9,3 +9,15 @@ type DBConfig struct {
 	IdleConnTimeout int
 	InstanceIDs     []string
 }
+
+type DBConfigYaml struct {
+	ConnectionStr      string `yaml:"connection_str"`
+	Username           string `yaml:"username"`
+	Password           string `yaml:"password"`
+	ConnectionPrefix   string `yaml:"connection_prefix"`
+	Timeout            int    `yaml:"timeout"`
+	IdleConnTimeout    int    `yaml:"idle_conn_timeout"`
+	MaxPoolSize        int    `yaml:"max_pool_size"`
+	UseNoCursorTimeout bool   `yaml:"use_no_cursor_timeout"`
+	DBNamePrefix       string `yaml:"db_name_prefix"`
+}

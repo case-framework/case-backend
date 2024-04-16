@@ -64,3 +64,35 @@ func ReadDBConfigFromEnv(
 		InstanceIDs:     instanceIDs,
 	}
 }
+
+func DBConfigFromYamlObj(yamlObj DBConfigYaml, instanceIDs []string) DBConfig {
+	connStr := yamlObj.ConnectionStr
+	username := yamlObj.Username
+	password := yamlObj.Password
+	prefix := yamlObj.ConnectionPrefix // Used in test mode
+	if connStr == "" || username == "" || password == "" {
+		panic("couldn't read DB credentials")
+	}
+	URI := fmt.Sprintf(`mongodb%s://%s:%s@%s`, prefix, username, password, connStr)
+
+	Timeout := yamlObj.Timeout
+
+	IdleConnTimeout := yamlObj.IdleConnTimeout
+
+	mps := yamlObj.MaxPoolSize
+	MaxPoolSize := uint64(mps)
+
+	noCursorTimeout := yamlObj.UseNoCursorTimeout
+	DBNamePrefix := yamlObj.DBNamePrefix
+
+	return DBConfig{
+		URI:             URI,
+		Timeout:         Timeout,
+		IdleConnTimeout: IdleConnTimeout,
+		MaxPoolSize:     MaxPoolSize,
+		NoCursorTimeout: noCursorTimeout,
+		DBNamePrefix:    DBNamePrefix,
+		InstanceIDs:     instanceIDs,
+	}
+
+}

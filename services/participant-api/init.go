@@ -1,11 +1,8 @@
 package main
 
 import (
-	"encoding/json"
 	"log/slog"
 	"os"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/apihelpers"
@@ -14,89 +11,15 @@ import (
 	emailsending "github.com/case-framework/case-backend/pkg/messaging/email-sending"
 	"github.com/case-framework/case-backend/pkg/user-management/pwhash"
 	"github.com/case-framework/case-backend/pkg/utils"
-
 	"github.com/gin-gonic/gin"
+	"gopkg.in/yaml.v2"
 
 	umUtils "github.com/case-framework/case-backend/pkg/user-management/utils"
 )
 
 // Environment variables
 const (
-	ENV_GIN_DEBUG_MODE              = "GIN_DEBUG_MODE"
-	ENV_PARTICIPANT_API_LISTEN_PORT = "PARTICIPANT_API_LISTEN_PORT"
-	ENV_CORS_ALLOW_ORIGINS          = "CORS_ALLOW_ORIGINS"
-
-	ENV_PARTICIPANT_USER_JWT_SIGN_KEY   = "PARTICIPANT_USER_JWT_SIGN_KEY"
-	ENV_PARTICIPANT_USER_JWT_EXPIRES_IN = "PARTICIPANT_USER_JWT_EXPIRES_IN"
-
-	ENV_REQUIRE_MUTUAL_TLS     = "REQUIRE_MUTUAL_TLS"
-	ENV_MUTUAL_TLS_SERVER_CERT = "MUTUAL_TLS_SERVER_CERT"
-	ENV_MUTUAL_TLS_SERVER_KEY  = "MUTUAL_TLS_SERVER_KEY"
-	ENV_MUTUAL_TLS_CA_CERT     = "MUTUAL_TLS_CA_CERT"
-
-	ENV_INSTANCE_IDS = "INSTANCE_IDS"
-
-	ENV_GLOBAL_INFOS_DB_CONNECTION_STR        = "GLOBAL_INFOS_DB_CONNECTION_STR"
-	ENV_GLOBAL_INFOS_DB_USERNAME              = "GLOBAL_INFOS_DB_USERNAME"
-	ENV_GLOBAL_INFOS_DB_PASSWORD              = "GLOBAL_INFOS_DB_PASSWORD"
-	ENV_GLOBAL_INFOS_DB_CONNECTION_PREFIX     = "GLOBAL_INFOS_DB_CONNECTION_PREFIX"
-	ENV_GLOBAL_INFOS_DB_NAME_PREFIX           = "GLOBAL_INFOS_DB_NAME_PREFIX"
-	ENV_GLOBAL_INFOS_DB_TIMEOUT               = "GLOBAL_INFOS_DB_TIMEOUT"
-	ENV_GLOBAL_INFOS_DB_IDLE_CONN_TIMEOUT     = "GLOBAL_INFOS_DB_IDLE_CONN_TIMEOUT"
-	ENV_GLOBAL_INFOS_DB_USE_NO_CURSOR_TIMEOUT = "GLOBAL_INFOS_DB_USE_NO_CURSOR_TIMEOUT"
-	ENV_GLOBAL_INFOS_DB_MAX_POOL_SIZE         = "GLOBAL_INFOS_DB_MAX_POOL_SIZE"
-
-	ENV_PARTICIPANT_USER_DB_CONNECTION_STR        = "PARTICIPANT_USER_DB_CONNECTION_STR"
-	ENV_PARTICIPANT_USER_DB_USERNAME              = "PARTICIPANT_USER_DB_USERNAME"
-	ENV_PARTICIPANT_USER_DB_PASSWORD              = "PARTICIPANT_USER_DB_PASSWORD"
-	ENV_PARTICIPANT_USER_DB_CONNECTION_PREFIX     = "PARTICIPANT_USER_DB_CONNECTION_PREFIX"
-	ENV_PARTICIPANT_USER_DB_NAME_PREFIX           = "PARTICIPANT_USER_DB_NAME_PREFIX"
-	ENV_PARTICIPANT_USER_DB_TIMEOUT               = "PARTICIPANT_USER_DB_TIMEOUT"
-	ENV_PARTICIPANT_USER_DB_IDLE_CONN_TIMEOUT     = "PARTICIPANT_USER_DB_IDLE_CONN_TIMEOUT"
-	ENV_PARTICIPANT_USER_DB_USE_NO_CURSOR_TIMEOUT = "PARTICIPANT_USER_DB_USE_NO_CURSOR_TIMEOUT"
-	ENV_PARTICIPANT_USER_DB_MAX_POOL_SIZE         = "PARTICIPANT_USER_DB_MAX_POOL_SIZE"
-
-	ENV_STUDY_DB_CONNECTION_STR        = "STUDY_DB_CONNECTION_STR"
-	ENV_STUDY_DB_USERNAME              = "STUDY_DB_USERNAME"
-	ENV_STUDY_DB_PASSWORD              = "STUDY_DB_PASSWORD"
-	ENV_STUDY_DB_CONNECTION_PREFIX     = "STUDY_DB_CONNECTION_PREFIX"
-	ENV_STUDY_DB_NAME_PREFIX           = "STUDY_DB_NAME_PREFIX"
-	ENV_STUDY_DB_TIMEOUT               = "STUDY_DB_TIMEOUT"
-	ENV_STUDY_DB_IDLE_CONN_TIMEOUT     = "STUDY_DB_IDLE_CONN_TIMEOUT"
-	ENV_STUDY_DB_USE_NO_CURSOR_TIMEOUT = "STUDY_DB_USE_NO_CURSOR_TIMEOUT"
-	ENV_STUDY_DB_MAX_POOL_SIZE         = "STUDY_DB_MAX_POOL_SIZE"
-
-	ENV_MESSAGING_DB_CONNECTION_STR        = "MESSAGING_DB_CONNECTION_STR"
-	ENV_MESSAGING_DB_USERNAME              = "MESSAGING_DB_USERNAME"
-	ENV_MESSAGING_DB_PASSWORD              = "MESSAGING_DB_PASSWORD"
-	ENV_MESSAGING_DB_CONNECTION_PREFIX     = "MESSAGING_DB_CONNECTION_PREFIX"
-	ENV_MESSAGING_DB_NAME_PREFIX           = "MESSAGING_DB_NAME_PREFIX"
-	ENV_MESSAGING_DB_TIMEOUT               = "MESSAGING_DB_TIMEOUT"
-	ENV_MESSAGING_DB_IDLE_CONN_TIMEOUT     = "MESSAGING_DB_IDLE_CONN_TIMEOUT"
-	ENV_MESSAGING_DB_USE_NO_CURSOR_TIMEOUT = "MESSAGING_DB_USE_NO_CURSOR_TIMEOUT"
-	ENV_MESSAGING_DB_MAX_POOL_SIZE         = "MESSAGING_DB_MAX_POOL_SIZE"
-
-	ENV_STUDY_GLOBAL_SECRET = "STUDY_GLOBAL_SECRET"
-
-	ENV_LOG_TO_FILE     = "LOG_TO_FILE"
-	ENV_LOG_FILENAME    = "LOG_FILENAME"
-	ENV_LOG_MAX_SIZE    = "LOG_MAX_SIZE"
-	ENV_LOG_MAX_AGE     = "LOG_MAX_AGE"
-	ENV_LOG_MAX_BACKUPS = "LOG_MAX_BACKUPS"
-	ENV_LOG_LEVEL       = "LOG_LEVEL"
-	ENV_LOG_INCLUDE_SRC = "LOG_INCLUDE_SRC"
-
-	ENV_PARTICIPANT_FILESTORE_PATH = "PARTICIPANT_FILESTORE_PATH"
-
-	ENV_ARGON2_MEMORY      = "ARGON2_MEMORY"
-	ENV_ARGON2_ITERATIONS  = "ARGON2_ITERATIONS"
-	ENV_ARGON2_PARALLELISM = "ARGON2_PARALLELISM"
-
-	ENV_NEW_USER_RATE_LIMIT = "NEW_USER_RATE_LIMIT"
-
-	ENV_WEEKDAY_ASSIGNATION_WEIGHTS = "WEEKDAY_ASSIGNATION_WEIGHTS"
-
-	ENV_EMAIL_CONTACT_VERIFICATION_TOKEN_TTL = "EMAIL_CONTACT_VERIFICATION_TOKEN_TTL"
+	ENV_CONFIG_FILE_PATH = "CONFIG_FILE_PATH"
 
 	ENV_GLOBAL_EMAIL_TEMPLATE_CONSTANTS_JSON = "GLOBAL_EMAIL_TEMPLATE_CONSTANTS_JSON"
 	ENV_EMAIL_CLIENT_ADDRESS                 = "EMAIL_CLIENT_ADDRESS"
@@ -105,202 +28,117 @@ const (
 )
 
 type ParticipantApiConfig struct {
+	// Logging configs
+	Logging struct {
+		LogToFile  bool   `json:"log_to_file" yaml:"log_to_file"`
+		Filename   string `json:"filename" yaml:"filename"`
+		MaxSize    int    `json:"max_size" yaml:"max_size"`
+		MaxAge     int    `json:"max_age" yaml:"max_age"`
+		MaxBackups int    `json:"max_backups" yaml:"max_backups"`
+		LogLevel   string `json:"log_level" yaml:"log_level"`
+		IncludeSrc bool   `json:"include_src" yaml:"include_src"`
+	} `json:"logging" yaml:"logging"`
+
 	// Gin configs
-	GinDebugMode bool     `json:"gin_debug_mode"`
-	AllowOrigins []string `json:"allow_origins"`
-	Port         string   `json:"port"`
+	GinConfig struct {
+		DebugMode    bool     `json:"debug_mode" yaml:"debug_mode"`
+		AllowOrigins []string `json:"allow_origins" yaml:"allow_origins"`
+		Port         string   `json:"port" yaml:"port"`
 
-	// JWT configs
-	ParticipantUserJWTSignKey   string        `json:"participant_user_jwt_sign_key"`
-	ParticipantUserJWTExpiresIn time.Duration `json:"participant_user_jwt_expires_in"`
+		// Mutual TLS configs
+		MTLS struct {
+			Use              bool                        `json:"use" yaml:"use"`
+			CertificatePaths apihelpers.CertificatePaths `json:"certificate_paths" yaml:"certificate_paths"`
+		} `json:"mtls" yaml:"mtls"`
+	} `json:"gin_config" yaml:"gin_config"`
 
-	AllowedInstanceIDs []string `json:"allowed_instance_ids"`
+	// user management configs
+	UserManagementConfig struct {
+		PWHashing struct {
+			Argon2Memory      uint32 `json:"argon2_memory" yaml:"argon2_memory"`
+			Argon2Iterations  uint32 `json:"argon2_iterations" yaml:"argon2_iterations"`
+			Argon2Parallelism uint8  `json:"argon2_parallelism" yaml:"argon2_parallelism"`
+		} `json:"pw_hashing" yaml:"pw_hashing"`
+		ParticipantUserJWTConfig struct {
+			SignKey   string        `json:"sign_key" yaml:"sign_key"`
+			ExpiresIn time.Duration `json:"expires_in" yaml:"expires_in"`
+		} `json:"participant_user_jwt_config" yaml:"participant_user_jwt_config"`
+		MaxNewUsersPer5Minutes           int            `json:"max_new_users_per_5_minutes" yaml:"max_new_users_per_5_minutes"`
+		EmailContactVerificationTokenTTL time.Duration  `json:"email_contact_verification_token_ttl" yaml:"email_contact_verification_token_ttl"`
+		WeekdayAssignationWeights        map[string]int `json:"weekday_assignation_weights" yaml:"weekday_assignation_weights"`
+	} `json:"user_management_config" yaml:"user_management_config"`
 
-	// Mutual TLS configs
-	UseMTLS          bool                        `json:"use_mtls"`
-	CertificatePaths apihelpers.CertificatePaths `json:"certificate_paths"`
+	AllowedInstanceIDs []string `json:"allowed_instance_ids" yaml:"allowed_instance_ids"`
 
-	StudyDBConfig           db.DBConfig `json:"study_db_config"`
-	ParticipantUserDBConfig db.DBConfig `json:"participant_user_db_config"`
-	GlobalInfosDBConfig     db.DBConfig `json:"global_infos_db_config"`
-	MessagingDBConfig       db.DBConfig `json:"messaging_db_config"`
+	// DB configs
+	DBConfigs struct {
+		StudyDB           db.DBConfigYaml `json:"study_db" yaml:"study_db"`
+		ParticipantUserDB db.DBConfigYaml `json:"participant_user_db" yaml:"participant_user_db"`
+		GlobalInfosDB     db.DBConfigYaml `json:"global_infos_db" yaml:"global_infos_db"`
+		MessagingDB       db.DBConfigYaml `json:"messaging_db" yaml:"messaging_db"`
+	} `json:"db_configs" yaml:"db_configs"`
 
-	StudyGlobalSecret string `json:"study_global_secret"`
+	// Study module config
+	StudyConfigs struct {
+		GlobalSecret string `json:"global_secret" yaml:"global_secret"`
+	} `json:"study_configs" yaml:"study_configs"`
 
-	FilestorePath string `json:"filestore_path"`
+	FilestorePath string `json:"filestore_path" yaml:"filestore_path"`
 
-	MaxNewUsersPer5Minutes int `json:"max_new_users_per_5_minutes"`
+	MessagingConfigs struct {
+		GlobalEmailTemplateConstants map[string]string `json:"global_email_template_constants" yaml:"global_email_template_constants"`
 
-	EmailContactVerificationTokenTTL time.Duration `json:"email_contact_verification_token_ttl"`
+		SmtpBridgeConfig struct {
+			URL            string        `json:"url" yaml:"url"`
+			APIKey         string        `json:"api_key" yaml:"api_key"`
+			RequestTimeout time.Duration `json:"request_timeout" yaml:"request_timeout"`
+		} `json:"smtp_bridge_config" yaml:"smtp_bridge_config"`
+	} `json:"messaging_configs" yaml:"messaging_configs"`
 }
 
 func init() {
-	utils.ReadConfigFromEnvAndInitLogger(
-		ENV_LOG_LEVEL,
-		ENV_LOG_INCLUDE_SRC,
-		ENV_LOG_TO_FILE,
-		ENV_LOG_FILENAME,
-		ENV_LOG_MAX_SIZE,
-		ENV_LOG_MAX_AGE,
-		ENV_LOG_MAX_BACKUPS,
-	)
-
-	conf = initConfig()
-	if !conf.GinDebugMode {
-		gin.SetMode(gin.ReleaseMode)
-	}
-
-	pwhash.InitArgonParamsFromEnv(
-		ENV_ARGON2_MEMORY,
-		ENV_ARGON2_ITERATIONS,
-		ENV_ARGON2_PARALLELISM,
-	)
-}
-
-func initConfig() ParticipantApiConfig {
-	conf := ParticipantApiConfig{}
-	conf.GinDebugMode = os.Getenv(ENV_GIN_DEBUG_MODE) == "true"
-	conf.Port = os.Getenv(ENV_PARTICIPANT_API_LISTEN_PORT)
-	conf.AllowOrigins = strings.Split(os.Getenv(ENV_CORS_ALLOW_ORIGINS), ",")
-
-	conf.FilestorePath = getAndCheckParticipantFilestorePath()
-
-	// JWT configs
-	conf.ParticipantUserJWTSignKey = os.Getenv(ENV_PARTICIPANT_USER_JWT_SIGN_KEY)
-	expInVal := os.Getenv(ENV_PARTICIPANT_USER_JWT_EXPIRES_IN)
-	var err error
-	conf.ParticipantUserJWTExpiresIn, err = utils.ParseDurationString(expInVal)
+	// Read config from file
+	yamlFile, err := os.ReadFile(os.Getenv(ENV_CONFIG_FILE_PATH))
 	if err != nil {
-		slog.Error("error during initConfig", slog.String("error", err.Error()), ENV_PARTICIPANT_USER_JWT_EXPIRES_IN, expInVal)
 		panic(err)
 	}
 
-	// Mutual TLS configs
-	conf.UseMTLS = os.Getenv(ENV_REQUIRE_MUTUAL_TLS) == "true"
-	conf.CertificatePaths = apihelpers.CertificatePaths{
-		ServerCertPath: os.Getenv(ENV_MUTUAL_TLS_SERVER_CERT),
-		ServerKeyPath:  os.Getenv(ENV_MUTUAL_TLS_SERVER_KEY),
-		CACertPath:     os.Getenv(ENV_MUTUAL_TLS_CA_CERT),
+	err = yaml.UnmarshalStrict(yamlFile, &conf)
+	if err != nil {
+		panic(err)
 	}
 
-	// Study db configs
-	conf.StudyDBConfig = readStudyDBConfig()
-	conf.ParticipantUserDBConfig = readParticipantUserDBConfig()
-	conf.GlobalInfosDBConfig = readGlobalInfosDBConfig()
-	conf.MessagingDBConfig = readMessagingDBConfig()
+	// Init logger:
+	utils.InitLogger(
+		conf.Logging.LogLevel,
+		conf.Logging.IncludeSrc,
+		conf.Logging.LogToFile,
+		conf.Logging.Filename,
+		conf.Logging.MaxSize,
+		conf.Logging.MaxAge,
+		conf.Logging.MaxBackups,
+	)
 
-	// Study global secret
-	conf.StudyGlobalSecret = os.Getenv(ENV_STUDY_GLOBAL_SECRET)
-	if conf.StudyGlobalSecret == "" {
-		slog.Error("Study global secret not set - configure STUDY_GLOBAL_SECRET env variable.")
-		panic("Study global secret not set")
+	if !conf.GinConfig.DebugMode {
+		gin.SetMode(gin.ReleaseMode)
 	}
 
-	// Allowed instance IDs
-	conf.AllowedInstanceIDs = readInstanceIDs()
+	// init argon2
+	pwhash.InitArgonParams(
+		conf.UserManagementConfig.PWHashing.Argon2Memory,
+		conf.UserManagementConfig.PWHashing.Argon2Iterations,
+		conf.UserManagementConfig.PWHashing.Argon2Parallelism,
+	)
 
-	// Rate limit for new users
-	conf.MaxNewUsersPer5Minutes = 50
-	v := os.Getenv(ENV_NEW_USER_RATE_LIMIT)
-	if v != "" {
-		conf.MaxNewUsersPer5Minutes, err = strconv.Atoi(v)
-		if err != nil {
-			slog.Error("cannot parse max new users per 5 minutes", slog.String("value", v), slog.String("error", err.Error()))
-			panic(err)
-		}
-	}
+	umUtils.InitWeekdayAssignationStrategy(conf.UserManagementConfig.WeekdayAssignationWeights)
 
-	// Weekday assignation weights override
-	umUtils.InitWeekdayAssignationStrategyFromEnv(ENV_WEEKDAY_ASSIGNATION_WEIGHTS)
-
-	// Email contact verification token TTL
-	conf.EmailContactVerificationTokenTTL = 7 * 24 * time.Hour
-	overrideVal := os.Getenv(ENV_EMAIL_CONTACT_VERIFICATION_TOKEN_TTL)
-	if overrideVal != "" {
-		conf.EmailContactVerificationTokenTTL, err = utils.ParseDurationString(overrideVal)
-		if err != nil {
-			slog.Error("couln't parse config value", slog.String("error", err.Error()), slog.String(ENV_EMAIL_CONTACT_VERIFICATION_TOKEN_TTL, overrideVal))
-		}
-	}
-	slog.Debug("Email contact verification token TTL", slog.Float64("ttl", conf.EmailContactVerificationTokenTTL.Hours()))
-
-	// Load message sending config
 	initMessageSendingConfig()
-
-	return conf
+	checkParticipantFilestorePath()
 }
 
-func readInstanceIDs() []string {
-	return strings.Split(os.Getenv(ENV_INSTANCE_IDS), ",")
-}
-
-func readStudyDBConfig() db.DBConfig {
-	return db.ReadDBConfigFromEnv(
-		"study DB",
-		ENV_STUDY_DB_CONNECTION_STR,
-		ENV_STUDY_DB_USERNAME,
-		ENV_STUDY_DB_PASSWORD,
-		ENV_STUDY_DB_CONNECTION_PREFIX,
-		ENV_STUDY_DB_TIMEOUT,
-		ENV_STUDY_DB_IDLE_CONN_TIMEOUT,
-		ENV_STUDY_DB_MAX_POOL_SIZE,
-		ENV_STUDY_DB_USE_NO_CURSOR_TIMEOUT,
-		ENV_STUDY_DB_NAME_PREFIX,
-		readInstanceIDs(),
-	)
-}
-
-func readParticipantUserDBConfig() db.DBConfig {
-	return db.ReadDBConfigFromEnv(
-		"participant user DB",
-		ENV_PARTICIPANT_USER_DB_CONNECTION_STR,
-		ENV_PARTICIPANT_USER_DB_USERNAME,
-		ENV_PARTICIPANT_USER_DB_PASSWORD,
-		ENV_PARTICIPANT_USER_DB_CONNECTION_PREFIX,
-		ENV_PARTICIPANT_USER_DB_TIMEOUT,
-		ENV_PARTICIPANT_USER_DB_IDLE_CONN_TIMEOUT,
-		ENV_PARTICIPANT_USER_DB_MAX_POOL_SIZE,
-		ENV_PARTICIPANT_USER_DB_USE_NO_CURSOR_TIMEOUT,
-		ENV_PARTICIPANT_USER_DB_NAME_PREFIX,
-		readInstanceIDs(),
-	)
-}
-
-func readGlobalInfosDBConfig() db.DBConfig {
-	return db.ReadDBConfigFromEnv(
-		"global infos DB",
-		ENV_GLOBAL_INFOS_DB_CONNECTION_STR,
-		ENV_GLOBAL_INFOS_DB_USERNAME,
-		ENV_GLOBAL_INFOS_DB_PASSWORD,
-		ENV_GLOBAL_INFOS_DB_CONNECTION_PREFIX,
-		ENV_GLOBAL_INFOS_DB_TIMEOUT,
-		ENV_GLOBAL_INFOS_DB_IDLE_CONN_TIMEOUT,
-		ENV_GLOBAL_INFOS_DB_MAX_POOL_SIZE,
-		ENV_GLOBAL_INFOS_DB_USE_NO_CURSOR_TIMEOUT,
-		ENV_GLOBAL_INFOS_DB_NAME_PREFIX,
-		readInstanceIDs(),
-	)
-}
-
-func readMessagingDBConfig() db.DBConfig {
-	return db.ReadDBConfigFromEnv(
-		"messaging DB",
-		ENV_MESSAGING_DB_CONNECTION_STR,
-		ENV_MESSAGING_DB_USERNAME,
-		ENV_MESSAGING_DB_PASSWORD,
-		ENV_MESSAGING_DB_CONNECTION_PREFIX,
-		ENV_MESSAGING_DB_TIMEOUT,
-		ENV_MESSAGING_DB_IDLE_CONN_TIMEOUT,
-		ENV_MESSAGING_DB_MAX_POOL_SIZE,
-		ENV_MESSAGING_DB_USE_NO_CURSOR_TIMEOUT,
-		ENV_MESSAGING_DB_NAME_PREFIX,
-		readInstanceIDs(),
-	)
-}
-
-func getAndCheckParticipantFilestorePath() string {
+func checkParticipantFilestorePath() {
 	// To store dynamically generated files
-	fsPath := os.Getenv(ENV_PARTICIPANT_FILESTORE_PATH)
+	fsPath := conf.FilestorePath
 	if fsPath == "" {
 		slog.Error("Filestore path not set - configure PARTICIPANT_FILESTORE_PATH env variable.")
 		panic("Filestore path not set")
@@ -310,55 +148,19 @@ func getAndCheckParticipantFilestorePath() string {
 		slog.Error("Filestore path does not exist", slog.String("path", fsPath))
 		panic("Filestore path does not exist")
 	}
-	return fsPath
 }
 
 func initMessageSendingConfig() {
 	emailsending.InitMessageSendingVariables(
 		loadEmailClientHTTPConfig(),
-		loadGlobalEmailTemplateConstants(),
+		conf.MessagingConfigs.GlobalEmailTemplateConstants,
 	)
 }
 
 func loadEmailClientHTTPConfig() httpclient.ClientConfig {
-	timeOut := 60 * time.Second
-	if v := os.Getenv(ENV_EMAIL_CLIENT_TIMEOUT); v != "" {
-		var err error
-		timeOut, err = time.ParseDuration(v)
-		if err != nil {
-			slog.Error("error parsing email client timeout", slog.String("value", v), slog.String("error", err.Error()))
-		}
-	}
 	return httpclient.ClientConfig{
-		RootURL: os.Getenv(ENV_EMAIL_CLIENT_ADDRESS),
-		APIKey:  os.Getenv(ENV_EMAIL_CLIENT_API_KEY),
-		Timeout: timeOut,
+		RootURL: conf.MessagingConfigs.SmtpBridgeConfig.URL,
+		APIKey:  conf.MessagingConfigs.SmtpBridgeConfig.APIKey,
+		Timeout: conf.MessagingConfigs.SmtpBridgeConfig.RequestTimeout,
 	}
-}
-
-func loadGlobalEmailTemplateConstants() map[string]string {
-	// if filename defined through env variable, use it
-	filename := os.Getenv(ENV_GLOBAL_EMAIL_TEMPLATE_CONSTANTS_JSON)
-	if filename == "" {
-		return nil
-	}
-
-	// load file
-	file, err := os.Open(filename)
-	if err != nil {
-		slog.Error("error loading global email template constants file", slog.String("filename", filename), slog.String("error", err.Error()))
-		return nil
-	}
-	defer file.Close()
-
-	// parse file
-	var config map[string]string
-	decoder := json.NewDecoder(file)
-	err = decoder.Decode(&config)
-	if err != nil {
-		slog.Error("error parsing global email template constants file", slog.String("filename", filename), slog.String("error", err.Error()))
-		return nil
-	}
-
-	return config
 }
