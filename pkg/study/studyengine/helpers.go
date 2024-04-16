@@ -67,5 +67,6 @@ type ExternalEventPayload struct {
 	StudyKey         string                    `json:"studyKey"`
 	InstanceID       string                    `json:"instanceID"`
 	Response         studyTypes.SurveyResponse `json:"surveyResponses"`
-	Payload          map[string]string         `json:"payload"`
+	EventKey         string                    `json:"eventKey"`
+	Payload          map[string]interface{}    `json:"payload"`
 }

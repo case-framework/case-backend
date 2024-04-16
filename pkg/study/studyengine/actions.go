@@ -872,6 +872,8 @@ func externalEventHandler(action studyTypes.Expression, oldState ActionData, eve
 		StudyKey:         event.StudyKey,
 		InstanceID:       event.InstanceID,
 		Response:         event.Response,
+		EventKey:         event.EventKey,
+		Payload:          event.Payload,
 	}
 
 	response, err := httpClient.RunHTTPcall(pathname, payload)
