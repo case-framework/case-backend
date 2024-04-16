@@ -29,15 +29,7 @@ const (
 
 type ParticipantApiConfig struct {
 	// Logging configs
-	Logging struct {
-		LogToFile  bool   `json:"log_to_file" yaml:"log_to_file"`
-		Filename   string `json:"filename" yaml:"filename"`
-		MaxSize    int    `json:"max_size" yaml:"max_size"`
-		MaxAge     int    `json:"max_age" yaml:"max_age"`
-		MaxBackups int    `json:"max_backups" yaml:"max_backups"`
-		LogLevel   string `json:"log_level" yaml:"log_level"`
-		IncludeSrc bool   `json:"include_src" yaml:"include_src"`
-	} `json:"logging" yaml:"logging"`
+	Logging utils.LoggerConfig `json:"logging" yaml:"logging"`
 
 	// Gin configs
 	GinConfig struct {
