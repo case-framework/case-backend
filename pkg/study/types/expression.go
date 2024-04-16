@@ -1,4 +1,4 @@
-package study
+package types
 
 type Expression struct {
 	Name       string          `bson:"name" json:"name"` // Name of the operation to be evaluated

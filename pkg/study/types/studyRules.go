@@ -1,4 +1,4 @@
-package study
+package types
 
 import (
 	"encoding/json"

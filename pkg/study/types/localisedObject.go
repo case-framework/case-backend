@@ -1,4 +1,4 @@
-package study
+package types
 
 type LocalisedObject struct {
 	Code string `bson:"code" json:"code"`
