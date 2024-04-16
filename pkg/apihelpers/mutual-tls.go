@@ -7,9 +7,9 @@ import (
 )
 
 type CertificatePaths struct {
-	ServerCertPath string
-	ServerKeyPath  string
-	CACertPath     string
+	ServerCertPath string `yaml:"server_cert_path"`
+	ServerKeyPath  string `yaml:"server_key_path"`
+	CACertPath     string `yaml:"ca_cert_path"`
 }
 
 func LoadTLSConfig(paths CertificatePaths) (*tls.Config, error) {
