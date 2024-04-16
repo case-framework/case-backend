@@ -1,0 +1,1512 @@
+package studyengine
+
+import (
+	"errors"
+	"fmt"
+	"log/slog"
+	"math/rand"
+	"reflect"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/case-framework/case-backend/pkg/apihelpers"
+	httpclient "github.com/case-framework/case-backend/pkg/http-client"
+	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
+	"go.mongodb.org/mongo-driver/bson"
+)
+
+func ExpressionEval(expression studyTypes.Expression, evalCtx EvalContext) (val interface{}, err error) {
+	switch expression.Name {
+	case "checkEventType":
+		val, err = evalCtx.checkEventType(expression)
+	case "checkEventKey":
+		val, err = evalCtx.checkEventKey(expression)
+	// Response checkers:
+	case "checkSurveyResponseKey":
+		val, err = evalCtx.checkSurveyResponseKey(expression)
+	case "responseHasKeysAny":
+		val, err = evalCtx.responseHasKeysAny(expression)
+	case "responseHasOnlyKeysOtherThan":
+		val, err = evalCtx.responseHasOnlyKeysOtherThan(expression)
+	case "getResponseValueAsNum":
+		val, err = evalCtx.getResponseValueAsNum(expression)
+	case "getResponseValueAsStr":
+		val, err = evalCtx.getResponseValueAsStr(expression)
+	case "getSelectedKeys":
+		val, err = evalCtx.getSelectedKeys(expression)
+	case "countResponseItems":
+		val, err = evalCtx.countResponseItems(expression)
+	case "hasResponseKey":
+		val, err = evalCtx.hasResponseKey(expression)
+	case "hasResponseKeyWithValue":
+		val, err = evalCtx.hasResponseKeyWithValue(expression)
+	// Old responses:
+	case "checkConditionForOldResponses":
+		val, err = evalCtx.checkConditionForOldResponses(expression)
+	// Access event payload:
+	case "hasEventPayload":
+		val, err = evalCtx.hasEventPayload()
+	case "getEventPayloadValueAsStr":
+		val, err = evalCtx.getEventPayloadValueAsStr(expression)
+	case "getEventPayloadValueAsNum":
+		val, err = evalCtx.getEventPayloadValueAsNum(expression)
+	case "hasEventPayloadKey":
+		val, err = evalCtx.hasEventPayloadKey(expression)
+	// Participant state:
+	case "getStudyEntryTime":
+		val, err = evalCtx.getStudyEntryTime(false)
+	case "hasSurveyKeyAssigned":
+		val, err = evalCtx.hasSurveyKeyAssigned(expression, false)
+	case "getSurveyKeyAssignedFrom":
+		val, err = evalCtx.getSurveyKeyAssignedFrom(expression, false)
+	case "getSurveyKeyAssignedUntil":
+		val, err = evalCtx.getSurveyKeyAssignedUntil(expression, false)
+	case "hasStudyStatus":
+		val, err = evalCtx.hasStudyStatus(expression, false)
+	case "hasParticipantFlag":
+		val, err = evalCtx.hasParticipantFlag(expression, false)
+	case "hasParticipantFlagKey":
+		val, err = evalCtx.hasParticipantFlagKey(expression, false)
+	case "getParticipantFlagValue":
+		val, err = evalCtx.getParticipantFlagValue(expression, false)
+	case "lastSubmissionDateOlderThan":
+		val, err = evalCtx.lastSubmissionDateOlderThan(expression, false)
+	case "hasMessageTypeAssigned":
+		val, err = evalCtx.hasMessageTypeAssigned(expression, false)
+	case "getMessageNextTime":
+		val, err = evalCtx.getMessageNextTime(expression, false)
+	// exprssions for merge participant states:
+	case "incomingState:getStudyEntryTime":
+		val, err = evalCtx.getStudyEntryTime(true)
+	case "incomingState:hasSurveyKeyAssigned":
+		val, err = evalCtx.hasSurveyKeyAssigned(expression, true)
+	case "incomingState:getSurveyKeyAssignedFrom":
+		val, err = evalCtx.getSurveyKeyAssignedFrom(expression, true)
+	case "incomingState:getSurveyKeyAssignedUntil":
+		val, err = evalCtx.getSurveyKeyAssignedUntil(expression, true)
+	case "incomingState:hasStudyStatus":
+		val, err = evalCtx.hasStudyStatus(expression, true)
+	case "incomingState:hasParticipantFlag":
+		val, err = evalCtx.hasParticipantFlag(expression, true)
+	case "incomingState:hasParticipantFlagKey":
+		val, err = evalCtx.hasParticipantFlagKey(expression, true)
+	case "incomingState:getParticipantFlagValue":
+		val, err = evalCtx.getParticipantFlagValue(expression, true)
+	case "incomingState:lastSubmissionDateOlderThan":
+		val, err = evalCtx.lastSubmissionDateOlderThan(expression, true)
+	case "incomingState:hasMessageTypeAssigned":
+		val, err = evalCtx.hasMessageTypeAssigned(expression, true)
+	case "incomingState:getMessageNextTime":
+		val, err = evalCtx.getMessageNextTime(expression, true)
+	// Logical and comparisions:
+	case "eq":
+		val, err = evalCtx.eq(expression)
+	case "lt":
+		val, err = evalCtx.lt(expression)
+	case "lte":
+		val, err = evalCtx.lte(expression)
+	case "gt":
+		val, err = evalCtx.gt(expression)
+	case "gte":
+		val, err = evalCtx.gte(expression)
+	case "and":
+		val, err = evalCtx.and(expression)
+	case "or":
+		val, err = evalCtx.or(expression)
+	case "not":
+		val, err = evalCtx.not(expression)
+	// Other
+	case "timestampWithOffset":
+		val, err = evalCtx.timestampWithOffset(expression)
+	case "getISOWeekForTs":
+		val, err = evalCtx.getISOWeekForTs(expression)
+	case "getTsForNextISOWeek":
+		val, err = evalCtx.getTsForNextISOWeek(expression)
+	case "parseValueAsNum":
+		val, err = evalCtx.parseValueAsNum(expression)
+	case "generateRandomNumber":
+		val, err = evalCtx.generateRandomNumber(expression)
+	case "externalEventEval":
+		val, err = evalCtx.externalEventEval(expression)
+	default:
+		err = fmt.Errorf("expression name not known: %s", expression.Name)
+		slog.Debug("unexpected error during expression eval", slog.String("error", err.Error()))
+		return
+	}
+	return
+}
+
+func (ctx EvalContext) expressionArgResolver(arg studyTypes.ExpressionArg) (interface{}, error) {
+	switch arg.DType {
+	case "num":
+		return arg.Num, nil
+	case "exp":
+		if arg.Exp == nil {
+			return nil, errors.New("missing argument - expected expression, but was empty")
+		}
+		return ExpressionEval(*arg.Exp, ctx)
+	case "str":
+		return arg.Str, nil
+	default:
+		return arg.Str, nil
+	}
+}
+
+// checkEventType compares the eventType with a string
+func (ctx EvalContext) checkEventType(exp studyTypes.Expression) (val bool, err error) {
+	if len(exp.Data) != 1 {
+		return val, errors.New("unexpected numbers of arguments")
+	}
+
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	arg1Val, ok := arg1.(string)
+	if !ok {
+		return val, errors.New("could not cast arguments")
+	}
+
+	return ctx.Event.Type == arg1Val, nil
+}
+
+// checkEventKey compares the event key with a string
+func (ctx EvalContext) checkEventKey(exp studyTypes.Expression) (val bool, err error) {
+	if len(exp.Data) != 1 {
+		return val, errors.New("unexpected numbers of arguments")
+	}
+
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	arg1Val, ok := arg1.(string)
+	if !ok {
+		return val, errors.New("could not cast arguments")
+	}
+
+	return ctx.Event.EventKey == arg1Val, nil
+}
+
+// checkSurveyResponseKey compares the key of the submitted survey response (if any)
+func (ctx EvalContext) checkSurveyResponseKey(exp studyTypes.Expression) (val bool, err error) {
+	if len(exp.Data) != 1 {
+		return val, errors.New("unexpected numbers of arguments")
+	}
+
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	arg1Val, ok := arg1.(string)
+	if !ok {
+		return val, errors.New("could not cast arguments")
+	}
+
+	return ctx.Event.Response.Key == arg1Val, nil
+}
+
+func (ctx EvalContext) hasStudyStatus(exp studyTypes.Expression, withIncomingParticipantState bool) (val bool, err error) {
+	pState := ctx.ParticipantState
+	if withIncomingParticipantState {
+		pState = ctx.Event.MergeWithParticipant
+	}
+	if len(exp.Data) != 1 {
+		return val, errors.New("unexpected numbers of arguments")
+	}
+
+	arg1Val, err := ctx.mustGetStrValue(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+
+	return pState.StudyStatus == arg1Val, nil
+}
+
+func (ctx EvalContext) checkConditionForOldResponses(exp studyTypes.Expression) (val bool, err error) {
+	if CurrentStudyEngine == nil || CurrentStudyEngine.studyDBService == nil {
+		return val, errors.New("checkConditionForOldResponses: DB connection not available in the context")
+	}
+	if ctx.Event.InstanceID == "" || ctx.Event.StudyKey == "" {
+		return val, errors.New("checkConditionForOldResponses: instanceID or study key missing from context")
+	}
+
+	argNum := len(exp.Data)
+	if argNum < 1 || argNum > 5 {
+		return val, fmt.Errorf("checkConditionForOldResponses: unexpected numbers of arguments: %d", len(exp.Data))
+	}
+
+	arg1 := exp.Data[0]
+	if !arg1.IsExpression() {
+		return val, errors.New("checkConditionForOldResponses: first argument must be an expression")
+	}
+	condition := arg1.Exp
+	if condition == nil {
+		return val, errors.New("checkConditionForOldResponses: first argument must be an expression")
+	}
+
+	checkFor := "all"
+	checkForCount := 1
+	surveyKey := ""
+	since := int64(0)
+	until := int64(0)
+	if argNum > 1 {
+		arg1, err := ctx.expressionArgResolver(exp.Data[1])
+		if err != nil {
+			return val, err
+		}
+		switch arg1Val := arg1.(type) {
+		case string:
+			checkFor = arg1Val
+		case float64:
+			checkFor = "count"
+			checkForCount = int(arg1Val)
+		default:
+			return val, fmt.Errorf("type unknown %T", arg1Val)
+		}
+	}
+	if argNum > 2 {
+		surveyKey, err = ctx.mustGetStrValue(exp.Data[2])
+		if err != nil {
+			return val, err
+		}
+	}
+	if argNum > 3 {
+		arg4, err := ctx.expressionArgResolver(exp.Data[3])
+		if err != nil {
+			return val, err
+		}
+		arg4Val, ok := arg4.(float64)
+		if ok {
+			since = int64(arg4Val)
+		}
+
+	}
+	if argNum > 4 {
+		arg5, err := ctx.expressionArgResolver(exp.Data[4])
+		if err != nil {
+			return val, err
+		}
+		arg5Val, ok := arg5.(float64)
+		if ok {
+			until = int64(arg5Val)
+		}
+	}
+
+	filter := bson.M{
+		"participantID": ctx.ParticipantState.ParticipantID,
+	}
+	if surveyKey != "" {
+		filter["key"] = surveyKey
+	}
+	if since > 0 && until > 0 {
+		filter["$and"] = bson.A{
+			bson.M{"arrivedAt": bson.M{"$gt": since}},
+			bson.M{"arrivedAt": bson.M{"$lt": until}},
+		}
+	} else if since > 0 {
+		filter["arrivedAt"] = bson.M{"$gt": since}
+	} else if until > 0 {
+		filter["arrivedAt"] = bson.M{"$lt": until}
+	}
+
+	responses, _, err := CurrentStudyEngine.studyDBService.GetResponses(
+		ctx.Event.InstanceID,
+		ctx.Event.StudyKey,
+		filter,
+		bson.M{
+			"arrivedAt": -1,
+		},
+		1,
+		100,
+	)
+
+	if err != nil {
+		return val, err
+	}
+
+	counter := 0
+	result := false
+	for _, resp := range responses {
+		oldEvalContext := EvalContext{
+			ParticipantState: ctx.ParticipantState,
+			Event: StudyEvent{
+				Response: resp,
+			},
+		}
+
+		expResult, err := ExpressionEval(*condition, oldEvalContext)
+		if err != nil {
+			return false, err
+		}
+		val := expResult.(bool)
+
+		switch checkFor {
+		case "all":
+			if val {
+				result = true
+			} else {
+				result = false
+				break
+			}
+		case "any":
+			if val {
+				result = true
+				break
+			}
+		case "count":
+			if val {
+				counter += 1
+				if counter >= checkForCount {
+					result = true
+					break
+				}
+			}
+		}
+	}
+
+	return result, nil
+}
+
+func (ctx EvalContext) hasEventPayload() (val bool, err error) {
+	return ctx.Event.Payload != nil && len(ctx.Event.Payload) > 0, nil
+}
+
+func (ctx EvalContext) getEventPayloadValueAsStr(exp studyTypes.Expression) (val string, err error) {
+	if len(exp.Data) != 1 {
+		return val, errors.New("unexpected numbers of arguments")
+	}
+
+	arg1Val, err := ctx.mustGetStrValue(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+
+	mV, ok := ctx.Event.Payload[arg1Val]
+	if !ok {
+		return "", nil
+	}
+	val, ok = mV.(string)
+	if !ok {
+		slog.Debug("could not cast value to string", slog.String("value", fmt.Sprintf("%v", mV)))
+		return "", nil
+	}
+	return val, nil
+}
+
+func (ctx EvalContext) getEventPayloadValueAsNum(exp studyTypes.Expression) (val float64, err error) {
+	if len(exp.Data) != 1 {
+		return val, errors.New("unexpected numbers of arguments")
+	}
+
+	arg1Val, err := ctx.mustGetStrValue(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+
+	mV, ok := ctx.Event.Payload[arg1Val]
+	if !ok {
+		return 0, nil
+	}
+	val, ok = mV.(float64)
+	if !ok {
+		slog.Debug("could not cast value to number", slog.String("value", fmt.Sprintf("%v", mV)))
+		return 0, nil
+	}
+
+	return val, nil
+}
+
+func (ctx EvalContext) hasEventPayloadKey(exp studyTypes.Expression) (val bool, err error) {
+	if len(exp.Data) != 1 {
+		return val, errors.New("unexpected numbers of arguments")
+	}
+
+	arg1Val, err := ctx.mustGetStrValue(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+
+	_, ok := ctx.Event.Payload[arg1Val]
+	return ok, nil
+}
+
+func (ctx EvalContext) getStudyEntryTime(withIncomingParticipantState bool) (t float64, err error) {
+	pState := ctx.ParticipantState
+	if withIncomingParticipantState {
+		pState = ctx.Event.MergeWithParticipant
+	}
+	return float64(pState.EnteredAt), nil
+}
+
+func (ctx EvalContext) hasSurveyKeyAssigned(exp studyTypes.Expression, withIncomingParticipantState bool) (val bool, err error) {
+	pState := ctx.ParticipantState
+	if withIncomingParticipantState {
+		pState = ctx.Event.MergeWithParticipant
+	}
+
+	if len(exp.Data) != 1 || !exp.Data[0].IsString() {
+		return val, errors.New("unexpected number or wrong type of argument")
+	}
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	arg1Val, ok := arg1.(string)
+	if !ok {
+		return val, errors.New("could not cast argument")
+	}
+
+	for _, survey := range pState.AssignedSurveys {
+		if survey.SurveyKey == arg1Val {
+			val = true
+			return
+		}
+	}
+	return
+}
+
+func (ctx EvalContext) getSurveyKeyAssignedFrom(exp studyTypes.Expression, withIncomingParticipantState bool) (val float64, err error) {
+	pState := ctx.ParticipantState
+	if withIncomingParticipantState {
+		pState = ctx.Event.MergeWithParticipant
+	}
+
+	if len(exp.Data) != 1 || !exp.Data[0].IsString() {
+		return val, errors.New("unexpected number or wrong type of argument")
+	}
+
+	arg1Val, err := ctx.mustGetStrValue(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+
+	for _, survey := range pState.AssignedSurveys {
+		if survey.SurveyKey == arg1Val {
+			val = float64(survey.ValidFrom)
+			return
+		}
+	}
+
+	return -1, nil
+}
+
+func (ctx EvalContext) getSurveyKeyAssignedUntil(exp studyTypes.Expression, withIncomingParticipantState bool) (val float64, err error) {
+	pState := ctx.ParticipantState
+	if withIncomingParticipantState {
+		pState = ctx.Event.MergeWithParticipant
+	}
+
+	if len(exp.Data) != 1 || !exp.Data[0].IsString() {
+		return val, errors.New("unexpected number or wrong type of argument")
+	}
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	arg1Val, ok := arg1.(string)
+	if !ok {
+		return val, errors.New("could not cast argument")
+	}
+
+	for _, survey := range pState.AssignedSurveys {
+		if survey.SurveyKey == arg1Val {
+			val = float64(survey.ValidUntil)
+			return
+		}
+	}
+
+	return -1, nil
+}
+
+func (ctx EvalContext) hasParticipantFlagKey(exp studyTypes.Expression, withIncomingParticipantState bool) (val bool, err error) {
+	pState := ctx.ParticipantState
+	if withIncomingParticipantState {
+		pState = ctx.Event.MergeWithParticipant
+	}
+	if len(exp.Data) != 1 {
+		return val, errors.New("unexpected numbers of arguments")
+	}
+
+	if exp.Data[0].IsNumber() {
+		return val, errors.New("unexpected argument types")
+	}
+
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	arg1Val, ok := arg1.(string)
+	if !ok {
+		return val, errors.New("could not cast argument 1")
+	}
+
+	_, ok = pState.Flags[arg1Val]
+	if !ok {
+		return false, nil
+	}
+	return true, nil
+}
+
+func (ctx EvalContext) getParticipantFlagValue(exp studyTypes.Expression, withIncomingParticipantState bool) (val string, err error) {
+	pState := ctx.ParticipantState
+	if withIncomingParticipantState {
+		pState = ctx.Event.MergeWithParticipant
+	}
+	if len(exp.Data) != 1 {
+		return val, errors.New("unexpected numbers of arguments")
+	}
+
+	if exp.Data[0].IsNumber() {
+		return val, errors.New("unexpected argument types")
+	}
+
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	arg1Val, ok := arg1.(string)
+	if !ok {
+		return val, errors.New("could not cast argument 1")
+	}
+
+	res, ok := pState.Flags[arg1Val]
+	if !ok {
+		return "", nil
+	}
+	return res, nil
+}
+
+func (ctx EvalContext) hasParticipantFlag(exp studyTypes.Expression, withIncomingParticipantState bool) (val bool, err error) {
+	pState := ctx.ParticipantState
+	if withIncomingParticipantState {
+		pState = ctx.Event.MergeWithParticipant
+	}
+	if len(exp.Data) != 2 {
+		return val, errors.New("unexpected numbers of arguments")
+	}
+
+	if exp.Data[0].IsNumber() || exp.Data[1].IsNumber() {
+		return val, errors.New("unexpected argument types")
+	}
+
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	arg1Val, ok := arg1.(string)
+	if !ok {
+		return val, errors.New("could not cast argument 1")
+	}
+
+	arg2, err := ctx.expressionArgResolver(exp.Data[1])
+	if err != nil {
+		return val, err
+	}
+	arg2Val, ok := arg2.(string)
+	if !ok {
+		return val, errors.New("could not cast argument 2")
+	}
+
+	value, ok := pState.Flags[arg1Val]
+	if !ok || value != arg2Val {
+		return false, nil
+	}
+	return true, nil
+}
+
+func (ctx EvalContext) lastSubmissionDateOlderThan(exp studyTypes.Expression, withIncomingParticipantState bool) (val bool, err error) {
+	pState := ctx.ParticipantState
+	if withIncomingParticipantState {
+		pState = ctx.Event.MergeWithParticipant
+	}
+	if len(exp.Data) != 1 && len(exp.Data) != 2 {
+		return val, errors.New("unexpected numbers of arguments")
+	}
+
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	arg1Val, ok := arg1.(float64)
+	if !ok {
+		return val, errors.New("could not cast argument 1")
+	}
+	refTime := int64(arg1Val)
+
+	if len(exp.Data) == 2 {
+		arg2Val, err := ctx.mustGetStrValue(exp.Data[1])
+		if err != nil {
+			return val, err
+		}
+		lastTs, ok := pState.LastSubmissions[arg2Val]
+		if !ok {
+			return false, nil
+		}
+		return lastTs < refTime, nil
+
+	} else {
+		for _, lastTs := range pState.LastSubmissions {
+			if lastTs > refTime {
+				return false, nil
+			}
+		}
+	}
+	return true, nil
+}
+
+func (ctx EvalContext) responseHasKeysAny(exp studyTypes.Expression) (val bool, err error) {
+	if len(exp.Data) < 3 {
+		return val, errors.New("unexpected numbers of arguments")
+	}
+
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	arg1Val, ok := arg1.(string)
+	if !ok {
+		return val, errors.New("could not cast arguments")
+	}
+	arg2, err := ctx.expressionArgResolver(exp.Data[1])
+	if err != nil {
+		return val, err
+	}
+	arg2Val, ok := arg2.(string)
+	if !ok {
+		return val, errors.New("could not cast arguments")
+	}
+
+	targetKeys := []string{}
+	for _, d := range exp.Data[2:] {
+		arg, err := ctx.expressionArgResolver(d)
+		if err != nil {
+			return val, err
+		}
+		argVal, ok := arg.(string)
+		if !ok {
+			return val, errors.New("could not cast arguments")
+		}
+		targetKeys = append(targetKeys, argVal)
+	}
+
+	// find survey item:
+	responseOfInterest, err := findSurveyItemResponse(ctx.Event.Response.Responses, arg1Val)
+	if err != nil {
+		// Item not found
+		return false, nil
+	}
+
+	responseParentGroup, err := findResponseObject(responseOfInterest, arg2Val)
+	if err != nil {
+		// Item not found
+		return false, nil
+	}
+
+	// Check if any of the target in response
+	anyFound := false
+	for _, target := range targetKeys {
+		for _, item := range responseParentGroup.Items {
+			if item.Key == target {
+				anyFound = true
+				break
+			}
+		}
+		if anyFound {
+			break
+		}
+	}
+	return anyFound, nil
+}
+
+func (ctx EvalContext) responseHasOnlyKeysOtherThan(exp studyTypes.Expression) (val bool, err error) {
+	if len(exp.Data) < 3 {
+		return val, errors.New("unexpected numbers of arguments")
+	}
+
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	arg1Val, ok := arg1.(string)
+	if !ok {
+		return val, errors.New("could not cast arguments")
+	}
+	arg2, err := ctx.expressionArgResolver(exp.Data[1])
+	if err != nil {
+		return val, err
+	}
+	arg2Val, ok := arg2.(string)
+	if !ok {
+		return val, errors.New("could not cast arguments")
+	}
+
+	targetKeys := []string{}
+	for _, d := range exp.Data[2:] {
+		arg, err := ctx.expressionArgResolver(d)
+		if err != nil {
+			return val, err
+		}
+		argVal, ok := arg.(string)
+		if !ok {
+			return val, errors.New("could not cast arguments")
+		}
+		targetKeys = append(targetKeys, argVal)
+	}
+
+	// find survey item:
+	responseOfInterest, err := findSurveyItemResponse(ctx.Event.Response.Responses, arg1Val)
+	if err != nil {
+		// Item not found
+		return false, nil
+	}
+
+	responseParentGroup, err := findResponseObject(responseOfInterest, arg2Val)
+	if err != nil {
+		// Item not found
+		return false, nil
+	}
+
+	if len(responseParentGroup.Items) < 1 {
+		return false, nil
+	}
+
+	// Check if any of the target in response
+	anyFound := true
+	for _, target := range targetKeys {
+		for _, item := range responseParentGroup.Items {
+			if item.Key == target {
+				anyFound = false
+				break
+			}
+		}
+		if anyFound {
+			break
+		}
+	}
+	return anyFound, nil
+}
+
+func (ctx EvalContext) getResponseValueAsNum(exp studyTypes.Expression) (val float64, err error) {
+	if len(exp.Data) != 2 {
+		return val, errors.New("unexpected numbers of arguments")
+	}
+
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	arg1Val, ok := arg1.(string)
+	if !ok {
+		return val, errors.New("could not cast arguments")
+	}
+	arg2, err := ctx.expressionArgResolver(exp.Data[1])
+	if err != nil {
+		return val, err
+	}
+	arg2Val, ok := arg2.(string)
+	if !ok {
+		return val, errors.New("could not cast arguments")
+	}
+
+	// find survey item:
+	surveyItem, err := findSurveyItemResponse(ctx.Event.Response.Responses, arg1Val)
+	if err != nil {
+		// Item not found
+		return 0, errors.New("item not found")
+	}
+
+	responseObject, err := findResponseObject(surveyItem, arg2Val)
+	if err != nil {
+		// Item not found
+		return 0, errors.New("item not found")
+	}
+
+	val, err = strconv.ParseFloat(responseObject.Value, 64)
+	return
+}
+
+func (ctx EvalContext) getResponseValueAsStr(exp studyTypes.Expression) (val string, err error) {
+	if len(exp.Data) != 2 {
+		return val, errors.New("unexpected numbers of arguments")
+	}
+
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	arg1Val, ok := arg1.(string)
+	if !ok {
+		return val, errors.New("could not cast arguments")
+	}
+	arg2, err := ctx.expressionArgResolver(exp.Data[1])
+	if err != nil {
+		return val, err
+	}
+	arg2Val, ok := arg2.(string)
+	if !ok {
+		return val, errors.New("could not cast arguments")
+	}
+
+	// find survey item:
+	surveyItem, err := findSurveyItemResponse(ctx.Event.Response.Responses, arg1Val)
+	if err != nil {
+		// Item not found
+		return "", errors.New("item not found")
+	}
+
+	responseObject, err := findResponseObject(surveyItem, arg2Val)
+	if err != nil {
+		// Item not found
+		return "", errors.New("item not found")
+	}
+	val = responseObject.Value
+	return
+}
+
+func (ctx EvalContext) getSelectedKeys(exp studyTypes.Expression) (val string, err error) {
+	if len(exp.Data) != 2 {
+		return val, errors.New("unexpected numbers of arguments")
+	}
+
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	arg1Val, ok := arg1.(string)
+	if !ok {
+		return val, errors.New("could not cast arguments")
+	}
+	arg2, err := ctx.expressionArgResolver(exp.Data[1])
+	if err != nil {
+		return val, err
+	}
+	arg2Val, ok := arg2.(string)
+	if !ok {
+		return val, errors.New("could not cast arguments")
+	}
+
+	// find survey item:
+	surveyItem, err := findSurveyItemResponse(ctx.Event.Response.Responses, arg1Val)
+	if err != nil {
+		// Item not found
+		return "", errors.New("item not found")
+	}
+
+	responseObject, err := findResponseObject(surveyItem, arg2Val)
+	if err != nil {
+		// Item not found
+		return "", errors.New("item not found")
+	}
+
+	keys := []string{}
+	for _, item := range responseObject.Items {
+		keys = append(keys, item.Key)
+	}
+	val = strings.Join(keys, ";")
+	return
+}
+
+func (ctx EvalContext) countResponseItems(exp studyTypes.Expression) (val float64, err error) {
+	if len(exp.Data) != 2 {
+		return val, errors.New("unexpected numbers of arguments")
+	}
+
+	itemKey, err := ctx.mustGetStrValue(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+
+	responseGroupKey, err := ctx.mustGetStrValue(exp.Data[1])
+	if err != nil {
+		return val, err
+	}
+
+	// find survey item:
+	surveyItem, err := findSurveyItemResponse(ctx.Event.Response.Responses, itemKey)
+	if err != nil {
+		// Item not found
+		return -1.0, errors.New("item not found")
+	}
+
+	responseObject, err := findResponseObject(surveyItem, responseGroupKey)
+	if err != nil {
+		// Item not found
+		return -1.0, errors.New("item not found")
+	}
+
+	val = float64(len(responseObject.Items))
+	return
+}
+
+func (ctx EvalContext) hasResponseKey(exp studyTypes.Expression) (val bool, err error) {
+	if len(exp.Data) != 2 {
+		return val, errors.New("unexpected numbers of arguments")
+	}
+
+	itemKey, err := ctx.mustGetStrValue(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+
+	responseGroupKey, err := ctx.mustGetStrValue(exp.Data[1])
+	if err != nil {
+		return val, err
+	}
+
+	// find survey item:
+	surveyItem, err := findSurveyItemResponse(ctx.Event.Response.Responses, itemKey)
+	if err != nil {
+		// Item not found
+		return false, nil
+	}
+
+	_, err = findResponseObject(surveyItem, responseGroupKey)
+	if err != nil {
+		// Item not found
+		return false, nil
+	}
+	return true, nil
+}
+
+func (ctx EvalContext) hasResponseKeyWithValue(exp studyTypes.Expression) (val bool, err error) {
+	if len(exp.Data) != 3 {
+		return val, errors.New("unexpected numbers of arguments")
+	}
+
+	itemKey, err := ctx.mustGetStrValue(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+
+	responseKey, err := ctx.mustGetStrValue(exp.Data[1])
+	if err != nil {
+		return val, err
+	}
+
+	value, err := ctx.mustGetStrValue(exp.Data[2])
+	if err != nil {
+		return val, err
+	}
+
+	// find survey item:
+	surveyItem, err := findSurveyItemResponse(ctx.Event.Response.Responses, itemKey)
+	if err != nil {
+		// Item not found
+		return false, nil
+	}
+
+	responseObject, err := findResponseObject(surveyItem, responseKey)
+	if err != nil {
+		// Item not found
+		return false, nil
+	}
+
+	val = responseObject.Value == value
+	return
+}
+
+func (ctx EvalContext) eq(exp studyTypes.Expression) (val bool, err error) {
+	if len(exp.Data) != 2 {
+		return val, errors.New("not expected numbers of arguments")
+	}
+
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	arg2, err := ctx.expressionArgResolver(exp.Data[1])
+	if err != nil {
+		return val, err
+	}
+
+	switch arg1Val := arg1.(type) {
+	case string:
+		arg2Val, ok2 := arg2.(string)
+		if !ok2 {
+			return val, errors.New("could not cast arguments")
+		}
+		return strings.Compare(arg1Val, arg2Val) == 0, nil
+	case float64:
+		arg2Val, ok2 := arg2.(float64)
+		if !ok2 {
+			return val, errors.New("could not cast arguments")
+		}
+		return arg1Val == arg2Val, nil
+	default:
+		return val, fmt.Errorf("I don't know about type %T", arg1Val)
+	}
+}
+
+func (ctx EvalContext) lt(exp studyTypes.Expression) (val bool, err error) {
+	if len(exp.Data) != 2 {
+		return val, errors.New("not expected numbers of arguments")
+	}
+
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	arg2, err := ctx.expressionArgResolver(exp.Data[1])
+	if err != nil {
+		return val, err
+	}
+
+	switch arg1Val := arg1.(type) {
+	case string:
+		arg2Val, ok2 := arg2.(string)
+		if !ok2 {
+			return val, errors.New("could not cast arguments")
+		}
+		return strings.Compare(arg1Val, arg2Val) == -1, nil
+	case float64:
+		arg2Val, ok2 := arg2.(float64)
+		if !ok2 {
+			return val, errors.New("could not cast arguments")
+		}
+		return arg1Val < arg2Val, nil
+	default:
+		return val, fmt.Errorf("I don't know about type %T", arg1Val)
+	}
+}
+
+func (ctx EvalContext) lte(exp studyTypes.Expression) (val bool, err error) {
+	if len(exp.Data) != 2 {
+		return val, errors.New("not expected numbers of arguments")
+	}
+
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	arg2, err := ctx.expressionArgResolver(exp.Data[1])
+	if err != nil {
+		return val, err
+	}
+
+	switch arg1Val := arg1.(type) {
+	case string:
+		arg2Val, ok2 := arg2.(string)
+		if !ok2 {
+			return val, errors.New("could not cast arguments")
+		}
+		return strings.Compare(arg1Val, arg2Val) <= 0, nil
+	case float64:
+		arg2Val, ok2 := arg2.(float64)
+		if !ok2 {
+			return val, errors.New("could not cast arguments")
+		}
+		return arg1Val <= arg2Val, nil
+	default:
+		return val, fmt.Errorf("I don't know about type %T", arg1Val)
+	}
+}
+
+func (ctx EvalContext) gt(exp studyTypes.Expression) (val bool, err error) {
+	if len(exp.Data) != 2 {
+		return val, errors.New("not expected numbers of arguments")
+	}
+
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	arg2, err := ctx.expressionArgResolver(exp.Data[1])
+	if err != nil {
+		return val, err
+	}
+
+	switch arg1Val := arg1.(type) {
+	case string:
+		arg2Val, ok2 := arg2.(string)
+		if !ok2 {
+			return val, errors.New("could not cast arguments")
+		}
+		return strings.Compare(arg1Val, arg2Val) == 1, nil
+	case float64:
+		arg2Val, ok2 := arg2.(float64)
+		if !ok2 {
+			return val, errors.New("could not cast arguments")
+		}
+		return arg1Val > arg2Val, nil
+	default:
+		return val, fmt.Errorf("unexpected type %T", arg1Val)
+	}
+}
+
+func (ctx EvalContext) gte(exp studyTypes.Expression) (val bool, err error) {
+	if len(exp.Data) != 2 {
+		return val, errors.New("not expected numbers of arguments")
+	}
+
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	arg2, err := ctx.expressionArgResolver(exp.Data[1])
+	if err != nil {
+		return val, err
+	}
+
+	switch arg1Val := arg1.(type) {
+	case string:
+		arg2Val, ok2 := arg2.(string)
+		if !ok2 {
+			return val, errors.New("could not cast arguments")
+		}
+		return strings.Compare(arg1Val, arg2Val) >= 0, nil
+	case float64:
+		arg2Val, ok2 := arg2.(float64)
+		if !ok2 {
+			return val, errors.New("could not cast arguments")
+		}
+		return arg1Val >= arg2Val, nil
+	default:
+		return val, fmt.Errorf("I don't know about type %T", arg1Val)
+	}
+}
+
+func (ctx EvalContext) hasMessageTypeAssigned(exp studyTypes.Expression, withIncomingParticipantState bool) (val bool, err error) {
+	pState := ctx.ParticipantState
+	if withIncomingParticipantState {
+		pState = ctx.Event.MergeWithParticipant
+	}
+	if len(exp.Data) != 1 {
+		return val, errors.New("should have at exactly one argument")
+	}
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	for _, m := range pState.Messages {
+		if m.Type == arg1 {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (ctx EvalContext) getMessageNextTime(exp studyTypes.Expression, withIncomingParticipantState bool) (val int64, err error) {
+	pState := ctx.ParticipantState
+	if withIncomingParticipantState {
+		pState = ctx.Event.MergeWithParticipant
+	}
+	if len(exp.Data) != 1 {
+		return val, errors.New("should have at exactly one argument")
+	}
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	msgType := arg1.(string)
+	nextTime := int64(0)
+	for _, m := range pState.Messages {
+		if m.Type == msgType {
+			if nextTime == 0 || nextTime > m.ScheduledFor {
+				nextTime = m.ScheduledFor
+			}
+		}
+	}
+	if nextTime == 0 {
+		return 0, errors.New("no message for this type found")
+	}
+	return nextTime, nil
+}
+
+func (ctx EvalContext) and(exp studyTypes.Expression) (val bool, err error) {
+	if len(exp.Data) < 2 {
+		return val, errors.New("should have at least two arguments")
+	}
+
+	for _, d := range exp.Data {
+		arg1, err := ctx.expressionArgResolver(d)
+		if err != nil {
+			return val, err
+		}
+		switch arg1Val := arg1.(type) {
+		case bool:
+			if !arg1Val {
+				return false, nil
+			}
+		case float64:
+			if arg1Val == 0 {
+				return false, nil
+			}
+		}
+	}
+	return true, nil
+}
+
+func (ctx EvalContext) or(exp studyTypes.Expression) (val bool, err error) {
+	if len(exp.Data) < 2 {
+		return val, errors.New("should have at least two arguments")
+	}
+
+	for _, d := range exp.Data {
+		arg1, err := ctx.expressionArgResolver(d)
+		if err != nil {
+			slog.Debug("unexpected error during expression eval", slog.String("expression", exp.Name), slog.String("error", err.Error()))
+			continue
+		}
+		switch arg1Val := arg1.(type) {
+		case bool:
+			if arg1Val {
+				return true, nil
+			}
+		case float64:
+			if arg1Val > 0 {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+func (ctx EvalContext) not(exp studyTypes.Expression) (val bool, err error) {
+	if len(exp.Data) != 1 {
+		return val, errors.New("should have one argument")
+	}
+
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	switch arg1Val := arg1.(type) {
+	case bool:
+		return !arg1Val, nil
+	case float64:
+		if arg1Val == 0 {
+			return true, nil
+		}
+		return false, nil
+	}
+	return
+}
+
+func (ctx EvalContext) timestampWithOffset(exp studyTypes.Expression) (t float64, err error) {
+	if len(exp.Data) != 1 && len(exp.Data) != 2 {
+		return t, errors.New("should have one or two arguments")
+	}
+
+	arg1, err1 := ctx.expressionArgResolver(exp.Data[0])
+	if err1 != nil {
+		return t, err1
+	}
+	if reflect.TypeOf(arg1).Kind() != reflect.Float64 {
+		return t, errors.New("argument 1 should be resolved as type number (float64)")
+	}
+	delta := int64(arg1.(float64))
+
+	referenceTime := time.Now().Unix()
+	if len(exp.Data) == 2 {
+		arg2, err2 := ctx.expressionArgResolver(exp.Data[1])
+		if err2 != nil {
+			return t, err2
+		}
+		if reflect.TypeOf(arg2).Kind() != reflect.Float64 {
+			return t, errors.New("argument 2 should be resolved as type number (float64)")
+		}
+
+		referenceTime = int64(arg2.(float64))
+	}
+
+	t = float64(referenceTime + delta)
+	return
+}
+
+func (ctx EvalContext) getTsForNextISOWeek(exp studyTypes.Expression) (t float64, err error) {
+	if len(exp.Data) != 1 && len(exp.Data) != 2 {
+		return t, errors.New("should have one or two arguments")
+	}
+
+	arg1, err1 := ctx.expressionArgResolver(exp.Data[0])
+	if err1 != nil {
+		return t, err1
+	}
+	if reflect.TypeOf(arg1).Kind() != reflect.Float64 {
+		return t, errors.New("argument 1 should be resolved as type number (float64)")
+	}
+
+	ISOWeek := int64(arg1.(float64))
+
+	if ISOWeek < 1 || ISOWeek > 53 {
+		return t, errors.New("argument 1 should be between 1 and 53")
+	}
+
+	referenceTime := time.Now()
+	if len(exp.Data) == 2 {
+		arg2, err2 := ctx.expressionArgResolver(exp.Data[1])
+		if err2 != nil {
+			return t, err2
+		}
+		if reflect.TypeOf(arg2).Kind() != reflect.Float64 {
+			return t, errors.New("argument 2 should be resolved as type number (float64)")
+		}
+
+		referenceTime = time.Unix(int64(arg2.(float64)), 0)
+	}
+
+	for {
+		_, week := referenceTime.ISOWeek()
+		if week == int(ISOWeek) {
+			break
+		}
+		referenceTime = referenceTime.AddDate(0, 0, 1)
+	}
+
+	startOfWeek := referenceTime.AddDate(0, 0, -int(referenceTime.Weekday())+1)
+	t = float64(startOfWeek.Unix())
+	return
+}
+
+func (ctx EvalContext) getISOWeekForTs(exp studyTypes.Expression) (t float64, err error) {
+	if len(exp.Data) != 1 {
+		return t, errors.New("should have one argument")
+	}
+
+	arg1, err1 := ctx.expressionArgResolver(exp.Data[0])
+	if err1 != nil {
+		return t, err1
+	}
+	if reflect.TypeOf(arg1).Kind() != reflect.Float64 {
+		return t, errors.New("argument 1 should be resolved as type number (float64)")
+	}
+
+	ts := int64(arg1.(float64))
+	_, iw := time.Unix(ts, 0).ISOWeek()
+	t = float64(iw)
+	return
+}
+
+func (ctx EvalContext) parseValueAsNum(exp studyTypes.Expression) (val float64, err error) {
+	if len(exp.Data) != 1 {
+		return val, errors.New("should have one argument")
+	}
+
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+
+	if reflect.TypeOf(arg1).Kind() == reflect.Float64 {
+		return arg1.(float64), nil
+	}
+
+	if reflect.TypeOf(arg1).Kind() != reflect.String {
+		return val, errors.New("argument 1 should be resolved as type string")
+	}
+
+	val, err = strconv.ParseFloat(arg1.(string), 64)
+
+	return
+}
+
+func (ctx EvalContext) generateRandomNumber(exp studyTypes.Expression) (val float64, err error) {
+	if len(exp.Data) != 2 {
+		return val, errors.New("should have two arguments")
+	}
+
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	if reflect.TypeOf(arg1).Kind() != reflect.Float64 {
+		return val, errors.New("argument 1 should be resolved as type number (float64)")
+	}
+	min := int(arg1.(float64))
+
+	arg2, err := ctx.expressionArgResolver(exp.Data[1])
+	if err != nil {
+		return val, err
+	}
+	if reflect.TypeOf(arg2).Kind() != reflect.Float64 {
+		return val, errors.New("argument 2 should be resolved as type number (float64)")
+	}
+	max := int(arg2.(float64))
+
+	rand.Seed(time.Now().UnixNano())
+	randomVal := rand.Intn(max-min+1) + min
+	return float64(randomVal), nil
+}
+
+func (ctx EvalContext) externalEventEval(exp studyTypes.Expression) (val interface{}, err error) {
+	if len(exp.Data) < 1 {
+		return val, errors.New("should have at least one argument")
+	}
+
+	serviceName, err := ctx.mustGetStrValue(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+
+	serviceConfig, err := getExternalServicesConfigByName(serviceName)
+	if err != nil {
+		slog.Error("unexpected error during expression eval", slog.String("expression", exp.Name), slog.String("error", err.Error()))
+		return val, err
+	}
+
+	pathname := ""
+
+	if len(exp.Data) > 1 {
+		arg1, err := ctx.expressionArgResolver(exp.Data[1])
+		if err != nil {
+			return val, err
+		}
+
+		route := arg1.(string)
+		route = strings.TrimPrefix(route, "/")
+		pathname = route
+	}
+
+	var mTLSConfig *apihelpers.CertificatePaths
+	if serviceConfig.MutualTLSConfig != nil {
+		mTLSConfig = &apihelpers.CertificatePaths{
+			CACertPath:     serviceConfig.MutualTLSConfig.CAFile,
+			ServerCertPath: serviceConfig.MutualTLSConfig.CertFile,
+			ServerKeyPath:  serviceConfig.MutualTLSConfig.KeyFile,
+		}
+	}
+
+	httpClient := httpclient.ClientConfig{
+		RootURL:                   serviceConfig.URL,
+		APIKey:                    serviceConfig.APIKey,
+		Timeout:                   time.Duration(serviceConfig.Timeout) * time.Second,
+		MutualTLSCertificatePaths: mTLSConfig,
+	}
+
+	payload := ExternalEventPayload{
+		ParticipantState: ctx.ParticipantState,
+		EventType:        ctx.Event.Type,
+		StudyKey:         ctx.Event.StudyKey,
+		InstanceID:       ctx.Event.InstanceID,
+		Response:         ctx.Event.Response,
+		EventKey:         ctx.Event.EventKey,
+		Payload:          ctx.Event.Payload,
+	}
+
+	response, err := httpClient.RunHTTPcall(pathname, payload)
+	if err != nil {
+		slog.Error("unexpected error during expression eval", slog.String("expression", exp.Name), slog.String("error", err.Error()))
+		return val, err
+	}
+
+	// if relevant, update participant state:
+	value := response["value"]
+	if exp.ReturnType == "float" {
+		return value.(float64), nil
+	}
+	return value, nil
+}
+
+func (ctx EvalContext) mustGetStrValue(arg studyTypes.ExpressionArg) (string, error) {
+	arg1, err := ctx.expressionArgResolver(arg)
+	if err != nil {
+		return "", err
+	}
+	val, ok := arg1.(string)
+	if !ok {
+		return "", errors.New("could not cast argument")
+	}
+	return val, nil
+}

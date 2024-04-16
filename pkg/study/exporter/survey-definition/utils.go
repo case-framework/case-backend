@@ -3,7 +3,7 @@ package surveydefinition
 import (
 	"strings"
 
-	studyTypes "github.com/case-framework/case-backend/pkg/study/study"
+	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
 func isItemGroup(item *studyTypes.SurveyItem) bool {

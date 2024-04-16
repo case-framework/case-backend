@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	studytypes "github.com/case-framework/case-backend/pkg/study/study"
+	studytypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
 type ResponseExporter struct {

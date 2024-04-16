@@ -1,4 +1,4 @@
-package study
+package types
 
 const (
 	ASSIGNED_SURVEY_CATEGORY_PRIO   = "prio"

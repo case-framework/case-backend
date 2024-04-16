@@ -1,4 +1,4 @@
-package study
+package types
 
 type Expression struct {
 	Name       string          `bson:"name" json:"name"` // Name of the operation to be evaluated
@@ -11,4 +11,16 @@ type ExpressionArg struct {
 	Exp   *Expression `bson:"exp,omitempty" json:"exp,omitempty"`
 	Str   string      `bson:"str,omitempty" json:"str,omitempty"`
 	Num   float64     `bson:"num,omitempty" json:"num,omitempty"`
+}
+
+func (exp ExpressionArg) IsExpression() bool {
+	return exp.DType == "exp"
+}
+
+func (exp ExpressionArg) IsNumber() bool {
+	return exp.DType == "num"
+}
+
+func (exp ExpressionArg) IsString() bool {
+	return exp.DType == "str"
 }

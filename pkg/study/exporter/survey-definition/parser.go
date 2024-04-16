@@ -3,7 +3,7 @@ package surveydefinition
 import (
 	"log/slog"
 
-	studyTypes "github.com/case-framework/case-backend/pkg/study/study"
+	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 
 	"github.com/case-framework/case-backend/pkg/utils"
 )
