@@ -5,16 +5,17 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"path"
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/apihelpers"
 )
 
 type ClientConfig struct {
-	RootURL              string
-	APIKey               string
-	mTLSCertificatePaths *apihelpers.CertificatePaths
-	Timeout              time.Duration
+	RootURL                   string
+	APIKey                    string
+	MutualTLSCertificatePaths *apihelpers.CertificatePaths
+	Timeout                   time.Duration
 }
 
 func (cConfig ClientConfig) RunHTTPcall(pathname string, payload interface{}) (map[string]interface{}, error) {
@@ -23,7 +24,7 @@ func (cConfig ClientConfig) RunHTTPcall(pathname string, payload interface{}) (m
 		return nil, err
 	}
 
-	transport, err := getTransportWithMTLSConfig(cConfig.mTLSCertificatePaths)
+	transport, err := getTransportWithMTLSConfig(cConfig.MutualTLSCertificatePaths)
 	if err != nil {
 		slog.Error("Error creating transport with mTLS config", slog.String("error", err.Error()))
 		return nil, err
@@ -36,7 +37,7 @@ func (cConfig ClientConfig) RunHTTPcall(pathname string, payload interface{}) (m
 		client.Transport = transport
 	}
 
-	url := cConfig.RootURL + pathname
+	url := path.Join(cConfig.RootURL, pathname)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(json_data))
 	if err != nil {
 		slog.Error("unexpected error in preparing http request", slog.String("error", err.Error()))
