@@ -1,7 +1,7 @@
 package messaging
 
 import (
-	"github.com/case-framework/case-backend/pkg/study/study"
+	study "github.com/case-framework/case-backend/pkg/study/types"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 

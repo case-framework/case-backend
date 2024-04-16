@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	studyTypes "github.com/case-framework/case-backend/pkg/study/study"
+	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
 func GenerateSurveyVersionID(oldVersions []*studyTypes.Survey) string {

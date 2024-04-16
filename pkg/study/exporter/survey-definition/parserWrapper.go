@@ -1,6 +1,6 @@
 package surveydefinition
 
-import studyTypes "github.com/case-framework/case-backend/pkg/study/study"
+import studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 
 type StudyDB interface {
 	GetSurveyVersions(instanceID string, studyKey string, surveyKey string) (surveys []*studyTypes.Survey, err error)

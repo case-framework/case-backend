@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	studydefinition "github.com/case-framework/case-backend/pkg/study/exporter/survey-definition"
-	studytypes "github.com/case-framework/case-backend/pkg/study/study"
+	studytypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
 type ResponseParser struct {

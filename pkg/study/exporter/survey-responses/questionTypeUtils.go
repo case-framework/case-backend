@@ -4,7 +4,7 @@ import (
 	"log/slog"
 
 	sd "github.com/case-framework/case-backend/pkg/study/exporter/survey-definition"
-	studytypes "github.com/case-framework/case-backend/pkg/study/study"
+	studytypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
 func isEmbeddedCloze(optionType string) bool {

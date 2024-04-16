@@ -3,7 +3,7 @@ package study
 import (
 	"errors"
 
-	studytypes "github.com/case-framework/case-backend/pkg/study/study"
+	studytypes "github.com/case-framework/case-backend/pkg/study/types"
 	"go.mongodb.org/mongo-driver/bson"
 )
 

@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"strings"
 
-	studytypes "github.com/case-framework/case-backend/pkg/study/study"
+	studytypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
 func mapToResponseDef(rItem *studytypes.ItemComponent, lang string) []ResponseDef {

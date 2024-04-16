@@ -24,7 +24,7 @@ import (
 	studydefinition "github.com/case-framework/case-backend/pkg/study/exporter/survey-definition"
 	surveydefinition "github.com/case-framework/case-backend/pkg/study/exporter/survey-definition"
 	surveyresponses "github.com/case-framework/case-backend/pkg/study/exporter/survey-responses"
-	studyTypes "github.com/case-framework/case-backend/pkg/study/study"
+	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
 func (h *HttpEndpoints) AddStudyManagementAPI(rg *gin.RouterGroup) {

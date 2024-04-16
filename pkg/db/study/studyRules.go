@@ -6,7 +6,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	studyTypes "github.com/case-framework/case-backend/pkg/study/study"
+	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
 func (dbService *StudyDBService) CreateIndexForStudyRulesCollection(instanceID string) error {
