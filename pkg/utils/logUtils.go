@@ -13,6 +13,7 @@ import (
 func InitLogger(
 	logLevel string,
 	includeSrc bool,
+	logToFile bool,
 	logFilename string,
 	logFileMaxSize int,
 	logFileMaxAge int,
@@ -34,7 +35,7 @@ func InitLogger(
 		},
 	}
 
-	if logFilename != "" {
+	if logToFile && logFilename != "" {
 		logTarget := &lumberjack.Logger{
 			Filename:   logFilename,
 			MaxSize:    logFileMaxSize, // megabytes
@@ -81,7 +82,7 @@ func ReadConfigFromEnvAndInitLogger(
 	logToFile := os.Getenv(envLogToFile) == "true"
 
 	if !logToFile {
-		InitLogger(level, includeSrc, "", 0, 0, 0)
+		InitLogger(level, includeSrc, logToFile, "", 0, 0, 0)
 		return
 	}
 
@@ -100,5 +101,5 @@ func ReadConfigFromEnvAndInitLogger(
 		panic(err)
 	}
 
-	InitLogger(level, includeSrc, logFilename, logFileMaxSize, logFileMaxAge, logFileMaxBackups)
+	InitLogger(level, includeSrc, logToFile, logFilename, logFileMaxSize, logFileMaxAge, logFileMaxBackups)
 }
