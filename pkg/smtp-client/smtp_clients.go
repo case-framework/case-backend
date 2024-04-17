@@ -14,16 +14,12 @@ type SmtpClients struct {
 	counter        int
 }
 
-func NewSmtpClients(configFile string) (*SmtpClients, error) {
-	serverList := SmtpServerList{}
-	if err := serverList.ReadFromFile(configFile); err != nil {
-		return nil, err
-	}
+func NewSmtpClients(config SmtpServerList) (*SmtpClients, error) {
 
 	sc := &SmtpClients{
-		servers:        serverList,
+		servers:        config,
 		counter:        0,
-		connectionPool: initConnectionPool(serverList),
+		connectionPool: initConnectionPool(config),
 	}
 	return sc, nil
 }

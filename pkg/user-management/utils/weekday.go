@@ -41,6 +41,29 @@ var days = map[string]time.Weekday{
 	"sun": time.Sunday,
 }
 
+func InitWeekdayAssignationStrategy(
+	weekdayAssignation map[string]int,
+) {
+	if weekdayAssignation == nil {
+		CurrentWeekdayStrategy = CreateWeekdayDefaultStrategy()
+		slog.Debug("No weekday assignation strategy defined, using default", slog.String("strategy", CurrentWeekdayStrategy.String()))
+		return
+	}
+
+	w := make([]int, 7)
+	for name, value := range weekdayAssignation {
+		dayIndex, ok := days[name]
+		if !ok {
+			slog.Error("Invalid day name", slog.String("name", name))
+			continue
+		}
+		w[dayIndex] = value
+	}
+
+	CurrentWeekdayStrategy = CreateWeekdayWeightedStrategy(w)
+	slog.Debug("Weekday assignation strategy defined", slog.String("strategy", CurrentWeekdayStrategy.String()))
+}
+
 func InitWeekdayAssignationStrategyFromEnv(
 	envWeekdayAssignation string,
 ) {

@@ -2,82 +2,65 @@ package main
 
 import (
 	"os"
-	"strings"
 
+	smtp_client "github.com/case-framework/case-backend/pkg/smtp-client"
 	"github.com/case-framework/case-backend/pkg/utils"
 	"github.com/gin-gonic/gin"
+	"gopkg.in/yaml.v2"
 )
 
 // Environment variables
 const (
-	ENV_GIN_DEBUG_MODE              = "GIN_DEBUG_MODE"
-	ENV_SMTP_BRIDGE_API_LISTEN_PORT = "SMTP_BRIDGE_API_LISTEN_PORT"
-	ENV_CORS_ALLOW_ORIGINS          = "CORS_ALLOW_ORIGINS"
-
-	ENV_LOG_TO_FILE     = "LOG_TO_FILE"
-	ENV_LOG_FILENAME    = "LOG_FILENAME"
-	ENV_LOG_MAX_SIZE    = "LOG_MAX_SIZE"
-	ENV_LOG_MAX_AGE     = "LOG_MAX_AGE"
-	ENV_LOG_MAX_BACKUPS = "LOG_MAX_BACKUPS"
-	ENV_LOG_LEVEL       = "LOG_LEVEL"
-	ENV_LOG_INCLUDE_SRC = "LOG_INCLUDE_SRC"
-
-	ENV_API_KEYS = "API_KEYS"
-
-	ENV_HIGH_PRIO_SMTP_SERVER_CONFIG_YAML = "HIGH_PRIO_SMTP_SERVER_CONFIG_YAML"
-	ENV_LOW_PRIO_SMTP_SERVER_CONFIG_YAML  = "LOW_PRIO_SMTP_SERVER_CONFIG_YAML"
+	ENV_CONFIG_FILE_PATH = "CONFIG_FILE_PATH"
 )
 
 type config struct {
+	Logging utils.LoggerConfig `json:"logging" yaml:"logging"`
+
 	// Gin configs
-	GinDebugMode bool     `json:"gin_debug_mode"`
-	AllowOrigins []string `json:"allow_origins"`
-	Port         string   `json:"port"`
+	GinConfig struct {
+		DebugMode    bool     `json:"debug_mode" yaml:"debug_mode"`
+		AllowOrigins []string `json:"allow_origins" yaml:"allow_origins"`
+		Port         string   `json:"port" yaml:"port"`
+	} `json:"gin_config" yaml:"gin_config"`
 
-	ApiKeys []string `json:"api_keys"`
+	ApiKeys []string `json:"api_keys" yaml:"api_keys"`
 
-	HighPrioSMTPServerConfigYAML string `json:"high_prio_smtp_server_config_yaml"`
-	LowPrioSMTPServerConfigYAML  string `json:"low_prio_smtp_server_config_yaml"`
+	SMTPServerConfig struct {
+		HighPrio smtp_client.SmtpServerList `json:"high_prio" yaml:"high_prio"`
+		LowPrio  smtp_client.SmtpServerList `json:"low_prio" yaml:"low_prio"`
+	} `json:"smtp_server_config" yaml:"smtp_server_config"`
 }
 
 func init() {
-	utils.ReadConfigFromEnvAndInitLogger(
-		ENV_LOG_LEVEL,
-		ENV_LOG_INCLUDE_SRC,
-		ENV_LOG_TO_FILE,
-		ENV_LOG_FILENAME,
-		ENV_LOG_MAX_SIZE,
-		ENV_LOG_MAX_AGE,
-		ENV_LOG_MAX_BACKUPS,
+	// Read config from file
+	yamlFile, err := os.ReadFile(os.Getenv(ENV_CONFIG_FILE_PATH))
+	if err != nil {
+		panic(err)
+	}
+
+	err = yaml.UnmarshalStrict(yamlFile, &conf)
+	if err != nil {
+		panic(err)
+	}
+
+	// Init logger:
+	utils.InitLogger(
+		conf.Logging.LogLevel,
+		conf.Logging.IncludeSrc,
+		conf.Logging.LogToFile,
+		conf.Logging.Filename,
+		conf.Logging.MaxSize,
+		conf.Logging.MaxAge,
+		conf.Logging.MaxBackups,
 	)
 
-	conf = initConfig()
-	if !conf.GinDebugMode {
+	if !conf.GinConfig.DebugMode {
 		gin.SetMode(gin.ReleaseMode)
-	}
-}
-
-func initConfig() config {
-	conf := config{}
-	conf.GinDebugMode = os.Getenv(ENV_GIN_DEBUG_MODE) == "true"
-	conf.Port = os.Getenv(ENV_SMTP_BRIDGE_API_LISTEN_PORT)
-	conf.AllowOrigins = strings.Split(os.Getenv(ENV_CORS_ALLOW_ORIGINS), ",")
-
-	if (conf.Port == "") || (conf.Port == "0") {
-		panic("SMTP Bridge API listen port not set. Please set the SMTP_BRIDGE_API_LISTEN_PORT environment variable.")
-	}
-
-	apiKeys := os.Getenv(ENV_API_KEYS)
-	if apiKeys != "" {
-		conf.ApiKeys = strings.Split(apiKeys, ",")
 	}
 
 	if len(conf.ApiKeys) == 0 {
-		panic("No API keys provided for SMTP Bridge API. Please set the API_KEYS environment variable.")
+		panic("No API keys provided for SMTP Bridge API.")
 	}
 
-	conf.HighPrioSMTPServerConfigYAML = os.Getenv(ENV_HIGH_PRIO_SMTP_SERVER_CONFIG_YAML)
-	conf.LowPrioSMTPServerConfigYAML = os.Getenv(ENV_LOW_PRIO_SMTP_SERVER_CONFIG_YAML)
-
-	return conf
 }

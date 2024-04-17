@@ -2,5 +2,8 @@ logs
 test/run-management-api.sh
 test/run-smtp-bridge.sh
 test/run-participant-api.sh
+test/participant-api.yaml
+test/smtp-bridge.yaml
 *-api-routes.txt
 storage
+serviceInfos.json

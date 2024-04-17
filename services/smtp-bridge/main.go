@@ -20,7 +20,7 @@ func main() {
 	router := gin.Default()
 	router.Use(cors.New(cors.Config{
 		// AllowAllOrigins: true,
-		AllowOrigins:     conf.AllowOrigins,
+		AllowOrigins:     conf.GinConfig.AllowOrigins,
 		AllowMethods:     []string{"POST", "GET", "PUT", "DELETE"},
 		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type", "Content-Length"},
 		ExposeHeaders:    []string{"Authorization", "Content-Type", "Content-Length"},
@@ -28,12 +28,12 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	smtpClients, err := sc.NewSmtpClients(conf.LowPrioSMTPServerConfigYAML)
+	smtpClients, err := sc.NewSmtpClients(conf.SMTPServerConfig.LowPrio)
 	if err != nil {
 		slog.Error("Error creating SMTP clients", slog.String("error", err.Error()))
 		panic("Error creating SMTP clients")
 	}
-	highPrioSmtpClients, err := sc.NewSmtpClients(conf.HighPrioSMTPServerConfigYAML)
+	highPrioSmtpClients, err := sc.NewSmtpClients(conf.SMTPServerConfig.HighPrio)
 	if err != nil {
 		slog.Error("Error creating high priority SMTP clients", slog.String("error", err.Error()))
 		panic("Error creating high priority SMTP clients")
@@ -50,12 +50,12 @@ func main() {
 
 	apiModule.AddRoutes(root)
 
-	if conf.GinDebugMode {
+	if conf.GinConfig.DebugMode {
 		apihelpers.WriteRoutesToFile(router, "smtp-bridge-api-routes.txt")
 	}
 
-	slog.Info("Starting SMTP Bridge API on port " + conf.Port)
-	err = router.Run(":" + conf.Port)
+	slog.Info("Starting SMTP Bridge API on port " + conf.GinConfig.Port)
+	err = router.Run(":" + conf.GinConfig.Port)
 	if err != nil {
 		slog.Error("Exited SMTP Bridge API", slog.String("error", err.Error()))
 		return
