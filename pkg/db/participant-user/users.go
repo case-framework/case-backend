@@ -153,3 +153,22 @@ func (dbService *ParticipantUserDBService) DeleteUser(instanceID, userID string)
 	}
 	return nil
 }
+
+func (dbService *ParticipantUserDBService) DeleteUnverifiedUsers(instanceID string, createdBefore int64) (count int64, err error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	filter := bson.M{}
+	filter["$and"] = bson.A{
+		bson.M{"account.accountConfirmedAt": 0},
+		bson.M{"timestamps.createdAt": bson.M{"$lt": createdBefore}},
+	}
+
+	res, err := dbService.collectionParticipantUsers(instanceID).DeleteMany(ctx, filter, nil)
+	if err != nil {
+		return
+	}
+
+	count = res.DeletedCount
+	return
+}
