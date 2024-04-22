@@ -142,8 +142,8 @@ func initMessageSendingConfig() {
 	)
 }
 
-func loadEmailClientHTTPConfig() httpclient.ClientConfig {
-	return httpclient.ClientConfig{
+func loadEmailClientHTTPConfig() *httpclient.ClientConfig {
+	return &httpclient.ClientConfig{
 		RootURL: conf.MessagingConfigs.SmtpBridgeConfig.URL,
 		APIKey:  conf.MessagingConfigs.SmtpBridgeConfig.APIKey,
 		Timeout: conf.MessagingConfigs.SmtpBridgeConfig.RequestTimeout,

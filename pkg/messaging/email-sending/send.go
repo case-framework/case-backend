@@ -1,24 +1,22 @@
 package emailsending
 
 import (
-	"encoding/base64"
 	"errors"
 	"log/slog"
 
 	messageDB "github.com/case-framework/case-backend/pkg/db/messaging"
 	httpclient "github.com/case-framework/case-backend/pkg/http-client"
-	emailtemplates "github.com/case-framework/case-backend/pkg/messaging/email-templates"
 	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 )
 
 var (
-	HttpClient httpclient.ClientConfig
+	HttpClient *httpclient.ClientConfig
 
 	GlobalTemplateInfos = map[string]string{}
 )
 
 func InitMessageSendingVariables(
-	newClientConfig httpclient.ClientConfig,
+	newClientConfig *httpclient.ClientConfig,
 	globalTemplateInfos map[string]string,
 ) {
 	HttpClient = newClientConfig
@@ -43,69 +41,36 @@ func SendInstantEmailByTemplate(
 	payload map[string]string,
 	useLowPrio bool,
 ) error {
-	if HttpClient.RootURL == "" {
-		return errors.New("email client address not set")
+	if HttpClient == nil || HttpClient.RootURL == "" {
+		return errors.New("connection to smtp bridge not initialized")
 	}
 
-	// get email template
-	var templateDef *messagingTypes.EmailTemplate
-	var err error
-	if studyKey == "" {
-		templateDef, err = messageDB.GetGlobalEmailTemplateByMessageType(instanceID, messageType)
-	} else {
-		templateDef, err = messageDB.GetStudyEmailTemplateByMessageType(instanceID, messageType, studyKey)
-	}
-	if err != nil {
-		return err
-	}
-
-	translation := emailtemplates.GetTemplateTranslation(*templateDef, lang)
-
-	decodedTemplate, err := base64.StdEncoding.DecodeString(translation.TemplateDef)
-	if err != nil {
-		return err
-	}
-
-	if payload == nil {
-		payload = map[string]string{}
-	}
-	for k, v := range GlobalTemplateInfos {
-		payload[k] = v
-	}
-
-	payload["language"] = lang
-	// execute template
-	templateName := instanceID + messageType + studyKey + lang
-	content, err := emailtemplates.ResolveTemplate(
-		templateName,
-		string(decodedTemplate),
+	outgoingEmail, err := prepOutgoingEmail(
+		messageDB,
+		instanceID,
+		messageType,
+		studyKey,
+		lang,
 		payload,
+		to,
+		useLowPrio,
 	)
 	if err != nil {
 		return err
 	}
 
-	outgoingEmail := messagingTypes.OutgoingEmail{
-		MessageType:     messageType,
-		To:              to,
-		HeaderOverrides: templateDef.HeaderOverrides,
-		Subject:         translation.Subject,
-		Content:         content,
-		HighPrio:        !useLowPrio,
-	}
-
 	// send email
 	sendEmailReq := SendEmailReq{
 		To:              to,
-		Subject:         translation.Subject,
-		Content:         content,
-		HighPrio:        !useLowPrio,
-		HeaderOverrides: templateDef.HeaderOverrides,
+		Subject:         outgoingEmail.Subject,
+		Content:         outgoingEmail.Content,
+		HighPrio:        outgoingEmail.HighPrio,
+		HeaderOverrides: outgoingEmail.HeaderOverrides,
 	}
 	_, err = HttpClient.RunHTTPcall("/send-email", sendEmailReq)
 	if err != nil {
 		slog.Debug("error while sending email", slog.String("error", err.Error()))
-		_, errS := messageDB.AddToOutgoingEmails(instanceID, outgoingEmail)
+		_, errS := messageDB.AddToOutgoingEmails(instanceID, *outgoingEmail)
 		if errS != nil {
 			slog.Error("failed to save outgoing email", slog.String("error", errS.Error()))
 			return errS
@@ -114,7 +79,7 @@ func SendInstantEmailByTemplate(
 		return err
 	}
 
-	_, err = messageDB.AddToSentEmails(instanceID, outgoingEmail)
+	_, err = messageDB.AddToSentEmails(instanceID, *outgoingEmail)
 	if err != nil {
 		slog.Error("failed to save sent email", slog.String("error", err.Error()))
 		return err

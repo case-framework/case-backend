@@ -19,8 +19,7 @@ func main() {
 
 	cleanUpUnverifiedUsers()
 	sendReminderToConfirmAccounts()
-
-	// TODO: detect and notify inactive users
+	notifyInactiveUsersAndMarkForDeletion()
 	// TODO: clean up users marked for deletion
 
 	slog.Info("User management jobs completed", slog.Duration("duration", time.Since(start)))
@@ -46,7 +45,7 @@ func cleanUpUnverifiedUsers() {
 
 func sendReminderToConfirmAccounts() {
 	for _, instanceID := range conf.InstanceIDs {
-		slog.Debug("Start sending reminders to confirm accounts", slog.String("instanceID", instanceID))
+		slog.Debug("Start preparing reminders to confirm accounts", slog.String("instanceID", instanceID))
 
 		createdBefore := time.Now().Add(-conf.UserManagementConfig.SendReminderToConfirmAccountAfter).Unix()
 		filter := bson.M{}
@@ -84,7 +83,7 @@ func sendReminderToConfirmAccounts() {
 				}
 
 				// Call message sending
-				err = emailsending.SendInstantEmailByTemplate(
+				err = emailsending.QueueEmailByTemplate(
 					messagingDBService,
 					instanceID,
 					[]string{
@@ -99,7 +98,7 @@ func sendReminderToConfirmAccounts() {
 					true,
 				)
 				if err != nil {
-					slog.Error("failed to send verification email", slog.String("error", err.Error()))
+					slog.Error("failed to queue verification email", slog.String("error", err.Error()))
 					return err
 				}
 
@@ -120,6 +119,10 @@ func sendReminderToConfirmAccounts() {
 			continue
 		}
 
-		slog.Info("Sending reminders to confirm accounts finished", slog.String("instanceID", instanceID), slog.Int("count", int(count)))
+		slog.Info("Preparing reminders to confirm accounts finished", slog.String("instanceID", instanceID), slog.Int("count", int(count)))
 	}
+}
+
+func notifyInactiveUsersAndMarkForDeletion() {
+
 }

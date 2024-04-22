@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/db"
-	httpclient "github.com/case-framework/case-backend/pkg/http-client"
 	"github.com/case-framework/case-backend/pkg/utils"
 
 	globalinfosDB "github.com/case-framework/case-backend/pkg/db/global-infos"
@@ -40,6 +39,7 @@ type config struct {
 		DeleteUnverifiedUsersAfter        time.Duration `json:"delete_unverified_users_after" yaml:"delete_unverified_users_after"`
 		SendReminderToConfirmAccountAfter time.Duration `json:"send_reminder_to_confirm_account_after" yaml:"send_reminder_to_confirm_account_after"`
 		EmailContactVerificationTokenTTL  time.Duration `json:"email_contact_verification_token_ttl" yaml:"email_contact_verification_token_ttl"`
+		NotifyAfterInactiveFor            time.Duration `json:"notify_after_inactive_for" yaml:"notify_after_inactive_for"`
 	} `json:"user_management_config" yaml:"user_management_config"`
 
 	MessagingConfigs messagingTypes.MessagingConfigs `json:"messaging_configs" yaml:"messaging_configs"`
@@ -112,15 +112,7 @@ func init() {
 
 func initMessageSendingConfig() {
 	emailsending.InitMessageSendingVariables(
-		loadEmailClientHTTPConfig(),
+		nil, // no need for http client config, not sending emails directly
 		conf.MessagingConfigs.GlobalEmailTemplateConstants,
 	)
-}
-
-func loadEmailClientHTTPConfig() httpclient.ClientConfig {
-	return httpclient.ClientConfig{
-		RootURL: conf.MessagingConfigs.SmtpBridgeConfig.URL,
-		APIKey:  conf.MessagingConfigs.SmtpBridgeConfig.APIKey,
-		Timeout: conf.MessagingConfigs.SmtpBridgeConfig.RequestTimeout,
-	}
 }
