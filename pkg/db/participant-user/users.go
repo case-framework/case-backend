@@ -172,3 +172,37 @@ func (dbService *ParticipantUserDBService) DeleteUnverifiedUsers(instanceID stri
 	count = res.DeletedCount
 	return
 }
+
+func (dbService *ParticipantUserDBService) FindAndExecuteOnUsers(
+	ctx context.Context,
+	instanceID string,
+	filter bson.M,
+	sort bson.M,
+	returnOnError bool,
+	fn func(dbService *ParticipantUserDBService, user umTypes.User, instanceID string, args ...interface{}) error,
+	args ...interface{},
+) error {
+	opts := options.Find().SetSort(sort)
+
+	cursor, err := dbService.collectionParticipantUsers(instanceID).Find(ctx, filter, opts)
+	if err != nil {
+		return err
+	}
+	defer cursor.Close(ctx)
+
+	for cursor.Next(ctx) {
+		var user umTypes.User
+		if err = cursor.Decode(&user); err != nil {
+			return err
+		}
+
+		if err = fn(dbService, user, instanceID, args...); err != nil {
+			slog.Error("Error while executing function on user", slog.String("userID", user.ID.Hex()), slog.String("error", err.Error()))
+			if returnOnError {
+				return err
+			}
+			continue
+		}
+	}
+	return nil
+}

@@ -6,10 +6,12 @@ import (
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/db"
+	httpclient "github.com/case-framework/case-backend/pkg/http-client"
 	"github.com/case-framework/case-backend/pkg/utils"
 
 	userDB "github.com/case-framework/case-backend/pkg/db/participant-user"
-
+	emailsending "github.com/case-framework/case-backend/pkg/messaging/email-sending"
+	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 	"gopkg.in/yaml.v2"
 )
 
@@ -33,6 +35,8 @@ type config struct {
 	UserManagementConfig struct {
 		DeleteUnverifiedUsersAfter time.Duration `json:"delete_unverified_users_after" yaml:"delete_unverified_users_after"`
 	} `json:"user_management_config" yaml:"user_management_config"`
+
+	MessagingConfigs messagingTypes.MessagingConfigs `json:"messaging_configs" yaml:"messaging_configs"`
 }
 
 var conf config
@@ -75,4 +79,21 @@ func init() {
 		panic(err)
 	}
 
+	initMessageSendingConfig()
+
+}
+
+func initMessageSendingConfig() {
+	emailsending.InitMessageSendingVariables(
+		loadEmailClientHTTPConfig(),
+		conf.MessagingConfigs.GlobalEmailTemplateConstants,
+	)
+}
+
+func loadEmailClientHTTPConfig() httpclient.ClientConfig {
+	return httpclient.ClientConfig{
+		RootURL: conf.MessagingConfigs.SmtpBridgeConfig.URL,
+		APIKey:  conf.MessagingConfigs.SmtpBridgeConfig.APIKey,
+		Timeout: conf.MessagingConfigs.SmtpBridgeConfig.RequestTimeout,
+	}
 }

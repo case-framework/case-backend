@@ -10,7 +10,8 @@ func main() {
 	start := time.Now()
 
 	cleanUpUnverifiedUsers()
-	// TODO: reminder to confirm accounts
+	sendReminderToConfirmAccounts()
+
 	// TODO: detect and notify inactive users
 	// TODO: clean up users marked for deletion
 
@@ -33,4 +34,18 @@ func cleanUpUnverifiedUsers() {
 
 	}
 
+}
+
+func sendReminderToConfirmAccounts() {
+	for _, instanceID := range conf.InstanceIDs {
+		slog.Debug("Start sending reminders to confirm accounts", slog.String("instanceID", instanceID))
+
+		/*count, err := participantUserDBService.SendReminderToConfirmAccounts(instanceID, createdBefore)
+		if err != nil {
+			slog.Error("Error sending reminders to confirm accounts", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
+			continue
+		}*/
+
+		//slog.Info("Sending reminders to confirm accounts finished", slog.String("instanceID", instanceID), slog.Int("count", int(count)))
+	}
 }
