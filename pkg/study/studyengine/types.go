@@ -7,6 +7,14 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
+const (
+	STUDY_EVENT_TYPE_ENTER      = "ENTER"
+	STUDY_EVENT_TYPE_SUBMISSION = "SUBMISSION"
+	STUDY_EVENT_TYPE_TIMER      = "TIMER"
+	STUDY_EVENT_TYPE_CUSTOM     = "CUSTOM"
+	STUDY_EVENT_TYPE_LEAVE      = "LEAVE"
+)
+
 type StudyEngine struct {
 	studyDBService   StudyDBService
 	externalServices []ExternalService

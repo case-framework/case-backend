@@ -9,6 +9,7 @@ import (
 
 	emailsending "github.com/case-framework/case-backend/pkg/messaging/email-sending"
 	emailTypes "github.com/case-framework/case-backend/pkg/messaging/types"
+	usermanagement "github.com/case-framework/case-backend/pkg/user-management"
 	umTypes "github.com/case-framework/case-backend/pkg/user-management/types"
 	umUtils "github.com/case-framework/case-backend/pkg/user-management/utils"
 )
@@ -29,15 +30,60 @@ func cleanUpUnverifiedUsers() {
 	for _, instanceID := range conf.InstanceIDs {
 		slog.Debug("Start cleaning up unverified users", slog.String("instanceID", instanceID))
 
+		count := 0
 		// call DB method participantUserDBService
 		createdBefore := time.Now().Add(-conf.UserManagementConfig.DeleteUnverifiedUsersAfter).Unix()
-		count, err := participantUserDBService.DeleteUnverifiedUsers(instanceID, createdBefore)
+		filter := bson.M{}
+		filter["$and"] = bson.A{
+			bson.M{"account.accountConfirmedAt": 0},
+			bson.M{"timestamps.createdAt": bson.M{"$lt": createdBefore}},
+		}
+		err := participantUserDBService.FindAndExecuteOnUsers(
+			context.Background(),
+			instanceID,
+			filter,
+			nil,
+			false,
+			func(user umTypes.User, args ...interface{}) error {
+				err := usermanagement.DeleteUser(
+					instanceID,
+					user.ID.Hex(),
+					func(instanceID string, profiles []string) error {
+						// TODO: notify study service
+						return nil
+					},
+					func(email string) error {
+						err := emailsending.QueueEmailByTemplate(
+							messagingDBService,
+							instanceID,
+							[]string{
+								email,
+							},
+							emailTypes.EMAIL_TYPE_ACCOUNT_DELETED,
+							"",
+							user.Account.PreferredLanguage,
+							map[string]string{},
+							true,
+						)
+						if err != nil {
+							slog.Error("failed to queue account deleted email", slog.String("error", err.Error()))
+							return err
+						}
+						return nil
+					},
+				)
+				if err != nil {
+					slog.Error("failed to delete user", slog.String("error", err.Error()))
+					return err
+				}
+				count = count + 1
+				return nil
+			},
+		)
 		if err != nil {
 			slog.Error("Error cleaning up unverified users", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
 			continue
 		}
-
-		// TODO: notify study service about the deletion so it can mark participants as inactive
 
 		slog.Info("Clean up unverified users finished", slog.String("instanceID", instanceID), slog.Int("count", int(count)))
 	}

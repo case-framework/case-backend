@@ -6,11 +6,14 @@ import (
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/db"
+	"github.com/case-framework/case-backend/pkg/study"
+	usermanagement "github.com/case-framework/case-backend/pkg/user-management"
 	"github.com/case-framework/case-backend/pkg/utils"
 
 	globalinfosDB "github.com/case-framework/case-backend/pkg/db/global-infos"
 	messagingDB "github.com/case-framework/case-backend/pkg/db/messaging"
 	userDB "github.com/case-framework/case-backend/pkg/db/participant-user"
+	studyDB "github.com/case-framework/case-backend/pkg/db/study"
 	emailsending "github.com/case-framework/case-backend/pkg/messaging/email-sending"
 	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 	"gopkg.in/yaml.v2"
@@ -30,6 +33,7 @@ type config struct {
 		ParticipantUserDB db.DBConfigYaml `json:"participant_user_db" yaml:"participant_user_db"`
 		GlobalInfosDB     db.DBConfigYaml `json:"global_infos_db" yaml:"global_infos_db"`
 		MessagingDB       db.DBConfigYaml `json:"messaging_db" yaml:"messaging_db"`
+		StudyDB           db.DBConfigYaml `json:"study_db" yaml:"study_db"`
 	} `json:"db_configs" yaml:"db_configs"`
 
 	InstanceIDs []string `json:"instance_ids" yaml:"instance_ids"`
@@ -52,6 +56,7 @@ var (
 	participantUserDBService *userDB.ParticipantUserDBService
 	globalInfosDBService     *globalinfosDB.GlobalInfosDBService
 	messagingDBService       *messagingDB.MessagingDBService
+	studyDBService           *studyDB.StudyDBService
 )
 
 func init() {
@@ -89,6 +94,20 @@ func init() {
 	}
 
 	// init db
+	initDBs()
+
+	// init message sending
+	initMessageSendingConfig()
+
+	// init user management
+	initUserManagement()
+
+	// init study service
+	initStudyService()
+}
+
+func initDBs() {
+	var err error
 	participantUserDBService, err = userDB.NewParticipantUserDBService(db.DBConfigFromYamlObj(conf.DBConfigs.ParticipantUserDB, conf.InstanceIDs))
 	if err != nil {
 		slog.Error("Error connecting to Participant User DB", slog.String("error", err.Error()))
@@ -107,8 +126,11 @@ func init() {
 		panic(err)
 	}
 
-	// init message sending
-	initMessageSendingConfig()
+	studyDBService, err = studyDB.NewStudyDBService(db.DBConfigFromYamlObj(conf.DBConfigs.StudyDB, conf.InstanceIDs))
+	if err != nil {
+		slog.Error("Error connecting to Study DB", slog.String("error", err.Error()))
+		panic(err)
+	}
 }
 
 func initMessageSendingConfig() {
@@ -116,4 +138,12 @@ func initMessageSendingConfig() {
 		nil, // no need for http client config, not sending emails directly
 		conf.MessagingConfigs.GlobalEmailTemplateConstants,
 	)
+}
+
+func initUserManagement() {
+	usermanagement.Init(participantUserDBService, globalInfosDBService)
+}
+
+func initStudyService() {
+	study.Init(studyDBService)
 }

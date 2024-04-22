@@ -1,6 +1,7 @@
 package participantuser
 
 import (
+	"errors"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -61,4 +62,73 @@ func (dbService *ParticipantUserDBService) CreateRenewToken(instanceID string, u
 
 	_, err := dbService.collectionRenewTokens(instanceID).InsertOne(ctx, renewToken)
 	return err
+}
+
+func (dbService *ParticipantUserDBService) DeleteRenewTokenByToken(instanceID string, token string) error {
+	filter := bson.M{"renewToken": token}
+
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+	res, err := dbService.collectionRenewTokens(instanceID).DeleteOne(ctx, filter, nil)
+	if err != nil {
+		return err
+	}
+	if res.DeletedCount < 1 {
+		return errors.New("no renew token oject found with the given token value")
+	}
+	return nil
+}
+
+func (dbService *ParticipantUserDBService) DeleteRenewTokensForUser(instanceID string, userID string) (int64, error) {
+	filter := bson.M{"userID": userID}
+
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+	res, err := dbService.collectionRenewTokens(instanceID).DeleteMany(ctx, filter, nil)
+	if err != nil {
+		return 0, err
+	}
+	return res.DeletedCount, nil
+}
+
+func (dbService *ParticipantUserDBService) FindAndUpdateRenewToken(instanceID string, userID string, renewToken string, nextToken string) (rtObj userTypes.RenewToken, err error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	filter := bson.M{"userID": userID, "renewToken": renewToken, "expiresAt": bson.M{"$gt": time.Now().Unix()}}
+	updatePipeline := bson.A{
+		bson.M{
+			"$set": bson.M{
+				"nextToken": bson.M{
+					"$cond": bson.A{
+						bson.M{
+							"$eq": bson.A{
+								bson.M{"$ifNull": bson.A{"$nextToken", nil}},
+								nil,
+							},
+						},
+						nextToken,
+						"$nextToken",
+					},
+				},
+				"expiresAt": bson.M{
+					"$cond": bson.A{
+						bson.M{
+							"$eq": bson.A{
+								bson.M{"$ifNull": bson.A{"$nextToken", nil}},
+								nil,
+							},
+						},
+						time.Now().Unix() + RENEW_TOKEN_GRACE_PERIOD,
+						"$expiresAt",
+					},
+				},
+			},
+		},
+	}
+
+	opts := options.FindOneAndUpdate().SetReturnDocument(options.After)
+
+	err = dbService.collectionRenewTokens(instanceID).FindOneAndUpdate(ctx, filter, updatePipeline, opts).Decode(&rtObj)
+	return
 }

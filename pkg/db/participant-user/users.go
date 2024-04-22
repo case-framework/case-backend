@@ -76,6 +76,21 @@ func (dbService *ParticipantUserDBService) AddUser(instanceID string, user umTyp
 	return
 }
 
+func (dbService *ParticipantUserDBService) GetUser(instanceID, objectID string) (umTypes.User, error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	_id, err := primitive.ObjectIDFromHex(objectID)
+	if err != nil {
+		return umTypes.User{}, err
+	}
+
+	var user umTypes.User
+	filter := bson.M{"_id": _id}
+	err = dbService.collectionParticipantUsers(instanceID).FindOne(ctx, filter).Decode(&user)
+	return user, err
+}
+
 func (dbService *ParticipantUserDBService) GetUserByAccountID(instanceID, accountID string) (umTypes.User, error) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
@@ -168,25 +183,6 @@ func (dbService *ParticipantUserDBService) UpdateUser(instanceID string, userID 
 	filter := bson.M{"_id": _id}
 	_, err = dbService.collectionParticipantUsers(instanceID).UpdateOne(ctx, filter, update)
 	return err
-}
-
-func (dbService *ParticipantUserDBService) DeleteUnverifiedUsers(instanceID string, createdBefore int64) (count int64, err error) {
-	ctx, cancel := dbService.getContext()
-	defer cancel()
-
-	filter := bson.M{}
-	filter["$and"] = bson.A{
-		bson.M{"account.accountConfirmedAt": 0},
-		bson.M{"timestamps.createdAt": bson.M{"$lt": createdBefore}},
-	}
-
-	res, err := dbService.collectionParticipantUsers(instanceID).DeleteMany(ctx, filter, nil)
-	if err != nil {
-		return
-	}
-
-	count = res.DeletedCount
-	return
 }
 
 func (dbService *ParticipantUserDBService) FindAndExecuteOnUsers(
