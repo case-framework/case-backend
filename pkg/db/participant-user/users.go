@@ -1,7 +1,9 @@
 package participantuser
 
 import (
+	"context"
 	"errors"
+	"log/slog"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -74,6 +76,21 @@ func (dbService *ParticipantUserDBService) AddUser(instanceID string, user umTyp
 	return
 }
 
+func (dbService *ParticipantUserDBService) GetUser(instanceID, objectID string) (umTypes.User, error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	_id, err := primitive.ObjectIDFromHex(objectID)
+	if err != nil {
+		return umTypes.User{}, err
+	}
+
+	var user umTypes.User
+	filter := bson.M{"_id": _id}
+	err = dbService.collectionParticipantUsers(instanceID).FindOne(ctx, filter).Decode(&user)
+	return user, err
+}
+
 func (dbService *ParticipantUserDBService) GetUserByAccountID(instanceID, accountID string) (umTypes.User, error) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
@@ -118,7 +135,7 @@ func (dbService *ParticipantUserDBService) _updateUserInDB(orgID string, user um
 	return elem, err
 }
 
-func (dbService *ParticipantUserDBService) UpdateUser(instanceID string, updatedUser umTypes.User) (umTypes.User, error) {
+func (dbService *ParticipantUserDBService) ReplaceUser(instanceID string, updatedUser umTypes.User) (umTypes.User, error) {
 	// Set last update time
 	updatedUser.Timestamps.UpdatedAt = time.Now().Unix()
 	return dbService._updateUserInDB(instanceID, updatedUser)
@@ -131,4 +148,73 @@ func (dbService *ParticipantUserDBService) CountRecentlyCreatedUsers(instanceID 
 	filter := bson.M{"timestamps.createdAt": bson.M{"$gt": time.Now().Unix() - interval}}
 	count, err = dbService.collectionParticipantUsers(instanceID).CountDocuments(ctx, filter)
 	return
+}
+
+func (dbService *ParticipantUserDBService) DeleteUser(instanceID, userID string) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	_id, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		return err
+	}
+
+	filter := bson.M{"_id": _id}
+
+	res, err := dbService.collectionParticipantUsers(instanceID).DeleteOne(ctx, filter)
+	if err != nil {
+		return err
+	}
+	if res.DeletedCount < 1 {
+		return errors.New("no user found with the given id")
+	}
+	return nil
+}
+
+func (dbService *ParticipantUserDBService) UpdateUser(instanceID string, userID string, update bson.M) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	_id, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		return err
+	}
+
+	filter := bson.M{"_id": _id}
+	_, err = dbService.collectionParticipantUsers(instanceID).UpdateOne(ctx, filter, update)
+	return err
+}
+
+func (dbService *ParticipantUserDBService) FindAndExecuteOnUsers(
+	ctx context.Context,
+	instanceID string,
+	filter bson.M,
+	sort bson.M,
+	returnOnError bool,
+	fn func(user umTypes.User, args ...interface{}) error,
+	args ...interface{},
+) error {
+	opts := options.Find().SetSort(sort).SetBatchSize(32)
+
+	cursor, err := dbService.collectionParticipantUsers(instanceID).Find(ctx, filter, opts)
+	if err != nil {
+		return err
+	}
+	defer cursor.Close(ctx)
+
+	for cursor.Next(ctx) {
+		var user umTypes.User
+		if err = cursor.Decode(&user); err != nil {
+			return err
+		}
+
+		if err = fn(user, args...); err != nil {
+			slog.Error("Error while executing function on user", slog.String("userID", user.ID.Hex()), slog.String("error", err.Error()))
+			if returnOnError {
+				return err
+			}
+			continue
+		}
+	}
+	return nil
 }

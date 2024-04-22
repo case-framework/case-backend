@@ -14,6 +14,7 @@ import (
 // collection names
 const (
 	COLLECTION_NAME_STUDY_INFOS                   = "study-infos"
+	COLLECTION_NAME_CONFIDENTIAL_ID_MAP           = "confidential-id-map"
 	COLLECTION_NAME_STUDY_RULES                   = "studyRules"
 	COLLECTION_NAME_SUFFIX_SURVEYS                = "surveys"
 	COLLECTION_NAME_SUFFIX_RESPONSES              = "surveyResponses"
@@ -106,6 +107,10 @@ func (dbService *StudyDBService) collectionConfidentialResponses(instanceID stri
 	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(studyKey + "_" + COLLECTION_NAME_SUFFIX_CONFIDENTIAL_RESPONSES)
 }
 
+func (dbService *StudyDBService) collectionConfidentialIDMap(instanceID string) *mongo.Collection {
+	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_CONFIDENTIAL_ID_MAP)
+}
+
 func (dbService *StudyDBService) collectionReports(instanceID string, studyKey string) *mongo.Collection {
 	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(studyKey + "_" + COLLECTION_NAME_SUFFIX_REPORTS)
 }
@@ -144,6 +149,19 @@ func (dbService *StudyDBService) ensureIndexes() error {
 		err = dbService.createIndexForStudyInfosCollection(instanceID)
 		if err != nil {
 			slog.Error("Error creating index for studyInfos: ", err)
+		}
+
+		// index on confidentialIDMap
+		_, err = dbService.collectionConfidentialIDMap(instanceID).Indexes().CreateOne(
+			ctx,
+			mongo.IndexModel{
+				Keys: bson.D{
+					{Key: "confidentialID", Value: 1},
+					{Key: "studyKey", Value: 1},
+				}},
+		)
+		if err != nil {
+			slog.Error("Error creating index for confidentialIDMap", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
 		}
 
 		//fetch studyKeys from studyInfos

@@ -49,6 +49,25 @@ func (dbService *StudyDBService) CreateIndexForParticipantsCollection(instanceID
 	return err
 }
 
+func (dbService *StudyDBService) SaveParticipantState(instanceID string, studyKey string, pState studyTypes.Participant) (studyTypes.Participant, error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	filter := bson.M{"participantID": pState.ParticipantID}
+
+	upsert := true
+	rd := options.After
+	options := options.FindOneAndReplaceOptions{
+		Upsert:         &upsert,
+		ReturnDocument: &rd,
+	}
+	elem := studyTypes.Participant{}
+	err := dbService.collectionParticipants(instanceID, studyKey).FindOneAndReplace(
+		ctx, filter, pState, &options,
+	).Decode(&elem)
+	return elem, err
+}
+
 // get participant by id
 func (dbService *StudyDBService) GetParticipantByID(instanceID string, studyKey string, participantID string) (participant studyTypes.Participant, err error) {
 	ctx, cancel := dbService.getContext()

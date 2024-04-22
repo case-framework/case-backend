@@ -257,6 +257,11 @@ func (dbService *StudyDBService) DeleteStudy(instanceID string, studyKey string)
 		slog.Error("Error deleting study rules", slog.String("studyKey", studyKey), slog.String("error", err.Error()))
 	}
 
+	err = dbService.RemoveConfidentialIDMapEntriesForStudy(instanceID, studyKey)
+	if err != nil {
+		slog.Error("Error deleting confidential ID map entries", slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+	}
+
 	collection := dbService.collectionStudyInfos(instanceID)
 	filter := bson.M{"key": studyKey}
 	_, err = collection.DeleteOne(ctx, filter)

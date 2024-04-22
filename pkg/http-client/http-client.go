@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"path"
+	"net/url"
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/apihelpers"
@@ -37,7 +37,12 @@ func (cConfig ClientConfig) RunHTTPcall(pathname string, payload interface{}) (m
 		client.Transport = transport
 	}
 
-	url := path.Join(cConfig.RootURL, pathname)
+	url, err := url.JoinPath(cConfig.RootURL, pathname)
+	if err != nil {
+		slog.Error("unexpected error in joining url", slog.String("error", err.Error()))
+		return nil, err
+	}
+
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(json_data))
 	if err != nil {
 		slog.Error("unexpected error in preparing http request", slog.String("error", err.Error()))
