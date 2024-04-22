@@ -7,7 +7,10 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 
+	emailsending "github.com/case-framework/case-backend/pkg/messaging/email-sending"
+	emailTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 	umTypes "github.com/case-framework/case-backend/pkg/user-management/types"
+	umUtils "github.com/case-framework/case-backend/pkg/user-management/utils"
 )
 
 func main() {
@@ -45,6 +48,7 @@ func sendReminderToConfirmAccounts() {
 	for _, instanceID := range conf.InstanceIDs {
 		slog.Debug("Start sending reminders to confirm accounts", slog.String("instanceID", instanceID))
 
+		//createdBefore := time.Now().Add(-conf.UserManagementConfig.SendReminderToConfirmAccountAfter).Unix()
 		filter := bson.M{}
 		count := 0
 
@@ -56,10 +60,46 @@ func sendReminderToConfirmAccounts() {
 			nil,
 			false,
 			func(user umTypes.User, args ...interface{}) error {
-				slog.Debug("Sending reminder to confirm account", slog.String("instanceID", instanceID), slog.String("accountID", user.Account.AccountID), slog.Int("count", int(count)))
+				// Generate token
+				tempTokenInfos := umTypes.TempToken{
+					UserID:     user.ID.Hex(),
+					InstanceID: instanceID,
+					Purpose:    umTypes.TOKEN_PURPOSE_CONTACT_VERIFICATION,
+					Info: map[string]string{
+						"type":  umTypes.ACCOUNT_TYPE_EMAIL,
+						"email": user.Account.AccountID,
+					},
+					Expiration: umUtils.GetExpirationTime(conf.UserManagementConfig.EmailContactVerificationTokenTTL),
+				}
+				tempToken, err := globalInfosDBService.AddTempToken(tempTokenInfos)
+				if err != nil {
+					slog.Error("failed to create verification token", slog.String("error", err.Error()))
+					return err
+				}
+
+				// Call message sending
+				err = emailsending.SendInstantEmailByTemplate(
+					messagingDBService,
+					instanceID,
+					[]string{
+						user.Account.AccountID,
+					},
+					emailTypes.EMAIL_TYPE_REGISTRATION,
+					"",
+					user.Account.PreferredLanguage,
+					map[string]string{
+						"token": tempToken,
+					},
+					true,
+				)
+				if err != nil {
+					slog.Error("failed to send verification email", slog.String("error", err.Error()))
+					return err
+				}
+
+				// Update user record
 
 				count = count + 1
-
 				return nil
 			},
 		)
@@ -68,13 +108,6 @@ func sendReminderToConfirmAccounts() {
 			continue
 		}
 
-		slog.Debug("Sending reminders to confirm accounts finished", slog.String("instanceID", instanceID), slog.Int("count", int(count)))
-		/*count, err := participantUserDBService.SendReminderToConfirmAccounts(instanceID, createdBefore)
-		if err != nil {
-			slog.Error("Error sending reminders to confirm accounts", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
-			continue
-		}*/
-
-		//slog.Info("Sending reminders to confirm accounts finished", slog.String("instanceID", instanceID), slog.Int("count", int(count)))
+		slog.Info("Sending reminders to confirm accounts finished", slog.String("instanceID", instanceID), slog.Int("count", int(count)))
 	}
 }
