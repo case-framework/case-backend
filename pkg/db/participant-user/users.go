@@ -181,7 +181,7 @@ func (dbService *ParticipantUserDBService) FindAndExecuteOnUsers(
 	filter bson.M,
 	sort bson.M,
 	returnOnError bool,
-	fn func(dbService *ParticipantUserDBService, user umTypes.User, instanceID string, args ...interface{}) error,
+	fn func(user umTypes.User, args ...interface{}) error,
 	args ...interface{},
 ) error {
 	opts := options.Find().SetSort(sort)
@@ -198,7 +198,7 @@ func (dbService *ParticipantUserDBService) FindAndExecuteOnUsers(
 			return err
 		}
 
-		if err = fn(dbService, user, instanceID, args...); err != nil {
+		if err = fn(user, args...); err != nil {
 			slog.Error("Error while executing function on user", slog.String("userID", user.ID.Hex()), slog.String("error", err.Error()))
 			if returnOnError {
 				return err

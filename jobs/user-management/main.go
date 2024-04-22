@@ -1,8 +1,13 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"time"
+
+	"go.mongodb.org/mongo-driver/bson"
+
+	umTypes "github.com/case-framework/case-backend/pkg/user-management/types"
 )
 
 func main() {
@@ -40,6 +45,30 @@ func sendReminderToConfirmAccounts() {
 	for _, instanceID := range conf.InstanceIDs {
 		slog.Debug("Start sending reminders to confirm accounts", slog.String("instanceID", instanceID))
 
+		filter := bson.M{}
+		count := 0
+
+		// call DB method participantUserDBService
+		err := participantUserDBService.FindAndExecuteOnUsers(
+			context.Background(),
+			instanceID,
+			filter,
+			nil,
+			false,
+			func(user umTypes.User, args ...interface{}) error {
+				slog.Debug("Sending reminder to confirm account", slog.String("instanceID", instanceID), slog.String("accountID", user.Account.AccountID), slog.Int("count", int(count)))
+
+				count = count + 1
+
+				return nil
+			},
+		)
+		if err != nil {
+			slog.Error("Error sending reminders to confirm accounts", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
+			continue
+		}
+
+		slog.Debug("Sending reminders to confirm accounts finished", slog.String("instanceID", instanceID), slog.Int("count", int(count)))
 		/*count, err := participantUserDBService.SendReminderToConfirmAccounts(instanceID, createdBefore)
 		if err != nil {
 			slog.Error("Error sending reminders to confirm accounts", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
