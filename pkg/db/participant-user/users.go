@@ -132,3 +132,24 @@ func (dbService *ParticipantUserDBService) CountRecentlyCreatedUsers(instanceID 
 	count, err = dbService.collectionParticipantUsers(instanceID).CountDocuments(ctx, filter)
 	return
 }
+
+func (dbService *ParticipantUserDBService) DeleteUser(instanceID, userID string) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	_id, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		return err
+	}
+
+	filter := bson.M{"_id": _id}
+
+	res, err := dbService.collectionParticipantUsers(instanceID).DeleteOne(ctx, filter)
+	if err != nil {
+		return err
+	}
+	if res.DeletedCount < 1 {
+		return errors.New("no user found with the given id")
+	}
+	return nil
+}
