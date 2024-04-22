@@ -22,7 +22,7 @@ func main() {
 	notifyInactiveUsersAndMarkForDeletion()
 	// TODO: clean up users marked for deletion
 
-	slog.Info("User management jobs completed", slog.Duration("duration", time.Since(start)))
+	slog.Info("User management jobs completed", slog.String("duration", time.Since(start).String()))
 }
 
 func cleanUpUnverifiedUsers() {
@@ -37,10 +37,10 @@ func cleanUpUnverifiedUsers() {
 			continue
 		}
 
+		// TODO: notify study service about the deletion so it can mark participants as inactive
+
 		slog.Info("Clean up unverified users finished", slog.String("instanceID", instanceID), slog.Int("count", int(count)))
-
 	}
-
 }
 
 func sendReminderToConfirmAccounts() {
@@ -124,5 +124,93 @@ func sendReminderToConfirmAccounts() {
 }
 
 func notifyInactiveUsersAndMarkForDeletion() {
+	if conf.UserManagementConfig.NotifyAfterInactiveFor == 0 {
+		slog.Info("Inactive user notification is disabled")
+		return
+	}
 
+	for _, instanceID := range conf.InstanceIDs {
+		slog.Debug("Start notifying inactive users and mark for deletion", slog.String("instanceID", instanceID))
+
+		count := 0
+
+		lastActivityEarlierThan := time.Now().Add(-conf.UserManagementConfig.NotifyAfterInactiveFor).Unix()
+		filter := bson.M{}
+		filter["$and"] = bson.A{
+			bson.M{
+				"roles": bson.M{"$nin": bson.A{
+					"SERVICE",
+					"RESEARCHER",
+					"ADMIN",
+				}},
+			}, // for legacy reasons
+			bson.M{"timestamps.lastLogin": bson.M{"$lt": lastActivityEarlierThan}},
+			bson.M{"timestamps.lastTokenRefresh": bson.M{"$lt": lastActivityEarlierThan}},
+			bson.M{"timestamps.markedForDeletion": bson.M{"$not": bson.M{"$gt": 0}}},
+		}
+
+		err := participantUserDBService.FindAndExecuteOnUsers(
+			context.Background(),
+			instanceID,
+			filter,
+			nil,
+			false,
+			func(user umTypes.User, args ...interface{}) error {
+				// Generate token
+				tempTokenInfos := umTypes.TempToken{
+					UserID:     user.ID.Hex(),
+					InstanceID: instanceID,
+					Purpose:    umTypes.TOKEN_PURPOSE_INACTIVE_USER_NOTIFICATION,
+					Info: map[string]string{
+						"type":  umTypes.ACCOUNT_TYPE_EMAIL,
+						"email": user.Account.AccountID,
+					},
+					Expiration: umUtils.GetExpirationTime(conf.UserManagementConfig.MarkForDeletionAfterInactivityNotification),
+				}
+				tempToken, err := globalInfosDBService.AddTempToken(tempTokenInfos)
+				if err != nil {
+					slog.Error("failed to create verification token", slog.String("error", err.Error()))
+					return err
+				}
+
+				// Call message sending
+				err = emailsending.QueueEmailByTemplate(
+					messagingDBService,
+					instanceID,
+					[]string{
+						user.Account.AccountID,
+					},
+					emailTypes.EMAIL_TYPE_ACCOUNT_INACTIVITY,
+					"",
+					user.Account.PreferredLanguage,
+					map[string]string{
+						"token": tempToken,
+					},
+					true,
+				)
+				if err != nil {
+					slog.Error("failed to queue inactivity notice email", slog.String("error", err.Error()))
+					return err
+				}
+
+				// Update user record
+				update := bson.M{"$set": bson.M{"timestamps.markedForDeletion": time.Now().Add(conf.UserManagementConfig.MarkForDeletionAfterInactivityNotification).Unix()}}
+				err = participantUserDBService.UpdateUser(instanceID, user.ID.Hex(), update)
+				if err != nil {
+					slog.Error("failed to update user record", slog.String("error", err.Error()))
+					return err
+				}
+
+				count = count + 1
+				return nil
+			},
+		)
+
+		if err != nil {
+			slog.Error("Error notifying inactive users and mark for deletion", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
+			continue
+		}
+
+		slog.Info("Notifying inactive users and mark for deletion finished", slog.String("instanceID", instanceID), slog.Int("count", int(count)))
+	}
 }

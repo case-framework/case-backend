@@ -36,10 +36,11 @@ type config struct {
 
 	// user management configs
 	UserManagementConfig struct {
-		DeleteUnverifiedUsersAfter        time.Duration `json:"delete_unverified_users_after" yaml:"delete_unverified_users_after"`
-		SendReminderToConfirmAccountAfter time.Duration `json:"send_reminder_to_confirm_account_after" yaml:"send_reminder_to_confirm_account_after"`
-		EmailContactVerificationTokenTTL  time.Duration `json:"email_contact_verification_token_ttl" yaml:"email_contact_verification_token_ttl"`
-		NotifyAfterInactiveFor            time.Duration `json:"notify_after_inactive_for" yaml:"notify_after_inactive_for"`
+		DeleteUnverifiedUsersAfter                 time.Duration `json:"delete_unverified_users_after" yaml:"delete_unverified_users_after"`
+		SendReminderToConfirmAccountAfter          time.Duration `json:"send_reminder_to_confirm_account_after" yaml:"send_reminder_to_confirm_account_after"`
+		EmailContactVerificationTokenTTL           time.Duration `json:"email_contact_verification_token_ttl" yaml:"email_contact_verification_token_ttl"`
+		NotifyAfterInactiveFor                     time.Duration `json:"notify_after_inactive_for" yaml:"notify_after_inactive_for"`
+		MarkForDeletionAfterInactivityNotification time.Duration `json:"mark_for_deletion_after_inactivity_notification" yaml:"mark_for_deletion_after_inactivity_notification"`
 	} `json:"user_management_config" yaml:"user_management_config"`
 
 	MessagingConfigs messagingTypes.MessagingConfigs `json:"messaging_configs" yaml:"messaging_configs"`
