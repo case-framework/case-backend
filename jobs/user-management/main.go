@@ -48,8 +48,14 @@ func sendReminderToConfirmAccounts() {
 	for _, instanceID := range conf.InstanceIDs {
 		slog.Debug("Start sending reminders to confirm accounts", slog.String("instanceID", instanceID))
 
-		//createdBefore := time.Now().Add(-conf.UserManagementConfig.SendReminderToConfirmAccountAfter).Unix()
+		createdBefore := time.Now().Add(-conf.UserManagementConfig.SendReminderToConfirmAccountAfter).Unix()
 		filter := bson.M{}
+		filter["$and"] = bson.A{
+			bson.M{"account.accountConfirmedAt": bson.M{"$lt": 1}},
+			bson.M{"timestamps.reminderToConfirmSentAt": bson.M{"$lt": 1}},
+			bson.M{"timestamps.createdAt": bson.M{"$lt": createdBefore}},
+		}
+
 		count := 0
 
 		// call DB method participantUserDBService
@@ -98,6 +104,12 @@ func sendReminderToConfirmAccounts() {
 				}
 
 				// Update user record
+				update := bson.M{"$set": bson.M{"timestamps.reminderToConfirmSentAt": time.Now().Unix()}}
+				err = participantUserDBService.UpdateUser(instanceID, user.ID.Hex(), update)
+				if err != nil {
+					slog.Error("failed to update user record", slog.String("error", err.Error()))
+					return err
+				}
 
 				count = count + 1
 				return nil

@@ -120,7 +120,7 @@ func (dbService *ParticipantUserDBService) _updateUserInDB(orgID string, user um
 	return elem, err
 }
 
-func (dbService *ParticipantUserDBService) UpdateUser(instanceID string, updatedUser umTypes.User) (umTypes.User, error) {
+func (dbService *ParticipantUserDBService) ReplaceUser(instanceID string, updatedUser umTypes.User) (umTypes.User, error) {
 	// Set last update time
 	updatedUser.Timestamps.UpdatedAt = time.Now().Unix()
 	return dbService._updateUserInDB(instanceID, updatedUser)
@@ -156,6 +156,20 @@ func (dbService *ParticipantUserDBService) DeleteUser(instanceID, userID string)
 	return nil
 }
 
+func (dbService *ParticipantUserDBService) UpdateUser(instanceID string, userID string, update bson.M) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	_id, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		return err
+	}
+
+	filter := bson.M{"_id": _id}
+	_, err = dbService.collectionParticipantUsers(instanceID).UpdateOne(ctx, filter, update)
+	return err
+}
+
 func (dbService *ParticipantUserDBService) DeleteUnverifiedUsers(instanceID string, createdBefore int64) (count int64, err error) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
@@ -184,7 +198,7 @@ func (dbService *ParticipantUserDBService) FindAndExecuteOnUsers(
 	fn func(user umTypes.User, args ...interface{}) error,
 	args ...interface{},
 ) error {
-	opts := options.Find().SetSort(sort)
+	opts := options.Find().SetSort(sort).SetBatchSize(32)
 
 	cursor, err := dbService.collectionParticipantUsers(instanceID).Find(ctx, filter, opts)
 	if err != nil {

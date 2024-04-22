@@ -133,7 +133,7 @@ func (h *HttpEndpoints) loginWithEmail(c *gin.Context) {
 	user.Account.FailedLoginAttempts = umUtils.RemoveAttemptsOlderThan(user.Account.FailedLoginAttempts, 3600)
 	user.Account.PasswordResetTriggers = umUtils.RemoveAttemptsOlderThan(user.Account.PasswordResetTriggers, 7200)
 
-	user, err = h.userDBConn.UpdateUser(req.InstanceID, user)
+	user, err = h.userDBConn.ReplaceUser(req.InstanceID, user)
 	if err != nil {
 		slog.Error("failed to update user", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
