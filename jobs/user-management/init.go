@@ -7,6 +7,7 @@ import (
 
 	"github.com/case-framework/case-backend/pkg/db"
 	"github.com/case-framework/case-backend/pkg/study"
+	"github.com/case-framework/case-backend/pkg/study/studyengine"
 	usermanagement "github.com/case-framework/case-backend/pkg/user-management"
 	"github.com/case-framework/case-backend/pkg/utils"
 
@@ -48,6 +49,13 @@ type config struct {
 	} `json:"user_management_config" yaml:"user_management_config"`
 
 	MessagingConfigs messagingTypes.MessagingConfigs `json:"messaging_configs" yaml:"messaging_configs"`
+
+	// Study module config
+	StudyConfigs struct {
+		GlobalSecret string `json:"global_secret" yaml:"global_secret"`
+
+		ExternalServices []studyengine.ExternalService `json:"external_services" yaml:"external_services"`
+	} `json:"study_configs" yaml:"study_configs"`
 }
 
 var conf config
@@ -145,5 +153,9 @@ func initUserManagement() {
 }
 
 func initStudyService() {
-	study.Init(studyDBService)
+	study.Init(
+		studyDBService,
+		conf.StudyConfigs.GlobalSecret,
+		conf.StudyConfigs.ExternalServices,
+	)
 }

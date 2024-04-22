@@ -32,8 +32,8 @@ func DeleteUser(
 
 	// get all profiles
 	profileIDs := make([]string, len(user.Profiles))
-	for _, profile := range user.Profiles {
-		profileIDs = append(profileIDs, profile.ID.Hex())
+	for i, profile := range user.Profiles {
+		profileIDs[i] = profile.ID.Hex()
 	}
 
 	// notify study service for each profile

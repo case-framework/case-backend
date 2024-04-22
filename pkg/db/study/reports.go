@@ -40,6 +40,13 @@ func (dbService *StudyDBService) CreateIndexForReportsCollection(instanceID stri
 	return err
 }
 
+func (dbService *StudyDBService) SaveReport(instanceID string, studyKey string, report studyTypes.Report) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+	_, err := dbService.collectionReports(instanceID, studyKey).InsertOne(ctx, report)
+	return err
+}
+
 // get report by id
 func (dbService *StudyDBService) GetReportByID(instanceID string, studyKey string, reportID string) (report studyTypes.Report, err error) {
 	ctx, cancel := dbService.getContext()

@@ -9,6 +9,7 @@ import (
 
 	emailsending "github.com/case-framework/case-backend/pkg/messaging/email-sending"
 	emailTypes "github.com/case-framework/case-backend/pkg/messaging/types"
+	studyService "github.com/case-framework/case-backend/pkg/study"
 	usermanagement "github.com/case-framework/case-backend/pkg/user-management"
 	umTypes "github.com/case-framework/case-backend/pkg/user-management/types"
 	umUtils "github.com/case-framework/case-backend/pkg/user-management/utils"
@@ -21,7 +22,7 @@ func main() {
 	cleanUpUnverifiedUsers()
 	sendReminderToConfirmAccounts()
 	notifyInactiveUsersAndMarkForDeletion()
-	// TODO: clean up users marked for deletion
+	cleanUpUsersMarkedForDeletion()
 
 	slog.Info("User management jobs completed", slog.String("duration", time.Since(start).String()))
 }
@@ -49,7 +50,9 @@ func cleanUpUnverifiedUsers() {
 					instanceID,
 					user.ID.Hex(),
 					func(instanceID string, profiles []string) error {
-						// TODO: notify study service
+						for _, profile := range profiles {
+							studyService.OnProfileDeleted(instanceID, profile)
+						}
 						return nil
 					},
 					func(email string) error {
@@ -258,5 +261,70 @@ func notifyInactiveUsersAndMarkForDeletion() {
 		}
 
 		slog.Info("Notifying inactive users and mark for deletion finished", slog.String("instanceID", instanceID), slog.Int("count", int(count)))
+	}
+}
+
+func cleanUpUsersMarkedForDeletion() {
+	for _, instanceID := range conf.InstanceIDs {
+		slog.Debug("Start cleaning up users marked for deletion", slog.String("instanceID", instanceID))
+
+		count := 0
+
+		// call DB method participantUserDBService
+		filter := bson.M{}
+		filter["$and"] = bson.A{
+			bson.M{"timestamps.markedForDeletion": bson.M{"$gt": 0}},
+			bson.M{"timestamps.markedForDeletion": bson.M{"$lt": time.Now().Unix()}},
+		}
+		err := participantUserDBService.FindAndExecuteOnUsers(
+			context.Background(),
+			instanceID,
+			filter,
+			nil,
+			false,
+			func(user umTypes.User, args ...interface{}) error {
+				err := usermanagement.DeleteUser(
+					instanceID,
+					user.ID.Hex(),
+					func(instanceID string, profiles []string) error {
+						for _, profile := range profiles {
+							studyService.OnProfileDeleted(instanceID, profile)
+						}
+						return nil
+					},
+					func(email string) error {
+						err := emailsending.QueueEmailByTemplate(
+							messagingDBService,
+							instanceID,
+							[]string{
+								email,
+							},
+							emailTypes.EMAIL_TYPE_ACCOUNT_DELETED_AFTER_INACTIVITY,
+							"",
+							user.Account.PreferredLanguage,
+							map[string]string{},
+							true,
+						)
+						if err != nil {
+							slog.Error("failed to queue account deleted email", slog.String("error", err.Error()))
+							return err
+						}
+						return nil
+					},
+				)
+				if err != nil {
+					slog.Error("failed to delete user", slog.String("error", err.Error()))
+					return err
+				}
+				count = count + 1
+				return nil
+			},
+		)
+		if err != nil {
+			slog.Error("Error cleaning up users marked for deletion", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
+			continue
+		}
+
+		slog.Info("Clean up users marked for deletion finished", slog.String("instanceID", instanceID), slog.Int("count", int(count)))
 	}
 }
