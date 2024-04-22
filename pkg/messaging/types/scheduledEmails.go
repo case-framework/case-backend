@@ -1,4 +1,4 @@
-package messaging
+package types
 
 import (
 	study "github.com/case-framework/case-backend/pkg/study/types"

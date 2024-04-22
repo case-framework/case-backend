@@ -9,6 +9,7 @@ import (
 	"github.com/case-framework/case-backend/pkg/db"
 	httpclient "github.com/case-framework/case-backend/pkg/http-client"
 	emailsending "github.com/case-framework/case-backend/pkg/messaging/email-sending"
+	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 	"github.com/case-framework/case-backend/pkg/user-management/pwhash"
 	"github.com/case-framework/case-backend/pkg/utils"
 	"github.com/gin-gonic/gin"
@@ -77,15 +78,7 @@ type ParticipantApiConfig struct {
 
 	FilestorePath string `json:"filestore_path" yaml:"filestore_path"`
 
-	MessagingConfigs struct {
-		GlobalEmailTemplateConstants map[string]string `json:"global_email_template_constants" yaml:"global_email_template_constants"`
-
-		SmtpBridgeConfig struct {
-			URL            string        `json:"url" yaml:"url"`
-			APIKey         string        `json:"api_key" yaml:"api_key"`
-			RequestTimeout time.Duration `json:"request_timeout" yaml:"request_timeout"`
-		} `json:"smtp_bridge_config" yaml:"smtp_bridge_config"`
-	} `json:"messaging_configs" yaml:"messaging_configs"`
+	MessagingConfigs messagingTypes.MessagingConfigs `json:"messaging_configs" yaml:"messaging_configs"`
 }
 
 func init() {
