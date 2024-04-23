@@ -22,10 +22,16 @@ import (
 const (
 	ENV_CONFIG_FILE_PATH = "CONFIG_FILE_PATH"
 
-	ENV_GLOBAL_EMAIL_TEMPLATE_CONSTANTS_JSON = "GLOBAL_EMAIL_TEMPLATE_CONSTANTS_JSON"
-	ENV_EMAIL_CLIENT_ADDRESS                 = "EMAIL_CLIENT_ADDRESS"
-	ENV_EMAIL_CLIENT_API_KEY                 = "EMAIL_CLIENT_API_KEY"
-	ENV_EMAIL_CLIENT_TIMEOUT                 = "EMAIL_CLIENT_TIMEOUT"
+	// Variables to override "secrets" in the config file
+	ENV_SMTP_BRIDGE_API_KEY          = "SMTP_BRIDGE_API_KEY"
+	ENV_STUDY_DB_USERNAME            = "STUDY_DB_USERNAME"
+	ENV_STUDY_DB_PASSWORD            = "STUDY_DB_PASSWORD"
+	ENV_PARTICIPANT_USER_DB_USERNAME = "PARTICIPANT_USER_DB_USERNAME"
+	ENV_PARTICIPANT_USER_DB_PASSWORD = "PARTICIPANT_USER_DB_PASSWORD"
+	ENV_GLOBAL_INFOS_DB_USERNAME     = "GLOBAL_INFOS_DB_USERNAME"
+	ENV_GLOBAL_INFOS_DB_PASSWORD     = "GLOBAL_INFOS_DB_PASSWORD"
+	ENV_MESSAGING_DB_USERNAME        = "MESSAGING_DB_USERNAME"
+	ENV_MESSAGING_DB_PASSWORD        = "MESSAGING_DB_PASSWORD"
 )
 
 type ParticipantApiConfig struct {
@@ -104,6 +110,9 @@ func init() {
 		conf.Logging.MaxBackups,
 	)
 
+	// Override secrets from environment variables
+	secretsOverride()
+
 	if !conf.GinConfig.DebugMode {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -119,6 +128,45 @@ func init() {
 
 	initMessageSendingConfig()
 	checkParticipantFilestorePath()
+}
+
+func secretsOverride() {
+	// Override secrets from environment variables
+	if apiKey := os.Getenv(ENV_SMTP_BRIDGE_API_KEY); apiKey != "" {
+		conf.MessagingConfigs.SmtpBridgeConfig.APIKey = apiKey
+	}
+
+	if dbUsername := os.Getenv(ENV_STUDY_DB_USERNAME); dbUsername != "" {
+		conf.DBConfigs.StudyDB.Username = dbUsername
+	}
+
+	if dbPassword := os.Getenv(ENV_STUDY_DB_PASSWORD); dbPassword != "" {
+		conf.DBConfigs.StudyDB.Password = dbPassword
+	}
+
+	if dbUsername := os.Getenv(ENV_PARTICIPANT_USER_DB_USERNAME); dbUsername != "" {
+		conf.DBConfigs.ParticipantUserDB.Username = dbUsername
+	}
+
+	if dbPassword := os.Getenv(ENV_PARTICIPANT_USER_DB_PASSWORD); dbPassword != "" {
+		conf.DBConfigs.ParticipantUserDB.Password = dbPassword
+	}
+
+	if dbUsername := os.Getenv(ENV_GLOBAL_INFOS_DB_USERNAME); dbUsername != "" {
+		conf.DBConfigs.GlobalInfosDB.Username = dbUsername
+	}
+
+	if dbPassword := os.Getenv(ENV_GLOBAL_INFOS_DB_PASSWORD); dbPassword != "" {
+		conf.DBConfigs.GlobalInfosDB.Password = dbPassword
+	}
+
+	if dbUsername := os.Getenv(ENV_MESSAGING_DB_USERNAME); dbUsername != "" {
+		conf.DBConfigs.MessagingDB.Username = dbUsername
+	}
+
+	if dbPassword := os.Getenv(ENV_MESSAGING_DB_PASSWORD); dbPassword != "" {
+		conf.DBConfigs.MessagingDB.Password = dbPassword
+	}
 }
 
 func checkParticipantFilestorePath() {
