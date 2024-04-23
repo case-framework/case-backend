@@ -24,9 +24,13 @@ const (
 
 	// Variables to override "secrets" in the config file
 	ENV_SMTP_BRIDGE_API_KEY          = "SMTP_BRIDGE_API_KEY"
+	ENV_STUDY_DB_USERNAME            = "STUDY_DB_USERNAME"
 	ENV_STUDY_DB_PASSWORD            = "STUDY_DB_PASSWORD"
+	ENV_PARTICIPANT_USER_DB_USERNAME = "PARTICIPANT_USER_DB_USERNAME"
 	ENV_PARTICIPANT_USER_DB_PASSWORD = "PARTICIPANT_USER_DB_PASSWORD"
+	ENV_GLOBAL_INFOS_DB_USERNAME     = "GLOBAL_INFOS_DB_USERNAME"
 	ENV_GLOBAL_INFOS_DB_PASSWORD     = "GLOBAL_INFOS_DB_PASSWORD"
+	ENV_MESSAGING_DB_USERNAME        = "MESSAGING_DB_USERNAME"
 	ENV_MESSAGING_DB_PASSWORD        = "MESSAGING_DB_PASSWORD"
 )
 
@@ -132,16 +136,32 @@ func secretsOverride() {
 		conf.MessagingConfigs.SmtpBridgeConfig.APIKey = apiKey
 	}
 
+	if dbUsername := os.Getenv(ENV_STUDY_DB_USERNAME); dbUsername != "" {
+		conf.DBConfigs.StudyDB.Username = dbUsername
+	}
+
 	if dbPassword := os.Getenv(ENV_STUDY_DB_PASSWORD); dbPassword != "" {
 		conf.DBConfigs.StudyDB.Password = dbPassword
+	}
+
+	if dbUsername := os.Getenv(ENV_PARTICIPANT_USER_DB_USERNAME); dbUsername != "" {
+		conf.DBConfigs.ParticipantUserDB.Username = dbUsername
 	}
 
 	if dbPassword := os.Getenv(ENV_PARTICIPANT_USER_DB_PASSWORD); dbPassword != "" {
 		conf.DBConfigs.ParticipantUserDB.Password = dbPassword
 	}
 
+	if dbUsername := os.Getenv(ENV_GLOBAL_INFOS_DB_USERNAME); dbUsername != "" {
+		conf.DBConfigs.GlobalInfosDB.Username = dbUsername
+	}
+
 	if dbPassword := os.Getenv(ENV_GLOBAL_INFOS_DB_PASSWORD); dbPassword != "" {
 		conf.DBConfigs.GlobalInfosDB.Password = dbPassword
+	}
+
+	if dbUsername := os.Getenv(ENV_MESSAGING_DB_USERNAME); dbUsername != "" {
+		conf.DBConfigs.MessagingDB.Username = dbUsername
 	}
 
 	if dbPassword := os.Getenv(ENV_MESSAGING_DB_PASSWORD); dbPassword != "" {
