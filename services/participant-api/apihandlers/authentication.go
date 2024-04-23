@@ -104,6 +104,7 @@ func (h *HttpEndpoints) loginWithEmail(c *gin.Context) {
 		nil,
 		otherProfileIDs,
 		h.tokenSignKey,
+		nil,
 	)
 	if err != nil {
 		slog.Error("failed to generate token", slog.String("error", err.Error()))
@@ -273,6 +274,7 @@ func (h *HttpEndpoints) signupWithEmail(c *gin.Context) {
 		nil,
 		otherProfileIDs,
 		h.tokenSignKey,
+		nil,
 	)
 	if err != nil {
 		slog.Error("failed to generate token", slog.String("error", err.Error()))
