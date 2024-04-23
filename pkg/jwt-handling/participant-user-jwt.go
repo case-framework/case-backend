@@ -16,6 +16,7 @@ type ParticipantUserClaims struct {
 	AccountConfirmed bool                 `json:"accountConfirmed,omitempty"`
 	TempTokenInfos   *userTypes.TempToken `json:"temptoken,omitempty"`
 	OtherProfileIDs  []string             `json:"other_profile_ids,omitempty"`
+	LastOTPProvided  map[string]int64     `json:"last_otp_provided,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -29,6 +30,7 @@ func GenerateNewParticipantUserToken(
 	tempTokenInfos *userTypes.TempToken,
 	otherProfileIDs []string,
 	secretKey string,
+	lastOTPProvided map[string]int64,
 ) (tokenString string, err error) {
 	claims := ParticipantUserClaims{
 		instanceID,
@@ -37,6 +39,7 @@ func GenerateNewParticipantUserToken(
 		accountConfirmed,
 		tempTokenInfos,
 		otherProfileIDs,
+		lastOTPProvided,
 		jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiresIn)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

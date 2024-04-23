@@ -12,6 +12,7 @@ import (
 	"github.com/case-framework/case-backend/pkg/user-management/pwhash"
 	umUtils "github.com/case-framework/case-backend/pkg/user-management/utils"
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	userTypes "github.com/case-framework/case-backend/pkg/user-management/types"
@@ -26,9 +27,14 @@ const (
 
 func (h *HttpEndpoints) AddParticipantAuthAPI(rg *gin.RouterGroup) {
 	authGroup := rg.Group("/auth")
+	{
+		authGroup.POST("/login", mw.RequirePayload(), h.loginWithEmail)
+		authGroup.POST("/signup", mw.RequirePayload(), h.signupWithEmail)
+		authGroup.POST("/token/renew", mw.RequirePayload(), mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.refreshToken)
+		authGroup.GET("/token/validate", mw.RequirePayload(), mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.validateToken)
+		authGroup.GET("/token/revoke", mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.revokeRefreshTokens)
+	}
 
-	authGroup.POST("/login", mw.RequirePayload(), h.loginWithEmail)
-	authGroup.POST("/signup", mw.RequirePayload(), h.signupWithEmail)
 }
 
 type LoginWithEmailReq struct {
@@ -104,6 +110,7 @@ func (h *HttpEndpoints) loginWithEmail(c *gin.Context) {
 		nil,
 		otherProfileIDs,
 		h.tokenSignKey,
+		nil,
 	)
 	if err != nil {
 		slog.Error("failed to generate token", slog.String("error", err.Error()))
@@ -273,6 +280,7 @@ func (h *HttpEndpoints) signupWithEmail(c *gin.Context) {
 		nil,
 		otherProfileIDs,
 		h.tokenSignKey,
+		nil,
 	)
 	if err != nil {
 		slog.Error("failed to generate token", slog.String("error", err.Error()))
@@ -311,4 +319,135 @@ func (h *HttpEndpoints) signupWithEmail(c *gin.Context) {
 		},
 		"user": newUser,
 	})
+}
+
+type RefreshTokenReq struct {
+	RefreshToken string `json:"refreshToken"`
+}
+
+func (h *HttpEndpoints) refreshToken(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	var req RefreshTokenReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// check if user still exists
+	user, err := h.userDBConn.GetUser(token.InstanceID, token.Subject)
+	if err != nil {
+		slog.Warn("user not found", slog.String("subject", token.Subject), slog.String("instanceID", token.InstanceID), slog.String("error", err.Error()))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+		return
+	}
+
+	// generate new refresh token
+	newRenewToken, err := umUtils.GenerateUniqueTokenString()
+	if err != nil {
+		slog.Error("failed to generate renew token", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	// Check if previous token is still valid
+	rt, err := h.userDBConn.FindAndUpdateRenewToken(
+		token.InstanceID,
+		token.Subject,
+		req.RefreshToken,
+		newRenewToken,
+	)
+	if err != nil {
+		slog.Error("failed to find and update renew token", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	if rt.NextToken == newRenewToken {
+		// this is the first time the refresh token is used
+		err := h.userDBConn.CreateRenewToken(token.InstanceID, token.Subject, newRenewToken, 0)
+		if err != nil {
+			slog.Error("failed to save renew token", slog.String("error", err.Error()))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
+	} else {
+		newRenewToken = rt.NextToken
+	}
+
+	// update timestamps (last token refresh, reset markeed for deletion, etc.)
+	err = h.userDBConn.UpdateUser(token.InstanceID, token.Subject, bson.M{
+		"$set": bson.M{
+			"timestamps.lastTokenRefresh":  time.Now().Unix(),
+			"timestamps.markedForDeletion": 0,
+		},
+	})
+	if err != nil {
+		slog.Error("failed to update user", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	// generate jwt
+	mainProfileID, otherProfileIDs := umUtils.GetMainAndOtherProfiles(user)
+
+	newJwt, err := jwthandling.GenerateNewParticipantUserToken(
+		h.ttls.AccessToken,
+		user.ID.Hex(),
+		token.InstanceID,
+		mainProfileID,
+		map[string]string{},
+		user.Account.AccountConfirmedAt > 0,
+		nil,
+		otherProfileIDs,
+		h.tokenSignKey,
+		token.LastOTPProvided,
+	)
+	if err != nil {
+		slog.Error("failed to generate token", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	user.Account.Password = ""
+	user.Account.VerificationCode = userTypes.VerificationCode{}
+
+	c.JSON(http.StatusOK, gin.H{
+		"token": gin.H{
+			"accessToken":     newJwt,
+			"refreshToken":    newRenewToken,
+			"expiresIn":       h.ttls.AccessToken.Seconds(),
+			"selectedProfile": mainProfileID,
+		},
+		"user": user,
+	})
+}
+
+func (h *HttpEndpoints) validateToken(c *gin.Context) {
+	// read validated token
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	// check if user still exists
+	_, err := h.userDBConn.GetUser(token.InstanceID, token.Subject)
+	if err != nil {
+		slog.Warn("user not found", slog.String("subject", token.Subject), slog.String("instanceID", token.InstanceID), slog.String("error", err.Error()))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"tokenInfos": token})
+}
+
+func (h *HttpEndpoints) revokeRefreshTokens(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	count, err := h.userDBConn.DeleteRenewTokensForUser(token.InstanceID, token.Subject)
+	if err != nil {
+		slog.Error("failed to delete renew tokens", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	slog.Debug("deleted renew tokens", slog.Int64("count", count))
+	c.JSON(http.StatusOK, gin.H{"message": "tokens revoked"})
 }
