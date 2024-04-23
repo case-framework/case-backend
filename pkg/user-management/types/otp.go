@@ -5,6 +5,6 @@ import "time"
 type OTP struct {
 	Code      string    `bson:"code" json:"code"`
 	UserID    string    `bson:"userID" json:"userID"`
-	ExpiresAt time.Time `bson:"expiresAt" json:"expiresAt"`
+	CreatedAt time.Time `bson:"createdAt" json:"createdAt"`
 	Type      string    `bson:"type" json:"type"`
 }

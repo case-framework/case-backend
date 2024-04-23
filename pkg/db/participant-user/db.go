@@ -75,6 +75,10 @@ func (dbService *ParticipantUserDBService) collectionRenewTokens(instanceID stri
 	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_RENEW_TOKENS)
 }
 
+func (dbService *ParticipantUserDBService) collectionOTPs(instanceID string) *mongo.Collection {
+	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_OTPS)
+}
+
 func (dbService *ParticipantUserDBService) ensureIndexes() {
 	slog.Debug("Ensuring indexes for participant user DB")
 	for _, instanceID := range dbService.InstanceIDs {
@@ -87,6 +91,11 @@ func (dbService *ParticipantUserDBService) ensureIndexes() {
 		err = dbService.CreateIndexForRenewTokens(instanceID)
 		if err != nil {
 			slog.Debug("Error creating indexes for renew tokens: ", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
+		}
+
+		err = dbService.CreateIndexForOTPs(instanceID)
+		if err != nil {
+			slog.Debug("Error creating indexes for OTPs: ", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
 		}
 	}
 }
