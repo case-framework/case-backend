@@ -14,6 +14,7 @@ import (
 const (
 	COLLECTION_NAME_PARTICIPANT_USERS = "users"
 	COLLECTION_NAME_RENEW_TOKENS      = "renewTokens"
+	COLLECTION_NAME_OTPS              = "otps"
 )
 
 type ParticipantUserDBService struct {

@@ -1,4 +1,4 @@
-package participantuser
+package types
 
 type Account struct {
 	Type               string           `bson:"type" json:"type"`

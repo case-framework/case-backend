@@ -1,4 +1,4 @@
-package participantuser
+package types
 
 type ContactPreferences struct {
 	SubscribeToNewsletter         bool     `bson:"subscribeToNewsletter" json:"subscribeToNewsletter"`

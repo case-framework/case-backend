@@ -1,4 +1,4 @@
-package participantuser
+package types
 
 import (
 	"errors"
