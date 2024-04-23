@@ -26,9 +26,14 @@ const (
 
 func (h *HttpEndpoints) AddParticipantAuthAPI(rg *gin.RouterGroup) {
 	authGroup := rg.Group("/auth")
+	{
+		authGroup.POST("/login", mw.RequirePayload(), h.loginWithEmail)
+		authGroup.POST("/signup", mw.RequirePayload(), h.signupWithEmail)
+		authGroup.POST("/token/renew", mw.RequirePayload(), mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.refreshToken)
+		authGroup.POST("/token/validate", mw.RequirePayload(), mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.validateToken)
+		authGroup.GET("/token/revoke", mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.revokeRefreshTokens)
+	}
 
-	authGroup.POST("/login", mw.RequirePayload(), h.loginWithEmail)
-	authGroup.POST("/signup", mw.RequirePayload(), h.signupWithEmail)
 }
 
 type LoginWithEmailReq struct {
@@ -313,4 +318,35 @@ func (h *HttpEndpoints) signupWithEmail(c *gin.Context) {
 		},
 		"user": newUser,
 	})
+}
+
+func (h *HttpEndpoints) refreshToken(c *gin.Context) {
+	// read validated token
+
+	// check if user still exists
+
+	// generate new refresh token
+
+	// check if refresh token is still valid
+
+	// ...
+
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) validateToken(c *gin.Context) {
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) revokeRefreshTokens(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	count, err := h.userDBConn.DeleteRenewTokensForUser(token.InstanceID, token.Subject)
+	if err != nil {
+		slog.Error("failed to delete renew tokens", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	slog.Debug("deleted renew tokens", slog.Int64("count", count))
+	c.JSON(http.StatusOK, gin.H{"message": "tokens revoked"})
 }
