@@ -44,7 +44,6 @@ func (h *HttpEndpoints) prepAndSendEmailVerification(
 	}
 
 	err = emailsending.SendInstantEmailByTemplate(
-		h.messagingDBConn,
 		instanceID,
 		[]string{email},
 		emailTypes.EMAIL_TYPE_REGISTRATION,

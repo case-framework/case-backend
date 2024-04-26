@@ -194,6 +194,7 @@ func initMessageSendingConfig() {
 	emailsending.InitMessageSendingVariables(
 		nil, // no need for http client config, not sending emails directly
 		conf.MessagingConfigs.GlobalEmailTemplateConstants,
+		messagingDBService,
 	)
 }
 

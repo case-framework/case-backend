@@ -57,7 +57,6 @@ func cleanUpUnverifiedUsers() {
 					},
 					func(email string) error {
 						err := emailsending.QueueEmailByTemplate(
-							messagingDBService,
 							instanceID,
 							[]string{
 								email,
@@ -133,7 +132,6 @@ func sendReminderToConfirmAccounts() {
 
 				// Call message sending
 				err = emailsending.QueueEmailByTemplate(
-					messagingDBService,
 					instanceID,
 					[]string{
 						user.Account.AccountID,
@@ -224,7 +222,6 @@ func notifyInactiveUsersAndMarkForDeletion() {
 
 				// Call message sending
 				err = emailsending.QueueEmailByTemplate(
-					messagingDBService,
 					instanceID,
 					[]string{
 						user.Account.AccountID,
@@ -294,7 +291,6 @@ func cleanUpUsersMarkedForDeletion() {
 					},
 					func(email string) error {
 						err := emailsending.QueueEmailByTemplate(
-							messagingDBService,
 							instanceID,
 							[]string{
 								email,
