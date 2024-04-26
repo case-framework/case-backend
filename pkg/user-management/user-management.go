@@ -1,8 +1,19 @@
 package usermanagement
 
 import (
+	"errors"
+	"fmt"
+	"log/slog"
+
 	globalinfosDB "github.com/case-framework/case-backend/pkg/db/global-infos"
 	userDB "github.com/case-framework/case-backend/pkg/db/participant-user"
+	userTypes "github.com/case-framework/case-backend/pkg/user-management/types"
+	"github.com/case-framework/case-backend/pkg/user-management/utils"
+)
+
+const (
+	MAX_OTP_ATTEMPTS = 10
+	OTP_LENGTH       = 6
 )
 
 var (
@@ -16,6 +27,70 @@ func Init(
 ) {
 	pUserDBService = participantUserDBService
 	globalInfosDBServices = globalInfosDBService
+}
+
+func SendOTPByEmail(
+	instanceID,
+	userID string,
+	sendEmail func(email string, code string, preferredLang string) error,
+) error {
+	// check count of recent attempts
+	count, err := pUserDBService.CountOTP(instanceID, userID)
+	if err != nil {
+		return err
+	}
+
+	if count >= MAX_OTP_ATTEMPTS {
+		slog.Warn("too many OTP requests", slog.String("instanceID", instanceID), slog.String("userID", userID))
+		return errors.New("too many attempts")
+	}
+
+	user, err := pUserDBService.GetUser(instanceID, userID)
+	if err != nil {
+		slog.Error("error getting user", slog.String("instanceID", instanceID), slog.String("userID", userID), slog.String("error", err.Error()))
+		return err
+	}
+
+	// generate OTP
+	code, err := utils.GenerateOTPCode(OTP_LENGTH)
+	if err != nil {
+		return err
+	}
+
+	// save OTP
+	err = pUserDBService.CreateOTP(instanceID, userID, code, userTypes.EmailOTP)
+	if err != nil {
+		return err
+	}
+
+	half := len(code) / 2
+	formattedCode := fmt.Sprintf("%s-%s", code[:half], code[half:])
+
+	// send OTP
+	err = sendEmail(user.Account.AccountID, formattedCode, user.Account.PreferredLanguage)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func VerifyOTP(
+	instanceID,
+	userID,
+	code string,
+) (*userTypes.OTP, error) {
+	otp, err := pUserDBService.FindOTP(instanceID, userID, code)
+	if err != nil {
+		return nil, err
+	}
+
+	err = pUserDBService.DeleteOTP(instanceID, userID, code)
+	if err != nil {
+		return &otp, err
+	}
+
+	return &otp, nil
 }
 
 func DeleteUser(

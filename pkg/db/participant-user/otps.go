@@ -38,7 +38,7 @@ func (dbService *ParticipantUserDBService) CreateIndexForOTPs(instanceID string)
 	return err
 }
 
-func (dbService *ParticipantUserDBService) CreateOTP(instanceID string, userID string, code string, t string) error {
+func (dbService *ParticipantUserDBService) CreateOTP(instanceID string, userID string, code string, t userTypes.OTPType) error {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
