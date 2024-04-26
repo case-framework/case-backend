@@ -6,11 +6,6 @@ import (
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/apihelpers"
-	"github.com/case-framework/case-backend/pkg/db"
-	globalinfosDB "github.com/case-framework/case-backend/pkg/db/global-infos"
-	messagingDB "github.com/case-framework/case-backend/pkg/db/messaging"
-	userDB "github.com/case-framework/case-backend/pkg/db/participant-user"
-	studyDB "github.com/case-framework/case-backend/pkg/db/study"
 	"github.com/case-framework/case-backend/services/participant-api/apihandlers"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -19,30 +14,6 @@ import (
 var conf ParticipantApiConfig
 
 func main() {
-
-	studyDBService, err := studyDB.NewStudyDBService(db.DBConfigFromYamlObj(conf.DBConfigs.StudyDB, conf.AllowedInstanceIDs))
-	if err != nil {
-		slog.Error("Error connecting to Study DB", slog.String("error", err.Error()))
-		return
-	}
-
-	userDbService, err := userDB.NewParticipantUserDBService(db.DBConfigFromYamlObj(conf.DBConfigs.ParticipantUserDB, conf.AllowedInstanceIDs))
-	if err != nil {
-		slog.Error("Error connecting to Participant User DB", slog.String("error", err.Error()))
-		return
-	}
-
-	globalInfosDBService, err := globalinfosDB.NewGlobalInfosDBService(db.DBConfigFromYamlObj(conf.DBConfigs.GlobalInfosDB, conf.AllowedInstanceIDs))
-	if err != nil {
-		slog.Error("Error connecting to Global Infos DB", slog.String("error", err.Error()))
-		return
-	}
-
-	messagingDBService, err := messagingDB.NewMessagingDBService(db.DBConfigFromYamlObj(conf.DBConfigs.MessagingDB, conf.AllowedInstanceIDs))
-	if err != nil {
-		slog.Error("Error connecting to Messaging DB", slog.String("error", err.Error()))
-		return
-	}
 
 	// Start webserver
 	router := gin.Default()
@@ -63,7 +34,7 @@ func main() {
 	v1APIHandlers := apihandlers.NewHTTPHandler(
 		conf.UserManagementConfig.ParticipantUserJWTConfig.SignKey,
 		studyDBService,
-		userDbService,
+		participantUserDBService,
 		globalInfosDBService,
 		messagingDBService,
 		conf.AllowedInstanceIDs,

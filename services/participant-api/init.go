@@ -10,12 +10,18 @@ import (
 	httpclient "github.com/case-framework/case-backend/pkg/http-client"
 	emailsending "github.com/case-framework/case-backend/pkg/messaging/email-sending"
 	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
+	usermanagement "github.com/case-framework/case-backend/pkg/user-management"
 	"github.com/case-framework/case-backend/pkg/user-management/pwhash"
 	"github.com/case-framework/case-backend/pkg/utils"
 	"github.com/gin-gonic/gin"
 	"gopkg.in/yaml.v2"
 
 	umUtils "github.com/case-framework/case-backend/pkg/user-management/utils"
+
+	globalinfosDB "github.com/case-framework/case-backend/pkg/db/global-infos"
+	messagingDB "github.com/case-framework/case-backend/pkg/db/messaging"
+	userDB "github.com/case-framework/case-backend/pkg/db/participant-user"
+	studyDB "github.com/case-framework/case-backend/pkg/db/study"
 )
 
 // Environment variables
@@ -87,6 +93,13 @@ type ParticipantApiConfig struct {
 	MessagingConfigs messagingTypes.MessagingConfigs `json:"messaging_configs" yaml:"messaging_configs"`
 }
 
+var (
+	participantUserDBService *userDB.ParticipantUserDBService
+	globalInfosDBService     *globalinfosDB.GlobalInfosDBService
+	messagingDBService       *messagingDB.MessagingDBService
+	studyDBService           *studyDB.StudyDBService
+)
+
 func init() {
 	// Read config from file
 	yamlFile, err := os.ReadFile(os.Getenv(ENV_CONFIG_FILE_PATH))
@@ -113,6 +126,9 @@ func init() {
 	// Override secrets from environment variables
 	secretsOverride()
 
+	// Init DBs
+	initDBs()
+
 	if !conf.GinConfig.DebugMode {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -126,7 +142,12 @@ func init() {
 
 	umUtils.InitWeekdayAssignationStrategy(conf.UserManagementConfig.WeekdayAssignationWeights)
 
+	// init user management
+	initUserManagement()
+
+	// init message sending config
 	initMessageSendingConfig()
+
 	checkParticipantFilestorePath()
 }
 
@@ -183,10 +204,15 @@ func checkParticipantFilestorePath() {
 	}
 }
 
+func initUserManagement() {
+	usermanagement.Init(participantUserDBService, globalInfosDBService)
+}
+
 func initMessageSendingConfig() {
 	emailsending.InitMessageSendingVariables(
 		loadEmailClientHTTPConfig(),
 		conf.MessagingConfigs.GlobalEmailTemplateConstants,
+		messagingDBService,
 	)
 }
 
@@ -195,5 +221,32 @@ func loadEmailClientHTTPConfig() *httpclient.ClientConfig {
 		RootURL: conf.MessagingConfigs.SmtpBridgeConfig.URL,
 		APIKey:  conf.MessagingConfigs.SmtpBridgeConfig.APIKey,
 		Timeout: conf.MessagingConfigs.SmtpBridgeConfig.RequestTimeout,
+	}
+}
+
+func initDBs() {
+	var err error
+	studyDBService, err = studyDB.NewStudyDBService(db.DBConfigFromYamlObj(conf.DBConfigs.StudyDB, conf.AllowedInstanceIDs))
+	if err != nil {
+		slog.Error("Error connecting to Study DB", slog.String("error", err.Error()))
+		return
+	}
+
+	participantUserDBService, err = userDB.NewParticipantUserDBService(db.DBConfigFromYamlObj(conf.DBConfigs.ParticipantUserDB, conf.AllowedInstanceIDs))
+	if err != nil {
+		slog.Error("Error connecting to Participant User DB", slog.String("error", err.Error()))
+		return
+	}
+
+	globalInfosDBService, err = globalinfosDB.NewGlobalInfosDBService(db.DBConfigFromYamlObj(conf.DBConfigs.GlobalInfosDB, conf.AllowedInstanceIDs))
+	if err != nil {
+		slog.Error("Error connecting to Global Infos DB", slog.String("error", err.Error()))
+		return
+	}
+
+	messagingDBService, err = messagingDB.NewMessagingDBService(db.DBConfigFromYamlObj(conf.DBConfigs.MessagingDB, conf.AllowedInstanceIDs))
+	if err != nil {
+		slog.Error("Error connecting to Messaging DB", slog.String("error", err.Error()))
+		return
 	}
 }
