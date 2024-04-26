@@ -2,6 +2,7 @@ package apihandlers
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"math/rand"
 	"net/http"
@@ -9,6 +10,9 @@ import (
 
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
+	emailsending "github.com/case-framework/case-backend/pkg/messaging/email-sending"
+	emailTypes "github.com/case-framework/case-backend/pkg/messaging/types"
+	usermanagement "github.com/case-framework/case-backend/pkg/user-management"
 	"github.com/case-framework/case-backend/pkg/user-management/pwhash"
 	umUtils "github.com/case-framework/case-backend/pkg/user-management/utils"
 	"github.com/gin-gonic/gin"
@@ -30,9 +34,16 @@ func (h *HttpEndpoints) AddParticipantAuthAPI(rg *gin.RouterGroup) {
 	{
 		authGroup.POST("/login", mw.RequirePayload(), h.loginWithEmail)
 		authGroup.POST("/signup", mw.RequirePayload(), h.signupWithEmail)
-		authGroup.POST("/token/renew", mw.RequirePayload(), mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.refreshToken)
+		authGroup.POST("/token/renew", mw.RequirePayload(), mw.GetAndValidateParticipantUserJWTWithIgnoringExpiration(h.tokenSignKey), h.refreshToken)
 		authGroup.GET("/token/validate", mw.RequirePayload(), mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.validateToken)
 		authGroup.GET("/token/revoke", mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.revokeRefreshTokens)
+	}
+
+	otpGroup := rg.Group("/otp")
+	otpGroup.Use(mw.GetAndValidateParticipantUserJWT(h.tokenSignKey))
+	{
+		otpGroup.GET("/request", h.requestOTP)
+		otpGroup.POST("/verify", h.verifyOTP)
 	}
 
 }
@@ -362,7 +373,7 @@ func (h *HttpEndpoints) refreshToken(c *gin.Context) {
 		newRenewToken,
 	)
 	if err != nil {
-		slog.Error("failed to find and update renew token", slog.String("error", err.Error()))
+		slog.Error("failed to find and update renew token", slog.String("error", err.Error()), slog.String("instanceID", token.InstanceID), slog.String("renewToken", req.RefreshToken))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
@@ -422,6 +433,7 @@ func (h *HttpEndpoints) refreshToken(c *gin.Context) {
 			"refreshToken":    newRenewToken,
 			"expiresIn":       h.ttls.AccessToken.Seconds(),
 			"selectedProfile": mainProfileID,
+			"lastOTP":         token.LastOTPProvided,
 		},
 		"user": user,
 	})
@@ -453,4 +465,136 @@ func (h *HttpEndpoints) revokeRefreshTokens(c *gin.Context) {
 	}
 	slog.Debug("deleted renew tokens", slog.Int64("count", count))
 	c.JSON(http.StatusOK, gin.H{"message": "tokens revoked"})
+}
+
+func (h *HttpEndpoints) requestOTP(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	// read type from query param
+	otpType := c.DefaultQuery("type", "email")
+
+	// user management method to send OTP by type
+	switch otpType {
+	case "email":
+		err := usermanagement.SendOTPByEmail(
+			token.InstanceID,
+			token.Subject,
+			func(email string, code string, preferredLang string) error {
+				err := emailsending.SendInstantEmailByTemplate(
+					token.InstanceID,
+					[]string{email},
+					emailTypes.EMAIL_TYPE_AUTH_VERIFICATION_CODE,
+					"",
+					preferredLang,
+					map[string]string{
+						"verificationCode": code,
+					},
+					false,
+				)
+				if err != nil {
+					slog.Error("failed to send verification email", slog.String("error", err.Error()))
+					return err
+				}
+
+				return nil
+			},
+		)
+		if err != nil {
+			slog.Error("failed to send OTP by email", slog.String("error", err.Error()))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
+	default:
+		slog.Error("invalid OTP type", slog.String("type", otpType))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid OTP type"})
+		return
+	}
+}
+
+type VerifyOTPReq struct {
+	Code string `json:"code"`
+}
+
+func (h *HttpEndpoints) verifyOTP(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	var req VerifyOTPReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// user management method to verify OTP
+	otp, err := usermanagement.VerifyOTP(
+		token.InstanceID,
+		token.Subject,
+		req.Code,
+	)
+	if err != nil {
+		slog.Warn("failed to verify OTP", slog.String("error", err.Error()))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid code"})
+		return
+	}
+
+	// check if user still exists
+	user, err := h.userDBConn.GetUser(token.InstanceID, token.Subject)
+	if err != nil {
+		slog.Warn("user not found", slog.String("subject", token.Subject), slog.String("instanceID", token.InstanceID), slog.String("error", err.Error()))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+		return
+	}
+
+	mainProfileID, otherProfileIDs := umUtils.GetMainAndOtherProfiles(user)
+
+	if token.LastOTPProvided == nil {
+		token.LastOTPProvided = make(map[string]int64)
+	}
+	token.LastOTPProvided[string(otp.Type)] = time.Now().Unix()
+
+	// generate new token
+	newToken, err := jwthandling.GenerateNewParticipantUserToken(
+		h.ttls.AccessToken,
+		token.Subject,
+		token.InstanceID,
+		mainProfileID,
+		map[string]string{},
+		user.Account.AccountConfirmedAt > 0,
+		nil,
+		otherProfileIDs,
+		h.tokenSignKey,
+		token.LastOTPProvided,
+	)
+	if err != nil {
+		slog.Error("failed to generate token", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	// generate refresh token
+	renewToken, err := umUtils.GenerateUniqueTokenString()
+	if err != nil {
+		slog.Error("failed to generate renew token", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	// generate refresh token
+	err = h.userDBConn.CreateRenewToken(token.InstanceID, user.ID.Hex(), renewToken, 0)
+	if err != nil {
+		slog.Error("failed to save renew token", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"token": gin.H{
+			"accessToken":     newToken,
+			"refreshToken":    renewToken,
+			"expiresIn":       h.ttls.AccessToken.Seconds(),
+			"selectedProfile": mainProfileID,
+			"lastOTP":         token.LastOTPProvided,
+		},
+		"user": user,
+	})
 }
