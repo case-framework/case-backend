@@ -10,7 +10,8 @@ import (
 )
 
 var (
-	HttpClient *httpclient.ClientConfig
+	HttpClient       *httpclient.ClientConfig
+	messageDBService *messageDB.MessagingDBService
 
 	GlobalTemplateInfos = map[string]string{}
 )
@@ -18,9 +19,11 @@ var (
 func InitMessageSendingVariables(
 	newClientConfig *httpclient.ClientConfig,
 	globalTemplateInfos map[string]string,
+	mdb *messageDB.MessagingDBService,
 ) {
 	HttpClient = newClientConfig
 	GlobalTemplateInfos = globalTemplateInfos
+	messageDBService = mdb
 }
 
 type SendEmailReq struct {
@@ -32,7 +35,6 @@ type SendEmailReq struct {
 }
 
 func SendInstantEmailByTemplate(
-	messageDB *messageDB.MessagingDBService,
 	instanceID string,
 	to []string,
 	messageType string,
@@ -46,7 +48,7 @@ func SendInstantEmailByTemplate(
 	}
 
 	outgoingEmail, err := prepOutgoingEmail(
-		messageDB,
+		messageDBService,
 		instanceID,
 		messageType,
 		studyKey,
@@ -70,7 +72,7 @@ func SendInstantEmailByTemplate(
 	_, err = HttpClient.RunHTTPcall("/send-email", sendEmailReq)
 	if err != nil {
 		slog.Debug("error while sending email", slog.String("error", err.Error()))
-		_, errS := messageDB.AddToOutgoingEmails(instanceID, *outgoingEmail)
+		_, errS := messageDBService.AddToOutgoingEmails(instanceID, *outgoingEmail)
 		if errS != nil {
 			slog.Error("failed to save outgoing email", slog.String("error", errS.Error()))
 			return errS
@@ -79,7 +81,7 @@ func SendInstantEmailByTemplate(
 		return err
 	}
 
-	_, err = messageDB.AddToSentEmails(instanceID, *outgoingEmail)
+	_, err = messageDBService.AddToSentEmails(instanceID, *outgoingEmail)
 	if err != nil {
 		slog.Error("failed to save sent email", slog.String("error", err.Error()))
 		return err
