@@ -95,7 +95,7 @@ func (dbService *ParticipantUserDBService) FindAndUpdateRenewToken(instanceID st
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	filter := bson.M{"userID": userID, "renewToken": renewToken, "expiresAt": bson.M{"$gt": time.Now().Unix()}}
+	filter := bson.M{"userID": userID, "renewToken": renewToken, "expiresAt": bson.M{"$gt": time.Now()}}
 	updatePipeline := bson.A{
 		bson.M{
 			"$set": bson.M{
@@ -119,7 +119,7 @@ func (dbService *ParticipantUserDBService) FindAndUpdateRenewToken(instanceID st
 								nil,
 							},
 						},
-						time.Now().Unix() + RENEW_TOKEN_GRACE_PERIOD,
+						time.Now().Add(RENEW_TOKEN_GRACE_PERIOD * time.Second),
 						"$expiresAt",
 					},
 				},
