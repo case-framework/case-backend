@@ -196,6 +196,7 @@ func (h *HttpEndpoints) signupWithEmail(c *gin.Context) {
 
 	if req.InfoCheck != "" {
 		slog.Warn("honeypot field filled out", slog.String("email", req.Email), slog.String("instanceID", req.InstanceID), slog.String("infoCheck", req.InfoCheck))
+		time.Sleep(time.Duration(rand.Intn(5)) * time.Second)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid request"})
 		return
 	}
@@ -235,6 +236,7 @@ func (h *HttpEndpoints) signupWithEmail(c *gin.Context) {
 	}
 	if newUserCount >= int64(h.maxNewUsersPer5Minute) {
 		slog.Warn("rate limit for new users reached", slog.String("instanceID", req.InstanceID))
+		time.Sleep(time.Duration(rand.Intn(5)) * time.Second)
 		c.JSON(http.StatusTooManyRequests, gin.H{"error": "try again later"})
 		return
 	}
@@ -252,6 +254,7 @@ func (h *HttpEndpoints) signupWithEmail(c *gin.Context) {
 	id, err := h.userDBConn.AddUser(req.InstanceID, newUser)
 	if err != nil {
 		slog.Error("failed to create new user", slog.String("error", err.Error()))
+		time.Sleep(time.Duration(rand.Intn(5)) * time.Second)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 
