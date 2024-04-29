@@ -2,6 +2,7 @@ package apihandlers
 
 import (
 	"log/slog"
+	"math/rand"
 	"time"
 
 	emailsending "github.com/case-framework/case-backend/pkg/messaging/email-sending"
@@ -59,4 +60,8 @@ func (h *HttpEndpoints) prepAndSendEmailVerification(
 		return
 	}
 	slog.Debug("verification email sent", slog.String("email", email))
+}
+
+func randomWait(maxTimeSec int) {
+	time.Sleep(time.Duration(rand.Intn(maxTimeSec)) * time.Second)
 }

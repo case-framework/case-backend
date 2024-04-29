@@ -2,7 +2,6 @@ package middlewares
 
 import (
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -68,8 +67,6 @@ func GetAndValidateParticipantUserJWTWithIgnoringExpiration(tokenSignKey string)
 
 		// Parse and validate token
 		parsedToken, _, err := jwthandling.ValidateParticipantUserToken(token, tokenSignKey)
-		fmt.Println(err.Error())
-		fmt.Println(parsedToken)
 		if err != nil && !strings.Contains(err.Error(), "token is expired") {
 			slog.Warn("token validation failed", slog.String("error", err.Error()))
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "error during token validation"})
