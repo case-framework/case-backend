@@ -69,7 +69,13 @@ func SendInstantEmailByTemplate(
 		HighPrio:        outgoingEmail.HighPrio,
 		HeaderOverrides: outgoingEmail.HeaderOverrides,
 	}
-	_, err = HttpClient.RunHTTPcall("/send-email", sendEmailReq)
+	resp, err := HttpClient.RunHTTPcall("/send-email", sendEmailReq)
+	if err == nil && resp != nil {
+		errMsg, hasError := resp["error"]
+		if hasError {
+			err = errors.New(errMsg.(string))
+		}
+	}
 	if err != nil {
 		slog.Debug("error while sending email", slog.String("error", err.Error()))
 		_, errS := messageDBService.AddToOutgoingEmails(instanceID, *outgoingEmail)
