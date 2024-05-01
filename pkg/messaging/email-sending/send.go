@@ -34,6 +34,30 @@ type SendEmailReq struct {
 	HeaderOverrides *messagingTypes.HeaderOverrides `json:"headerOverrides"`
 }
 
+func SendOutgoingEmail(
+	outgoing *messagingTypes.OutgoingEmail,
+) error {
+	if HttpClient == nil || HttpClient.RootURL == "" {
+		return errors.New("connection to smtp bridge not initialized")
+	}
+
+	sendEmailReq := SendEmailReq{
+		To:              outgoing.To,
+		Subject:         outgoing.Subject,
+		Content:         outgoing.Content,
+		HighPrio:        outgoing.HighPrio,
+		HeaderOverrides: outgoing.HeaderOverrides,
+	}
+	resp, err := HttpClient.RunHTTPcall("/send-email", sendEmailReq)
+	if err == nil && resp != nil {
+		errMsg, hasError := resp["error"]
+		if hasError {
+			err = errors.New(errMsg.(string))
+		}
+	}
+	return err
+}
+
 func SendInstantEmailByTemplate(
 	instanceID string,
 	to []string,
@@ -62,20 +86,7 @@ func SendInstantEmailByTemplate(
 	}
 
 	// send email
-	sendEmailReq := SendEmailReq{
-		To:              to,
-		Subject:         outgoingEmail.Subject,
-		Content:         outgoingEmail.Content,
-		HighPrio:        outgoingEmail.HighPrio,
-		HeaderOverrides: outgoingEmail.HeaderOverrides,
-	}
-	resp, err := HttpClient.RunHTTPcall("/send-email", sendEmailReq)
-	if err == nil && resp != nil {
-		errMsg, hasError := resp["error"]
-		if hasError {
-			err = errors.New(errMsg.(string))
-		}
-	}
+	err = SendOutgoingEmail(outgoingEmail)
 	if err != nil {
 		slog.Debug("error while sending email", slog.String("error", err.Error()))
 		_, errS := messageDBService.AddToOutgoingEmails(instanceID, *outgoingEmail)
