@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/case-framework/case-backend/pkg/db"
+	httpclient "github.com/case-framework/case-backend/pkg/http-client"
 	"github.com/case-framework/case-backend/pkg/study"
 	"github.com/case-framework/case-backend/pkg/study/studyengine"
 	"github.com/case-framework/case-backend/pkg/utils"
@@ -172,7 +173,7 @@ func initDBs() {
 
 func initMessageSendingConfig() {
 	emailsending.InitMessageSendingVariables(
-		nil, // no need for http client config, not sending emails directly
+		loadEmailClientHTTPConfig(),
 		conf.MessagingConfigs.GlobalEmailTemplateConstants,
 		messagingDBService,
 	)
@@ -184,4 +185,12 @@ func initStudyService() {
 		conf.StudyConfigs.GlobalSecret,
 		[]studyengine.ExternalService{},
 	)
+}
+
+func loadEmailClientHTTPConfig() *httpclient.ClientConfig {
+	return &httpclient.ClientConfig{
+		RootURL: conf.MessagingConfigs.SmtpBridgeConfig.URL,
+		APIKey:  conf.MessagingConfigs.SmtpBridgeConfig.APIKey,
+		Timeout: conf.MessagingConfigs.SmtpBridgeConfig.RequestTimeout,
+	}
 }

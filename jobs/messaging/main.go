@@ -12,6 +12,8 @@ const (
 	LAST_SEND_ATTEMPT_LOCK_DURATION = 60 * time.Minute
 
 	OUTGOING_EMAILS_BATCH_SIZE = 10
+
+	MAX_FAILED_ATTEMPTS_BEFORE_STOP = 100
 )
 
 func main() {
@@ -51,6 +53,10 @@ func handleOutgoingMessages(wg *sync.WaitGroup) {
 		slog.Debug("Start handling outgoing messages for instance", slog.String("instanceID", instanceID))
 		counters := InitMessageCounter()
 		for {
+			if counters.Failed > MAX_FAILED_ATTEMPTS_BEFORE_STOP {
+				slog.Error("Too many failed attempts, stopping outgoing messages for instance", slog.String("instanceID", instanceID))
+				break
+			}
 			outgoingEmails, err := messagingDBService.GetOutgoingEmailsForSending(
 				instanceID,
 				time.Now().Add(-LAST_SEND_ATTEMPT_LOCK_DURATION).Unix(),
