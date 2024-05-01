@@ -1,6 +1,8 @@
 package messaging
 
 import (
+	"time"
+
 	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -27,6 +29,40 @@ func (dbService *MessagingDBService) GetAllScheduledEmails(instanceID string) ([
 	}
 
 	return scheduledEmails, nil
+}
+
+func (dbService *MessagingDBService) GetActiveScheduledEmails(instanceID string) (messages []messagingTypes.ScheduledEmail, err error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	filter := bson.M{}
+	filter["nextTime"] = bson.M{"$lt": time.Now().Unix()}
+
+	cur, err := dbService.collectionEmailSchedules(instanceID).Find(
+		ctx,
+		filter,
+	)
+
+	if err != nil {
+		return messages, err
+	}
+	defer cur.Close(ctx)
+
+	messages = []messagingTypes.ScheduledEmail{}
+	for cur.Next(ctx) {
+		var result messagingTypes.ScheduledEmail
+		err := cur.Decode(&result)
+		if err != nil {
+			return messages, err
+		}
+
+		messages = append(messages, result)
+	}
+	if err := cur.Err(); err != nil {
+		return messages, err
+	}
+
+	return messages, nil
 }
 
 // get scheduled email by id
