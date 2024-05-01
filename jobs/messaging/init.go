@@ -49,6 +49,13 @@ type config struct {
 
 	MessagingConfigs messagingTypes.MessagingConfigs `json:"messaging_configs" yaml:"messaging_configs"`
 
+	RunTasks struct {
+		ProcessOutgoingEmails     bool `json:"process_outgoing_emails" yaml:"process_outgoing_emails"`
+		ScheduleHandler           bool `json:"schedule_handler" yaml:"schedule_handler"`
+		StudyMessagesHandler      bool `json:"study_messages_handler" yaml:"study_messages_handler"`
+		ResearcherMessagesHandler bool `json:"researcher_messages_handler" yaml:"researcher_messages_handler"`
+	} `json:"run_tasks" yaml:"run_tasks"`
+
 	// Study module config
 	StudyConfigs struct {
 		GlobalSecret string `json:"global_secret" yaml:"global_secret"`

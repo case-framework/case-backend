@@ -14,21 +14,30 @@ const (
 	OUTGOING_EMAILS_BATCH_SIZE = 10
 )
 
-// TODO: add config for which "tasks to do" (auto, researcher, study, weekly, newsletter, outgoing)
-
 func main() {
 	slog.Info("Starting messaging job")
 	start := time.Now()
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go handleOutgoingMessages(&wg)
 
-	// TODO: handle auto messages
-	// TODO: researcher messages handler
-	// TODO: study messages handler
-	// TODO: weekly messages handler
-	// TODO: newsletter messages handler
+	if conf.RunTasks.ProcessOutgoingEmails {
+		wg.Add(1)
+		go handleOutgoingMessages(&wg)
+	}
+
+	if conf.RunTasks.ScheduleHandler {
+		// TODO: handle auto messages
+		// TODO: weekly messages handler
+		// TODO: newsletter messages handler
+	}
+
+	if conf.RunTasks.StudyMessagesHandler {
+		// TODO: study messages handler
+	}
+
+	if conf.RunTasks.ResearcherMessagesHandler {
+		// TODO: researcher messages handler
+	}
 
 	wg.Wait()
 	slog.Info("Messaging job completed", slog.String("duration", time.Since(start).String()))
