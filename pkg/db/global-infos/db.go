@@ -53,7 +53,9 @@ func NewGlobalInfosDBService(configs db.DBConfig) (*GlobalInfosDBService, error)
 		InstanceIDs:     configs.InstanceIDs,
 	}
 
-	giDBSc.ensureIndexes()
+	if configs.RunIndexCreation {
+		giDBSc.ensureIndexes()
+	}
 	return giDBSc, nil
 }
 

@@ -1,13 +1,14 @@
 package db
 
 type DBConfig struct {
-	URI             string
-	DBNamePrefix    string
-	Timeout         int
-	NoCursorTimeout bool
-	MaxPoolSize     uint64
-	IdleConnTimeout int
-	InstanceIDs     []string
+	URI              string
+	DBNamePrefix     string
+	Timeout          int
+	NoCursorTimeout  bool
+	MaxPoolSize      uint64
+	IdleConnTimeout  int
+	InstanceIDs      []string
+	RunIndexCreation bool
 }
 
 type DBConfigYaml struct {
@@ -20,4 +21,5 @@ type DBConfigYaml struct {
 	MaxPoolSize        int    `yaml:"max_pool_size"`
 	UseNoCursorTimeout bool   `yaml:"use_no_cursor_timeout"`
 	DBNamePrefix       string `yaml:"db_name_prefix"`
+	RunIndexCreation   bool   `yaml:"run_index_creation"`
 }

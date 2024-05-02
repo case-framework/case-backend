@@ -60,8 +60,10 @@ func NewManagementUserDBService(configs db.DBConfig) (*ManagementUserDBService, 
 		InstanceIDs:     configs.InstanceIDs,
 	}
 
-	if err := muDBSc.ensureIndexes(); err != nil {
-		slog.Error("Error ensuring indexes for management user DB: ", err)
+	if configs.RunIndexCreation {
+		if err := muDBSc.ensureIndexes(); err != nil {
+			slog.Error("Error ensuring indexes for management user DB: ", err)
+		}
 	}
 
 	return muDBSc, nil

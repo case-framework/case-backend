@@ -55,7 +55,9 @@ func NewParticipantUserDBService(configs db.DBConfig) (*ParticipantUserDBService
 		InstanceIDs:     configs.InstanceIDs,
 	}
 
-	puDBSc.ensureIndexes()
+	if configs.RunIndexCreation {
+		puDBSc.ensureIndexes()
+	}
 	return puDBSc, nil
 }
 

@@ -68,8 +68,10 @@ func NewStudyDBService(configs db.DBConfig) (*StudyDBService, error) {
 		InstanceIDs:     configs.InstanceIDs,
 	}
 
-	if err := studyDBSc.ensureIndexes(); err != nil {
-		slog.Error("Error ensuring indexes for study DB: ", err)
+	if configs.RunIndexCreation {
+		if err := studyDBSc.ensureIndexes(); err != nil {
+			slog.Error("Error ensuring indexes for study DB: ", err)
+		}
 	}
 
 	return studyDBSc, nil

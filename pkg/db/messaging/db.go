@@ -57,8 +57,10 @@ func NewMessagingDBService(configs db.DBConfig) (*MessagingDBService, error) {
 		InstanceIDs:     configs.InstanceIDs,
 	}
 
-	if err := messagingDBSc.ensureIndexes(); err != nil {
-		slog.Error("Error ensuring indexes for messaging DB: ", err)
+	if configs.RunIndexCreation {
+		if err := messagingDBSc.ensureIndexes(); err != nil {
+			slog.Error("Error ensuring indexes for messaging DB: ", err)
+		}
 	}
 
 	return messagingDBSc, nil
