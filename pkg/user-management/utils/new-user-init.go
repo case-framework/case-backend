@@ -37,6 +37,8 @@ func InitNewEmailUser(
 	newUser.AddNewEmail(email, false)
 
 	newUser.ContactPreferences = userTypes.ContactPreferences{
+		SubscribedToNewsletter:        true,
+		SendNewsletterTo:              []string{newUser.ContactInfos[0].ID.Hex()},
 		SubscribedToWeekly:            true,
 		ReceiveWeeklyMessageDayOfWeek: int32(CurrentWeekdayStrategy.Weekday()),
 	}
