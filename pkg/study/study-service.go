@@ -36,7 +36,7 @@ func OnProfileDeleted(instanceID, profileID string) {
 		studyKey := study.Key
 		slog.Info("Processing study", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 
-		participantID, confidentialID, err := computeParticipantIDs(study, profileID)
+		participantID, confidentialID, err := ComputeParticipantIDs(study, profileID)
 		if err != nil {
 			slog.Error("Error computing participant IDs", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
 			continue
@@ -95,6 +95,24 @@ func OnProfileDeleted(instanceID, profileID string) {
 	}
 }
 
+func EvalCustomExpressionForParticipant(instanceID, studyKey, participantID string, expression studyTypes.Expression) (val interface{}, err error) {
+	pState, err := studyDBService.GetParticipantByID(instanceID, studyKey, participantID)
+	if err != nil {
+		return nil, err
+	}
+
+	evalCtx := studyengine.EvalContext{
+		Event: studyengine.StudyEvent{
+			InstanceID: instanceID,
+			StudyKey:   studyKey,
+			Type:       studyengine.STUDY_EVENT_TYPE_CUSTOM,
+		},
+		ParticipantState: pState,
+	}
+
+	return studyengine.ExpressionEval(expression, evalCtx)
+}
+
 func getAndPerformStudyRules(instanceID, studyKey string, pState studyTypes.Participant, currentEvent studyengine.StudyEvent) (newState studyengine.ActionData, err error) {
 	newState = studyengine.ActionData{
 		PState:          pState,
@@ -115,7 +133,7 @@ func getAndPerformStudyRules(instanceID, studyKey string, pState studyTypes.Part
 	return newState, nil
 }
 
-func computeParticipantIDs(study studyTypes.Study, profileID string) (string, string, error) {
+func ComputeParticipantIDs(study studyTypes.Study, profileID string) (string, string, error) {
 	pID, err := studyUtils.ProfileIDtoParticipantID(profileID, globalSecret, study.SecretKey, study.Configs.IdMappingMethod)
 	if err != nil {
 		return "", "", err
@@ -126,6 +144,14 @@ func computeParticipantIDs(study studyTypes.Study, profileID string) (string, st
 		return "", "", err
 	}
 	return pID, confidentialID, nil
+}
+
+func ComputeConfidentialIDForParticipant(study studyTypes.Study, participantID string) (string, error) {
+	confidentialID, err := studyUtils.ProfileIDtoParticipantID(participantID, globalSecret, study.SecretKey, study.Configs.IdMappingMethod)
+	if err != nil {
+		return "", err
+	}
+	return confidentialID, nil
 }
 
 func saveReports(instanceID string, studyKey string, reports map[string]studyTypes.Report, withResponseID string) {

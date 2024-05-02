@@ -101,6 +101,20 @@ func (dbService *ParticipantUserDBService) GetUserByAccountID(instanceID, accoun
 	return user, err
 }
 
+func (dbService *ParticipantUserDBService) GetUserByProfileID(instanceID, profileID string) (umTypes.User, error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	var user umTypes.User
+	_profileID, err := primitive.ObjectIDFromHex(profileID)
+	if err != nil {
+		return umTypes.User{}, err
+	}
+	filter := bson.M{"profiles._id": _profileID}
+	err = dbService.collectionParticipantUsers(instanceID).FindOne(ctx, filter).Decode(&user)
+	return user, err
+}
+
 func (dbService *ParticipantUserDBService) SaveFailedLoginAttempt(instanceID string, userID string) error {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
