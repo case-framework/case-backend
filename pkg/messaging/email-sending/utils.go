@@ -81,6 +81,13 @@ func GenerateEmailContent(
 		return "", "", err
 	}
 
+	if payload == nil {
+		payload = map[string]string{}
+	}
+	for k, v := range GlobalTemplateInfos {
+		payload[k] = v
+	}
+
 	// execute template
 	templateName := templateDef.ID.Hex() + lang
 	content, err := emailtemplates.ResolveTemplate(

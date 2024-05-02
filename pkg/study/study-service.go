@@ -146,6 +146,14 @@ func ComputeParticipantIDs(study studyTypes.Study, profileID string) (string, st
 	return pID, confidentialID, nil
 }
 
+func ComputeConfidentialIDForParticipant(study studyTypes.Study, participantID string) (string, error) {
+	confidentialID, err := studyUtils.ProfileIDtoParticipantID(participantID, globalSecret, study.SecretKey, study.Configs.IdMappingMethod)
+	if err != nil {
+		return "", err
+	}
+	return confidentialID, nil
+}
+
 func saveReports(instanceID string, studyKey string, reports map[string]studyTypes.Report, withResponseID string) {
 	// save reports
 	for _, report := range reports {
