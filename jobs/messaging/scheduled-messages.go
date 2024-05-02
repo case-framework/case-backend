@@ -2,12 +2,15 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"sync"
 	"time"
 
 	emailsending "github.com/case-framework/case-backend/pkg/messaging/email-sending"
 	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
+	studyservice "github.com/case-framework/case-backend/pkg/study"
+	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 	umTypes "github.com/case-framework/case-backend/pkg/user-management/types"
 	umUtils "github.com/case-framework/case-backend/pkg/user-management/utils"
 	"go.mongodb.org/mongo-driver/bson"
@@ -137,7 +140,65 @@ func generateScheduledEmailsForAllUsers(instanceID string, message messagingType
 }
 
 func generateScheduledEmailsForStudyParticipants(instanceID string, message messagingTypes.ScheduledEmail) {
-	// TODO:
+	counters := InitMessageCounter()
+
+	filter := bson.M{
+		"account.accountConfirmedAt":                       bson.M{"$gt": 0},
+		"contactPreferences.receiveWeeklyMessageDayOfWeek": time.Now().Weekday(),
+	}
+
+	err := participantUserDBService.FindAndExecuteOnUsers(
+		context.Background(),
+		instanceID,
+		filter,
+		nil,
+		false,
+		func(user umTypes.User, args ...interface{}) error {
+			if !isSubscribed(&user, message.Template.MessageType) {
+				return nil
+			}
+
+			if !hasAccountType(&user, "email") {
+				return nil
+			}
+
+			if err := hasParticipantStateWithCondition(
+				user,
+				instanceID,
+				message.Template.StudyKey,
+				message.Condition,
+			); err != nil {
+				return err
+			}
+
+			outgoingEmail, err := prepOutgoingFromScheduledEmail(
+				instanceID,
+				message,
+				user,
+			)
+			if err != nil {
+				slog.Error("Failed to prepare outgoing email", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("messageID", message.ID.Hex()), slog.String("userID", user.ID.Hex()))
+				counters.IncreaseCounter(false)
+				return err
+			}
+
+			_, err = messagingDBService.AddToOutgoingEmails(instanceID, *outgoingEmail)
+			if err != nil {
+				slog.Error("Failed to save outgoing email", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("messageID", message.ID.Hex()), slog.String("userID", user.ID.Hex()))
+				counters.IncreaseCounter(false)
+				return err
+			}
+
+			counters.IncreaseCounter(true)
+			return nil
+		},
+	)
+	counters.Stop()
+	if err != nil {
+		slog.Error("Failed to get users for sending scheduled email", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("messageID", message.ID.Hex()), slog.Int("generatedMessages", counters.Success), slog.Int("failedMessages", counters.Failed))
+		return
+	}
+	slog.Info("Generated messages for scheduled email", slog.String("instanceID", instanceID), slog.String("messageID", message.ID.Hex()), slog.Int("generatedMessages", counters.Success), slog.Int("failedMessages", counters.Failed))
 }
 
 func isSubscribed(user *umTypes.User, messageType string) bool {
@@ -247,4 +308,49 @@ func getUnsubscribeToken(instanceID string, user umTypes.User) (string, error) {
 	}
 
 	return tempToken, nil
+}
+
+func hasParticipantStateWithCondition(user umTypes.User, instanceID, studyKey string, condition *studyTypes.ExpressionArg) error {
+	profileIDs := make([]string, len(user.Profiles))
+	for i, p := range user.Profiles {
+		profileIDs[i] = p.ID.Hex()
+	}
+
+	study, err := studyDBService.GetStudy(instanceID, studyKey)
+	if err != nil {
+		slog.Error("failed to get study", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
+		return err
+	}
+
+	for _, profileID := range profileIDs {
+		participantID, _, err := studyservice.ComputeParticipantIDs(study, profileID)
+		if err != nil {
+			slog.Error("Error computing participant IDs", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+			continue
+		}
+
+		_, err = studyDBService.GetParticipantByID(instanceID, studyKey, participantID)
+		if err != nil {
+			continue
+		}
+
+		if condition == nil {
+			// participant found in the study, and there is no condition to check
+			return nil
+		} else if condition.IsExpression() {
+			res, err := studyservice.EvalCustomExpressionForParticipant(instanceID, studyKey, participantID, *condition.Exp)
+			if err != nil {
+				return err
+			}
+			bVal, ok := res.(bool)
+			if ok && bVal {
+				return nil
+			}
+		} else if condition.Num > 0 {
+			// hardcoded true
+			return nil
+		}
+	}
+
+	return errors.New("no matching participant found")
 }
