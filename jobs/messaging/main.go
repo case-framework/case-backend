@@ -29,7 +29,8 @@ func main() {
 	}
 
 	if conf.RunTasks.StudyMessagesHandler {
-		// TODO: study messages handler
+		wg.Add(1)
+		go handleResearcherNotifications(&wg)
 	}
 
 	if conf.RunTasks.ResearcherMessagesHandler {
