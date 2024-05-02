@@ -22,7 +22,7 @@ func handleOutgoingMessages(wg *sync.WaitGroup) {
 			}
 			outgoingEmails, err := messagingDBService.GetOutgoingEmailsForSending(
 				instanceID,
-				time.Now().Add(-LAST_SEND_ATTEMPT_LOCK_DURATION).Unix(),
+				time.Now().Add(-conf.Intervals.LastSendAttemptLockDuration).Unix(),
 				false,
 				OUTGOING_EMAILS_BATCH_SIZE,
 			)
@@ -40,7 +40,7 @@ func handleOutgoingMessages(wg *sync.WaitGroup) {
 			// Send emails:
 			for _, email := range outgoingEmails {
 				batchDuration := time.Since(lastFetch)
-				if batchDuration >= LAST_SEND_ATTEMPT_LOCK_DURATION {
+				if batchDuration >= conf.Intervals.LastSendAttemptLockDuration {
 					slog.Warn("Last batch took too long, breaking", slog.String("duration", batchDuration.String()), slog.String("instanceID", instanceID))
 					counters.IncreaseCounter(false)
 

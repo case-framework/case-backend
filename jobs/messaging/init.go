@@ -3,6 +3,7 @@ package main
 import (
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/case-framework/case-backend/pkg/db"
 	httpclient "github.com/case-framework/case-backend/pkg/http-client"
@@ -56,6 +57,12 @@ type config struct {
 		StudyMessagesHandler      bool `json:"study_messages_handler" yaml:"study_messages_handler"`
 		ResearcherMessagesHandler bool `json:"researcher_messages_handler" yaml:"researcher_messages_handler"`
 	} `json:"run_tasks" yaml:"run_tasks"`
+
+	Intervals struct {
+		LastSendAttemptLockDuration time.Duration `json:"last_send_attempt_lock_duration" yaml:"last_send_attempt_lock_duration"`
+		LoginTokenTTL               time.Duration `json:"login_token_ttl" yaml:"login_token_ttl"`
+		UnsubscribeTokenTTL         time.Duration `json:"unsubscribe_token_ttl" yaml:"unsubscribe_token_ttl"`
+	} `json:"intervals" yaml:"intervals"`
 
 	// Study module config
 	StudyConfigs struct {

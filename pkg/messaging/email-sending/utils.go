@@ -68,3 +68,29 @@ func prepOutgoingEmail(
 	}
 	return &outgoingEmail, nil
 }
+
+func GenerateEmailContent(
+	templateDef messagingTypes.EmailTemplate,
+	lang string,
+	payload map[string]string,
+) (string, string, error) {
+	translation := emailtemplates.GetTemplateTranslation(templateDef, lang)
+
+	decodedTemplate, err := base64.StdEncoding.DecodeString(translation.TemplateDef)
+	if err != nil {
+		return "", "", err
+	}
+
+	// execute template
+	templateName := templateDef.ID.Hex() + lang
+	content, err := emailtemplates.ResolveTemplate(
+		templateName,
+		string(decodedTemplate),
+		payload,
+	)
+	if err != nil {
+		return "", "", err
+	}
+
+	return translation.Subject, content, nil
+}
