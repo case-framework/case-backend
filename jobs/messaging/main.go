@@ -30,11 +30,12 @@ func main() {
 
 	if conf.RunTasks.StudyMessagesHandler {
 		wg.Add(1)
-		go handleResearcherNotifications(&wg)
+		go handleParticipantMessages(&wg)
 	}
 
 	if conf.RunTasks.ResearcherMessagesHandler {
-		// TODO: researcher messages handler
+		wg.Add(1)
+		go handleResearcherNotifications(&wg)
 	}
 
 	wg.Wait()

@@ -30,6 +30,7 @@ func handleResearcherNotifications(wg *sync.WaitGroup) {
 				continue
 			}
 
+			sentMessages := []string{}
 			for _, notification := range notifications {
 				// Retrieve the study email template
 				templateName := notification.Message.Type + study.Key
@@ -75,6 +76,13 @@ func handleResearcherNotifications(wg *sync.WaitGroup) {
 					continue
 				}
 				counters.IncreaseCounter(true)
+				sentMessages = append(sentMessages, notification.Message.ID.Hex())
+			}
+			if len(sentMessages) > 0 {
+				_, err = studyDBService.DeleteResearcherMessages(instanceID, study.Key, sentMessages)
+				if err != nil {
+					slog.Error("Error deleting researcher messages", slog.String("instanceID", instanceID), slog.String("studyKey", study.Key), slog.String("error", err.Error()))
+				}
 			}
 		}
 
