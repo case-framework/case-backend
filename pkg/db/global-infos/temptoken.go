@@ -1,6 +1,8 @@
 package globalinfos
 
 import (
+	"errors"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -67,6 +69,32 @@ func (dbService *GlobalInfosDBService) DeleteAllTempTokenForUser(instanceID stri
 	_, err := dbService.collectionTemptokens().DeleteMany(ctx, filter)
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+func (dbService *GlobalInfosDBService) GetTempToken(token string) (userTypes.TempToken, error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	filter := bson.M{"token": token}
+
+	t := userTypes.TempToken{}
+	err := dbService.collectionTemptokens().FindOne(ctx, filter).Decode(&t)
+	return t, err
+}
+
+func (dbService *GlobalInfosDBService) DeleteTempToken(token string) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	filter := bson.M{"token": token}
+	res, err := dbService.collectionTemptokens().DeleteOne(ctx, filter)
+	if err != nil {
+		return err
+	}
+	if res.DeletedCount < 1 {
+		return errors.New("document not found")
 	}
 	return nil
 }
