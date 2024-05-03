@@ -25,6 +25,8 @@ const (
 	allowedPasswordAttempts  = 10
 
 	signupRateLimitWindow = 5 * 60 // to count the new signups, seconds
+
+	emailVerificationMessageCooldown = 60 // seconds
 )
 
 func (h *HttpEndpoints) AddParticipantAuthAPI(rg *gin.RouterGroup) {
@@ -35,6 +37,8 @@ func (h *HttpEndpoints) AddParticipantAuthAPI(rg *gin.RouterGroup) {
 		authGroup.POST("/token/renew", mw.RequirePayload(), mw.GetAndValidateParticipantUserJWTWithIgnoringExpiration(h.tokenSignKey), h.refreshToken)
 		authGroup.GET("/token/validate", mw.RequirePayload(), mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.validateToken)
 		authGroup.GET("/token/revoke", mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.revokeRefreshTokens)
+		authGroup.POST("/resend-email-verification", mw.RequirePayload(), mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.resendEmailVerification)
+		// authGroup.POST("/verify-email", mw.RequirePayload(), h.verifyEmail)
 	}
 
 	otpGroup := rg.Group("/otp")
@@ -277,6 +281,7 @@ func (h *HttpEndpoints) signupWithEmail(c *gin.Context) {
 		req.Email,
 		req.PreferredLanguage,
 		h.ttls.EmailContactVerificationToken,
+		emailTypes.EMAIL_TYPE_REGISTRATION,
 	)
 
 	// generate jwt
@@ -450,6 +455,60 @@ func (h *HttpEndpoints) validateToken(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"tokenInfos": token})
+}
+
+func (h *HttpEndpoints) resendEmailVerification(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	user, err := h.userDBConn.GetUser(token.InstanceID, token.Subject)
+	if err != nil {
+		slog.Warn("user not found", slog.String("subject", token.Subject), slog.String("instanceID", token.InstanceID), slog.String("error", err.Error()))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+		return
+	}
+
+	ci, found := user.FindContactInfoByTypeAndAddr("email", req.Email)
+	if !found {
+		slog.Warn("email not found", slog.String("email", req.Email))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "email not found"})
+		return
+	}
+
+	if ci.ConfirmationLinkSentAt > time.Now().Unix()-emailVerificationMessageCooldown {
+		slog.Warn("email verification message cooldown", slog.String("email", req.Email))
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": "try again later"})
+		return
+	}
+
+	// update last verification email sent time:
+	user.SetContactInfoVerificationSent("email", req.Email)
+	_, err = h.userDBConn.ReplaceUser(token.InstanceID, user)
+	if err != nil {
+		slog.Error("failed to update user", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	// send email
+	go h.prepAndSendEmailVerification(
+		user.ID.Hex(),
+		token.InstanceID,
+		req.Email,
+		user.Account.PreferredLanguage,
+		h.ttls.EmailContactVerificationToken,
+		emailTypes.EMAIL_TYPE_VERIFY_EMAIL,
+	)
+
+	c.JSON(http.StatusOK, gin.H{"message": "email sending initiated"})
 }
 
 func (h *HttpEndpoints) revokeRefreshTokens(c *gin.Context) {
