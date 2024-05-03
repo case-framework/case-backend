@@ -1,6 +1,8 @@
 package apihandlers
 
 import (
+	"errors"
+	"fmt"
 	"log/slog"
 	"math/rand"
 	"time"
@@ -89,4 +91,22 @@ func (h *HttpEndpoints) prepAndSendEmailVerification(
 
 func randomWait(maxTimeSec int) {
 	time.Sleep(time.Duration(rand.Intn(maxTimeSec)) * time.Second)
+}
+
+func (h *HttpEndpoints) validateTempToken(token string, purposes []string) (tt userTypes.TempToken, err error) {
+	tokenInfos, err := h.globalInfosDBConn.GetTempToken(token)
+	if err != nil {
+		return
+	}
+	if tokenInfos.Expiration.Before(time.Now()) {
+		err = errors.New("token expired")
+		return
+	}
+	for _, purpose := range purposes {
+		if tokenInfos.Purpose == purpose {
+			return tokenInfos, nil
+		}
+	}
+	err = fmt.Errorf("wrong token purpose: %s", tokenInfos.Purpose)
+	return
 }
