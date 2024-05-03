@@ -83,5 +83,6 @@ func (h *HttpEndpoints) initiatePasswordReset(c *gin.Context) {
 	}
 
 	slog.Info("password reset initiated", slog.String("email", req.Email), slog.String("instanceID", req.InstanceID))
+	randomWait(3) // to discourage click-flooding
 	c.JSON(http.StatusOK, gin.H{"message": "password reset initiated"})
 }
