@@ -8,8 +8,6 @@ import (
 	emailsending "github.com/case-framework/case-backend/pkg/messaging/email-sending"
 	userTypes "github.com/case-framework/case-backend/pkg/user-management/types"
 	umUtils "github.com/case-framework/case-backend/pkg/user-management/utils"
-
-	emailTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 )
 
 func (h *HttpEndpoints) isInstanceAllowed(instanceID string) bool {
@@ -27,6 +25,7 @@ func (h *HttpEndpoints) prepAndSendEmailVerification(
 	email string,
 	lang string,
 	expiresIn time.Duration,
+	emailTemplate string,
 ) {
 	tempTokenInfos := userTypes.TempToken{
 		UserID:     userID,
@@ -47,7 +46,7 @@ func (h *HttpEndpoints) prepAndSendEmailVerification(
 	err = emailsending.SendInstantEmailByTemplate(
 		instanceID,
 		[]string{email},
-		emailTypes.EMAIL_TYPE_REGISTRATION,
+		emailTemplate,
 		"",
 		lang,
 		map[string]string{
