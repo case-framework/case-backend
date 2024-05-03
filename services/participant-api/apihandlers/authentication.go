@@ -71,7 +71,7 @@ func (h *HttpEndpoints) loginWithEmail(c *gin.Context) {
 	}
 
 	if !h.isInstanceAllowed(req.InstanceID) {
-		slog.Error("instance not allowed")
+		slog.Error("instance not allowed", slog.String("instanceID", req.InstanceID))
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid instance id"})
 		return
 	}
@@ -215,7 +215,7 @@ func (h *HttpEndpoints) signupWithEmail(c *gin.Context) {
 	}
 
 	if !h.isInstanceAllowed(req.InstanceID) {
-		slog.Error("instance not allowed")
+		slog.Error("instance not allowed", slog.String("instanceID", req.InstanceID))
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid instance id"})
 		return
 	}
