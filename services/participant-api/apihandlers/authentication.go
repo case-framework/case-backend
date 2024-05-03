@@ -485,6 +485,7 @@ func (h *HttpEndpoints) resendEmailVerification(c *gin.Context) {
 
 	if ci.ConfirmationLinkSentAt > time.Now().Unix()-emailVerificationMessageCooldown {
 		slog.Warn("email verification message cooldown", slog.String("email", req.Email))
+		randomWait(5)
 		c.JSON(http.StatusTooManyRequests, gin.H{"error": "try again later"})
 		return
 	}
