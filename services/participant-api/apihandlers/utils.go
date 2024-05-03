@@ -89,6 +89,24 @@ func (h *HttpEndpoints) prepAndSendEmailVerification(
 	)
 }
 
+func (h *HttpEndpoints) sendSimpleEmail(
+	instanceID string, to []string, messageType string, studyKey string, lang string, payload map[string]string, useLowPrio bool,
+) {
+	err := emailsending.SendInstantEmailByTemplate(
+		instanceID,
+		to,
+		messageType,
+		studyKey,
+		lang,
+		payload,
+		useLowPrio,
+	)
+	if err != nil {
+		slog.Error("failed to send email", slog.String("error", err.Error()))
+		return
+	}
+}
+
 func randomWait(maxTimeSec int) {
 	time.Sleep(time.Duration(rand.Intn(maxTimeSec)) * time.Second)
 }
