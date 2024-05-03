@@ -134,6 +134,20 @@ func (dbService *ParticipantUserDBService) SaveFailedLoginAttempt(instanceID str
 	return err
 }
 
+func (dbService *ParticipantUserDBService) SavePasswordResetTrigger(instanceID string, userID string) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	_id, _ := primitive.ObjectIDFromHex(userID)
+	filter := bson.M{"_id": _id}
+	update := bson.M{"$push": bson.M{"account.passwordResetTriggers": time.Now().Unix()}}
+	_, err := dbService.collectionParticipantUsers(instanceID).UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // low level find and replace
 func (dbService *ParticipantUserDBService) _updateUserInDB(orgID string, user umTypes.User) (umTypes.User, error) {
 	ctx, cancel := dbService.getContext()

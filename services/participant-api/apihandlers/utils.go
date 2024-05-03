@@ -1,6 +1,8 @@
 package apihandlers
 
 import (
+	"errors"
+	"fmt"
 	"log/slog"
 	"math/rand"
 	"time"
@@ -19,18 +21,20 @@ func (h *HttpEndpoints) isInstanceAllowed(instanceID string) bool {
 	return false
 }
 
-func (h *HttpEndpoints) prepAndSendEmailVerification(
+func (h *HttpEndpoints) prepTokenAndSendEmail(
 	userID string,
 	instanceID string,
 	email string,
 	lang string,
+	tokenPurpose string,
 	expiresIn time.Duration,
 	emailTemplate string,
+	payload map[string]string,
 ) {
 	tempTokenInfos := userTypes.TempToken{
 		UserID:     userID,
 		InstanceID: instanceID,
-		Purpose:    userTypes.TOKEN_PURPOSE_CONTACT_VERIFICATION,
+		Purpose:    tokenPurpose,
 		Info: map[string]string{
 			"type":  userTypes.ACCOUNT_TYPE_EMAIL,
 			"email": email,
@@ -39,9 +43,14 @@ func (h *HttpEndpoints) prepAndSendEmailVerification(
 	}
 	tempToken, err := h.globalInfosDBConn.AddTempToken(tempTokenInfos)
 	if err != nil {
-		slog.Error("failed to create verification token", slog.String("error", err.Error()))
+		slog.Error("failed to create token", slog.String("error", err.Error()))
 		return
 	}
+
+	if payload == nil {
+		payload = make(map[string]string)
+	}
+	payload["token"] = tempToken
 
 	err = emailsending.SendInstantEmailByTemplate(
 		instanceID,
@@ -49,18 +58,73 @@ func (h *HttpEndpoints) prepAndSendEmailVerification(
 		emailTemplate,
 		"",
 		lang,
-		map[string]string{
-			"token": tempToken,
-		},
+		payload,
 		false,
 	)
 	if err != nil {
-		slog.Error("failed to send verification email", slog.String("error", err.Error()))
+		slog.Error("failed to send email", slog.String("error", err.Error()))
 		return
 	}
-	slog.Debug("verification email sent", slog.String("email", email))
+	slog.Debug("email sent", slog.String("email", email))
+
+}
+
+func (h *HttpEndpoints) prepAndSendEmailVerification(
+	userID string,
+	instanceID string,
+	email string,
+	lang string,
+	expiresIn time.Duration,
+	emailTemplate string,
+) {
+	h.prepTokenAndSendEmail(
+		userID,
+		instanceID,
+		email,
+		lang,
+		userTypes.TOKEN_PURPOSE_CONTACT_VERIFICATION,
+		expiresIn,
+		emailTemplate,
+		nil,
+	)
+}
+
+func (h *HttpEndpoints) sendSimpleEmail(
+	instanceID string, to []string, messageType string, studyKey string, lang string, payload map[string]string, useLowPrio bool,
+) {
+	err := emailsending.SendInstantEmailByTemplate(
+		instanceID,
+		to,
+		messageType,
+		studyKey,
+		lang,
+		payload,
+		useLowPrio,
+	)
+	if err != nil {
+		slog.Error("failed to send email", slog.String("error", err.Error()))
+		return
+	}
 }
 
 func randomWait(maxTimeSec int) {
 	time.Sleep(time.Duration(rand.Intn(maxTimeSec)) * time.Second)
+}
+
+func (h *HttpEndpoints) validateTempToken(token string, purposes []string) (tt userTypes.TempToken, err error) {
+	tokenInfos, err := h.globalInfosDBConn.GetTempToken(token)
+	if err != nil {
+		return
+	}
+	if tokenInfos.Expiration.Before(time.Now()) {
+		err = errors.New("token expired")
+		return
+	}
+	for _, purpose := range purposes {
+		if tokenInfos.Purpose == purpose {
+			return tokenInfos, nil
+		}
+	}
+	err = fmt.Errorf("wrong token purpose: %s", tokenInfos.Purpose)
+	return
 }
