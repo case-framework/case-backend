@@ -24,7 +24,7 @@ func (h *HttpEndpoints) AddPasswordResetAPI(rg *gin.RouterGroup) {
 	pwResetGroup := rg.Group("/password-reset")
 	{
 		pwResetGroup.POST("/initiate", mw.RequirePayload(), h.initiatePasswordReset)
-		//pwResetGroup.POST("/get-infos", mw.RequirePayload(), h.getPasswordResetInfos)
+		pwResetGroup.POST("/get-infos", mw.RequirePayload(), h.getPasswordResetInfos)
 		// pwResetGroup.POST("/reset", mw.RequirePayload(), h.resetPassword)
 	}
 }
@@ -85,4 +85,43 @@ func (h *HttpEndpoints) initiatePasswordReset(c *gin.Context) {
 	slog.Info("password reset initiated", slog.String("email", req.Email), slog.String("instanceID", req.InstanceID))
 	randomWait(3) // to discourage click-flooding
 	c.JSON(http.StatusOK, gin.H{"message": "password reset initiated"})
+}
+
+func (h *HttpEndpoints) getPasswordResetInfos(c *gin.Context) {
+	var req struct {
+		Token string `json:"token"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("bad request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if req.Token == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "token is required"})
+		return
+	}
+
+	// TODO: validate token
+	tokenInfos, err := h.validateTempToken(
+		req.Token, []string{
+			userTypes.TOKEN_PURPOSE_PASSWORD_RESET,
+			userTypes.TOKEN_PURPOSE_INVITATION,
+		})
+	if err != nil {
+		slog.Error("invalid token", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid token"})
+		return
+	}
+
+	user, err := h.userDBConn.GetUser(tokenInfos.InstanceID, tokenInfos.UserID)
+	if err != nil {
+		slog.Error("failed to get user", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"AccountId": user.Account.AccountID,
+	})
 }
