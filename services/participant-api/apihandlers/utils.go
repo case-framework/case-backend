@@ -19,18 +19,20 @@ func (h *HttpEndpoints) isInstanceAllowed(instanceID string) bool {
 	return false
 }
 
-func (h *HttpEndpoints) prepAndSendEmailVerification(
+func (h *HttpEndpoints) prepTokenAndSendEmail(
 	userID string,
 	instanceID string,
 	email string,
 	lang string,
+	tokenPurpose string,
 	expiresIn time.Duration,
 	emailTemplate string,
+	payload map[string]string,
 ) {
 	tempTokenInfos := userTypes.TempToken{
 		UserID:     userID,
 		InstanceID: instanceID,
-		Purpose:    userTypes.TOKEN_PURPOSE_CONTACT_VERIFICATION,
+		Purpose:    tokenPurpose,
 		Info: map[string]string{
 			"type":  userTypes.ACCOUNT_TYPE_EMAIL,
 			"email": email,
@@ -39,9 +41,14 @@ func (h *HttpEndpoints) prepAndSendEmailVerification(
 	}
 	tempToken, err := h.globalInfosDBConn.AddTempToken(tempTokenInfos)
 	if err != nil {
-		slog.Error("failed to create verification token", slog.String("error", err.Error()))
+		slog.Error("failed to create token", slog.String("error", err.Error()))
 		return
 	}
+
+	if payload == nil {
+		payload = make(map[string]string)
+	}
+	payload["token"] = tempToken
 
 	err = emailsending.SendInstantEmailByTemplate(
 		instanceID,
@@ -49,16 +56,35 @@ func (h *HttpEndpoints) prepAndSendEmailVerification(
 		emailTemplate,
 		"",
 		lang,
-		map[string]string{
-			"token": tempToken,
-		},
+		payload,
 		false,
 	)
 	if err != nil {
-		slog.Error("failed to send verification email", slog.String("error", err.Error()))
+		slog.Error("failed to send email", slog.String("error", err.Error()))
 		return
 	}
-	slog.Debug("verification email sent", slog.String("email", email))
+	slog.Debug("email sent", slog.String("email", email))
+
+}
+
+func (h *HttpEndpoints) prepAndSendEmailVerification(
+	userID string,
+	instanceID string,
+	email string,
+	lang string,
+	expiresIn time.Duration,
+	emailTemplate string,
+) {
+	h.prepTokenAndSendEmail(
+		userID,
+		instanceID,
+		email,
+		lang,
+		userTypes.TOKEN_PURPOSE_CONTACT_VERIFICATION,
+		expiresIn,
+		emailTemplate,
+		nil,
+	)
 }
 
 func randomWait(maxTimeSec int) {
