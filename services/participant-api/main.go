@@ -48,6 +48,7 @@ func main() {
 	)
 	v1APIHandlers.AddParticipantAuthAPI(v1Root)
 	v1APIHandlers.AddPasswordResetAPI(v1Root)
+	v1APIHandlers.AddUserManagementAPI(v1Root)
 
 	if conf.GinConfig.DebugMode {
 		apihelpers.WriteRoutesToFile(router, "participant-api-routes.txt")
