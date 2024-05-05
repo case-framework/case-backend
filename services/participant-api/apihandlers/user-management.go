@@ -21,7 +21,7 @@ func (h *HttpEndpoints) AddUserManagementAPI(rg *gin.RouterGroup) {
 	{
 		userGroup.GET("/", h.getUser)
 		userGroup.POST("/profiles", mw.RequirePayload(), h.addNewProfileHandl)
-		// userGroup.PUT("/profile", mw.RequirePayload(), h.updateProfileHandl)
+		userGroup.PUT("/profiles", mw.RequirePayload(), h.updateProfileHandl)
 		//userGroup.POST("/profile/remove", mw.RequirePayload(), h.removeProfileHandl)
 	}
 }
@@ -60,6 +60,39 @@ func (h *HttpEndpoints) addNewProfileHandl(c *gin.Context) {
 		return
 	}
 	user.AddProfile(profile)
+
+	_, err = h.userDBConn.ReplaceUser(token.InstanceID, user)
+	if err != nil {
+		slog.Error("cannot update user", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot update user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"profile": profile})
+}
+
+func (h *HttpEndpoints) updateProfileHandl(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	var profile userTypes.Profile
+	if err := c.ShouldBindJSON(&profile); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot bind profile"})
+		return
+	}
+
+	user, err := h.userDBConn.GetUser(token.InstanceID, token.Subject)
+	if err != nil {
+		slog.Error("user not found", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "user not found"})
+		return
+	}
+
+	err = user.UpdateProfile(profile)
+	if err != nil {
+		slog.Error("cannot update profile", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot update profile"})
+		return
+	}
 
 	_, err = h.userDBConn.ReplaceUser(token.InstanceID, user)
 	if err != nil {
