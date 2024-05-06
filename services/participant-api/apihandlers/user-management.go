@@ -31,6 +31,8 @@ func (h *HttpEndpoints) AddUserManagementAPI(rg *gin.RouterGroup) {
 		userGroup.POST("/profiles/remove", mw.RequirePayload(), h.removeProfileHandl)
 
 		userGroup.POST("/password", mw.RequirePayload(), h.changePasswordHandl)
+
+		userGroup.POST("/change-account-email", mw.RequirePayload(), h.changeAccountEmailHandl)
 	}
 }
 
@@ -213,4 +215,137 @@ func (h *HttpEndpoints) changePasswordHandl(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "password changed"})
+}
+
+func (h *HttpEndpoints) changeAccountEmailHandl(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	var req struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot bind profile"})
+		return
+	}
+
+	req.Email = umUtils.SanitizeEmail(req.Email)
+
+	if !umUtils.CheckEmailFormat(req.Email) {
+		slog.Error("invalid email format", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", "invalid email format"))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid email format"})
+		return
+	}
+
+	user, err := h.userDBConn.GetUser(token.InstanceID, token.Subject)
+	if err != nil {
+		slog.Error("user not found", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "user not found"})
+		return
+	}
+
+	if user.Account.AccountID == req.Email {
+		slog.Error("cannot change account email to self", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot change account email to self"})
+		return
+	}
+
+	match, err := pwhash.ComparePasswordWithHash(user.Account.Password, req.Password)
+	if err != nil || !match {
+		slog.Error("password does not match", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "wrong password"})
+		return
+	}
+
+	// is email already in use?
+	_, err = h.userDBConn.GetUserByAccountID(token.InstanceID, req.Email)
+	if err == nil {
+		slog.Error("email already in use", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("email", req.Email))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "something went wrong"})
+		return
+	}
+
+	if user.Account.Type != userTypes.ACCOUNT_TYPE_EMAIL {
+		slog.Error("account type not email", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", "account type not email"))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "account type not email"})
+		return
+	}
+
+	oldCI, oldFound := user.FindContactInfoByTypeAndAddr("email", user.Account.AccountID)
+	if !oldFound {
+		slog.Error("old contact info not found", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", "old contact info not found"))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "old contact info not found"})
+		return
+	}
+
+	if user.Account.AccountConfirmedAt > 0 {
+		// old account is confirmed already
+		go h.prepTokenAndSendEmail(
+			user.ID.Hex(),
+			token.InstanceID,
+			oldCI.Email,
+			user.Account.PreferredLanguage,
+			userTypes.TOKEN_PURPOSE_RESTORE_ACCOUNT_ID,
+			h.ttls.EmailContactVerificationToken,
+			emailTypes.EMAIL_TYPE_ACCOUNT_ID_CHANGED,
+			map[string]string{
+				"newEmail": req.Email,
+			},
+		)
+	}
+
+	// update user
+	if user.Profiles[0].Alias == umUtils.BlurEmailAddress(user.Account.AccountID) {
+		user.Profiles[0].Alias = umUtils.BlurEmailAddress(req.Email)
+	}
+	user.Account.AccountID = req.Email
+	user.Account.AccountConfirmedAt = -1
+
+	// Add new address to contact list if necessary:
+	ci, found := user.FindContactInfoByTypeAndAddr("email", req.Email)
+	if found {
+		// new email already confirmed
+		if ci.ConfirmedAt > 0 {
+			user.Account.AccountConfirmedAt = ci.ConfirmedAt
+		}
+	} else {
+		user.AddNewEmail(req.Email, false)
+	}
+
+	newCI, newFound := user.FindContactInfoByTypeAndAddr("email", req.Email)
+	if !newFound {
+		slog.Error("new contact info not found", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", "new contact info not found"))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "new contact info not found"})
+		return
+	}
+
+	user.ReplaceContactInfoInContactPreferences(oldCI.ID.Hex(), newCI.ID.Hex())
+
+	// start confirmation workflow of necessary:
+	if user.Account.AccountConfirmedAt <= 0 {
+		go h.prepTokenAndSendEmail(
+			user.ID.Hex(),
+			token.InstanceID,
+			user.Account.AccountID,
+			user.Account.PreferredLanguage,
+			userTypes.TOKEN_PURPOSE_CONTACT_VERIFICATION,
+			h.ttls.EmailContactVerificationToken,
+			emailTypes.EMAIL_TYPE_VERIFY_EMAIL,
+			nil,
+		)
+	}
+
+	err = user.RemoveContactInfo(oldCI.ID.Hex())
+	if err != nil {
+		slog.Error("cannot remove old contact info", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))
+	}
+
+	_, err = h.userDBConn.ReplaceUser(token.InstanceID, user)
+	if err != nil {
+		slog.Error("cannot update user", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot update user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "account email changed"})
 }
