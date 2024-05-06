@@ -8,6 +8,7 @@ import (
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	"github.com/gin-gonic/gin"
 
+	studyService "github.com/case-framework/case-backend/pkg/study"
 	userTypes "github.com/case-framework/case-backend/pkg/user-management/types"
 )
 
@@ -22,7 +23,7 @@ func (h *HttpEndpoints) AddUserManagementAPI(rg *gin.RouterGroup) {
 		userGroup.GET("/", h.getUser)
 		userGroup.POST("/profiles", mw.RequirePayload(), h.addNewProfileHandl)
 		userGroup.PUT("/profiles", mw.RequirePayload(), h.updateProfileHandl)
-		//userGroup.POST("/profile/remove", mw.RequirePayload(), h.removeProfileHandl)
+		userGroup.POST("/profiles/remove", mw.RequirePayload(), h.removeProfileHandl)
 	}
 }
 
@@ -102,4 +103,41 @@ func (h *HttpEndpoints) updateProfileHandl(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"profile": profile})
+}
+
+func (h *HttpEndpoints) removeProfileHandl(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	var req struct {
+		ProfileID string `json:"profileId"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot bind profile"})
+		return
+	}
+
+	user, err := h.userDBConn.GetUser(token.InstanceID, token.Subject)
+	if err != nil {
+		slog.Error("user not found", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "user not found"})
+		return
+	}
+
+	err = user.RemoveProfile(req.ProfileID)
+	if err != nil {
+		slog.Error("cannot remove profile", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot remove profile"})
+		return
+	}
+
+	_, err = h.userDBConn.ReplaceUser(token.InstanceID, user)
+	if err != nil {
+		slog.Error("cannot update user", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot update user"})
+		return
+	}
+
+	studyService.OnProfileDeleted(token.InstanceID, req.ProfileID)
+
+	c.JSON(http.StatusOK, gin.H{"message": "profile removed"})
 }

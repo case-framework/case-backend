@@ -10,6 +10,8 @@ import (
 	httpclient "github.com/case-framework/case-backend/pkg/http-client"
 	emailsending "github.com/case-framework/case-backend/pkg/messaging/email-sending"
 	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
+	"github.com/case-framework/case-backend/pkg/study"
+	"github.com/case-framework/case-backend/pkg/study/studyengine"
 	usermanagement "github.com/case-framework/case-backend/pkg/user-management"
 	"github.com/case-framework/case-backend/pkg/user-management/pwhash"
 	"github.com/case-framework/case-backend/pkg/utils"
@@ -86,6 +88,8 @@ type ParticipantApiConfig struct {
 	// Study module config
 	StudyConfigs struct {
 		GlobalSecret string `json:"global_secret" yaml:"global_secret"`
+
+		ExternalServices []studyengine.ExternalService `json:"external_services" yaml:"external_services"`
 	} `json:"study_configs" yaml:"study_configs"`
 
 	FilestorePath string `json:"filestore_path" yaml:"filestore_path"`
@@ -144,6 +148,8 @@ func init() {
 
 	// init user management
 	initUserManagement()
+
+	initStudyService()
 
 	// init message sending config
 	initMessageSendingConfig()
@@ -206,6 +212,14 @@ func checkParticipantFilestorePath() {
 
 func initUserManagement() {
 	usermanagement.Init(participantUserDBService, globalInfosDBService)
+}
+
+func initStudyService() {
+	study.Init(
+		studyDBService,
+		conf.StudyConfigs.GlobalSecret,
+		conf.StudyConfigs.ExternalServices,
+	)
 }
 
 func initMessageSendingConfig() {
