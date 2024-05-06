@@ -33,6 +33,8 @@ func (h *HttpEndpoints) AddUserManagementAPI(rg *gin.RouterGroup) {
 		userGroup.POST("/password", mw.RequirePayload(), h.changePasswordHandl)
 
 		userGroup.POST("/change-account-email", mw.RequirePayload(), h.changeAccountEmailHandl)
+
+		userGroup.DELETE("/", h.deleteUser)
 	}
 }
 
@@ -348,4 +350,46 @@ func (h *HttpEndpoints) changeAccountEmailHandl(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "account email changed"})
+}
+
+func (h *HttpEndpoints) deleteUser(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	user, err := h.userDBConn.GetUser(token.InstanceID, token.Subject)
+	if err != nil {
+		slog.Error("user not found", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "user not found"})
+		return
+	}
+
+	for _, profile := range user.Profiles {
+		studyService.OnProfileDeleted(token.InstanceID, profile.ID.Hex())
+	}
+
+	// delete all temp tokens
+	err = h.globalInfosDBConn.DeleteAllTempTokenForUser(token.InstanceID, user.ID.Hex(), "")
+	if err != nil {
+		slog.Error("failed to delete temp tokens", slog.String("error", err.Error()))
+	}
+
+	h.sendSimpleEmail(
+		token.InstanceID,
+		[]string{user.Account.AccountID},
+		emailTypes.EMAIL_TYPE_ACCOUNT_DELETED,
+		"",
+		user.Account.PreferredLanguage,
+		nil,
+		true,
+	)
+
+	err = h.userDBConn.DeleteUser(token.InstanceID, user.ID.Hex())
+	if err != nil {
+		slog.Error("cannot delete user", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot delete user"})
+		return
+	}
+
+	slog.Info("user deleted successful", slog.String("userID", user.ID.Hex()), slog.String("instanceID", token.InstanceID))
+
+	c.JSON(http.StatusOK, gin.H{"message": "user deleted"})
 }
