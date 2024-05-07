@@ -38,7 +38,7 @@ func (h *HttpEndpoints) AddParticipantAuthAPI(rg *gin.RouterGroup) {
 		authGroup.GET("/token/validate", mw.RequirePayload(), mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.validateToken)
 		authGroup.GET("/token/revoke", mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.revokeRefreshTokens)
 		authGroup.POST("/resend-email-verification", mw.RequirePayload(), mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.resendEmailVerification)
-		// authGroup.POST("/verify-email", mw.RequirePayload(), h.verifyEmail)
+		authGroup.POST("/verify-email", mw.RequirePayload(), h.verifyEmail)
 	}
 
 	otpGroup := rg.Group("/otp")
@@ -523,6 +523,72 @@ func (h *HttpEndpoints) revokeRefreshTokens(c *gin.Context) {
 	}
 	slog.Debug("deleted renew tokens", slog.Int64("count", count))
 	c.JSON(http.StatusOK, gin.H{"message": "tokens revoked"})
+}
+
+func (h *HttpEndpoints) verifyEmail(c *gin.Context) {
+	var req struct {
+		Token string `json:"token"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot bind request"})
+		return
+	}
+
+	tokenInfos, err := h.validateTempToken(
+		req.Token, []string{
+			userTypes.TOKEN_PURPOSE_CONTACT_VERIFICATION,
+			userTypes.TOKEN_PURPOSE_INVITATION,
+		},
+	)
+	if err != nil {
+		slog.Error("invalid token", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid token"})
+		return
+	}
+
+	user, err := h.userDBConn.GetUser(tokenInfos.InstanceID, tokenInfos.UserID)
+	if err != nil {
+		slog.Error("failed to get user", slog.String("error", err.Error()), slog.String("instanceID", tokenInfos.InstanceID), slog.String("userID", tokenInfos.UserID))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get user"})
+		return
+	}
+
+	if user.Account.AccountID != tokenInfos.Info["email"] {
+		slog.Error("user does not match token", slog.String("error", "user does not match token"), slog.String("instanceID", tokenInfos.InstanceID), slog.String("userID", tokenInfos.UserID))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user does not match token"})
+		return
+	}
+
+	cType, ok1 := tokenInfos.Info["type"]
+	email, ok2 := tokenInfos.Info["email"]
+	if !ok1 || !ok2 {
+		slog.Error("missing type or email in token infos", slog.String("error", "missing type or email in token infos"), slog.String("instanceID", tokenInfos.InstanceID), slog.String("userID", tokenInfos.UserID))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing type or email in token infos"})
+		return
+	}
+
+	if err := user.ConfirmContactInfo(cType, email); err != nil {
+		slog.Error("failed to confirm contact info", slog.String("error", err.Error()), slog.String("instanceID", tokenInfos.InstanceID), slog.String("userID", tokenInfos.UserID))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to confirm contact info"})
+		return
+	}
+
+	if user.Account.Type == userTypes.ACCOUNT_TYPE_EMAIL && user.Account.AccountID == email {
+		user.Account.AccountConfirmedAt = time.Now().Unix()
+	}
+
+	_, err = h.userDBConn.ReplaceUser(tokenInfos.InstanceID, user)
+	if err != nil {
+		slog.Error("failed to update user", slog.String("error", err.Error()), slog.String("instanceID", tokenInfos.InstanceID), slog.String("userID", tokenInfos.UserID))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user"})
+		return
+	}
+
+	slog.Info("email verified", slog.String("instanceID", tokenInfos.InstanceID), slog.String("userID", tokenInfos.UserID))
+
+	user.Account.Password = ""
+	c.JSON(http.StatusOK, gin.H{"user": user})
 }
 
 func (h *HttpEndpoints) requestOTP(c *gin.Context) {
