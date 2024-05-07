@@ -2,6 +2,7 @@ package globalinfos
 
 import (
 	"errors"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -97,4 +98,15 @@ func (dbService *GlobalInfosDBService) DeleteTempToken(token string) error {
 		return errors.New("document not found")
 	}
 	return nil
+}
+
+func (dbService *GlobalInfosDBService) UpdateTempTokenExpirationTime(token string, newExpiration time.Time) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	filter := bson.M{"token": token}
+
+	update := bson.M{"$set": bson.M{"expiration": newExpiration}}
+	_, err := dbService.collectionTemptokens().UpdateOne(ctx, filter, update)
+	return err
 }
