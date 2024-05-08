@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -55,7 +56,9 @@ func InitLogger(
 			Compress:   compressOldLogs, // compress old files
 			MaxBackups: logFileMaxBackups,
 		}
-		handler := slog.NewJSONHandler(logTarget, opts)
+
+		w := io.MultiWriter(os.Stdout, logTarget)
+		handler := slog.NewJSONHandler(w, opts)
 		logger := slog.New(handler)
 		slog.SetDefault(logger)
 	} else {
