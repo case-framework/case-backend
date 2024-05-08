@@ -53,6 +53,7 @@ func init() {
 		conf.Logging.MaxSize,
 		conf.Logging.MaxAge,
 		conf.Logging.MaxBackups,
+		conf.Logging.CompressOldLogs,
 	)
 
 	if !conf.GinConfig.DebugMode {

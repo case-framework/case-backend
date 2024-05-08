@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -11,13 +12,14 @@ import (
 )
 
 type LoggerConfig struct {
-	LogToFile  bool   `json:"log_to_file" yaml:"log_to_file"`
-	Filename   string `json:"filename" yaml:"filename"`
-	MaxSize    int    `json:"max_size" yaml:"max_size"`
-	MaxAge     int    `json:"max_age" yaml:"max_age"`
-	MaxBackups int    `json:"max_backups" yaml:"max_backups"`
-	LogLevel   string `json:"log_level" yaml:"log_level"`
-	IncludeSrc bool   `json:"include_src" yaml:"include_src"`
+	LogToFile       bool   `json:"log_to_file" yaml:"log_to_file"`
+	Filename        string `json:"filename" yaml:"filename"`
+	MaxSize         int    `json:"max_size" yaml:"max_size"`
+	MaxAge          int    `json:"max_age" yaml:"max_age"`
+	MaxBackups      int    `json:"max_backups" yaml:"max_backups"`
+	LogLevel        string `json:"log_level" yaml:"log_level"`
+	IncludeSrc      bool   `json:"include_src" yaml:"include_src"`
+	CompressOldLogs bool   `json:"compress_old_logs" yaml:"compress_old_logs"`
 }
 
 func InitLogger(
@@ -28,6 +30,7 @@ func InitLogger(
 	logFileMaxSize int,
 	logFileMaxAge int,
 	logFileMaxBackups int,
+	compressOldLogs bool,
 ) {
 
 	opts := &slog.HandlerOptions{
@@ -48,12 +51,14 @@ func InitLogger(
 	if logToFile && logFilename != "" {
 		logTarget := &lumberjack.Logger{
 			Filename:   logFilename,
-			MaxSize:    logFileMaxSize, // megabytes
-			MaxAge:     logFileMaxAge,  // days
-			Compress:   true,           // compress old files
+			MaxSize:    logFileMaxSize,  // megabytes
+			MaxAge:     logFileMaxAge,   // days
+			Compress:   compressOldLogs, // compress old files
 			MaxBackups: logFileMaxBackups,
 		}
-		handler := slog.NewJSONHandler(logTarget, opts)
+
+		w := io.MultiWriter(os.Stdout, logTarget)
+		handler := slog.NewJSONHandler(w, opts)
 		logger := slog.New(handler)
 		slog.SetDefault(logger)
 	} else {
@@ -92,7 +97,7 @@ func ReadConfigFromEnvAndInitLogger(
 	logToFile := os.Getenv(envLogToFile) == "true"
 
 	if !logToFile {
-		InitLogger(level, includeSrc, logToFile, "", 0, 0, 0)
+		InitLogger(level, includeSrc, logToFile, "", 0, 0, 0, true)
 		return
 	}
 
@@ -111,5 +116,5 @@ func ReadConfigFromEnvAndInitLogger(
 		panic(err)
 	}
 
-	InitLogger(level, includeSrc, logToFile, logFilename, logFileMaxSize, logFileMaxAge, logFileMaxBackups)
+	InitLogger(level, includeSrc, logToFile, logFilename, logFileMaxSize, logFileMaxAge, logFileMaxBackups, true)
 }
