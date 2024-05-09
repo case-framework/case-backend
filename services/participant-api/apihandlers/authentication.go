@@ -822,6 +822,17 @@ func (h *HttpEndpoints) verifyOTP(c *gin.Context) {
 		return
 	}
 
+	// mark account verified if email otp is valid
+	if otp.Type == userTypes.EmailOTP && user.Account.AccountConfirmedAt == 0 {
+		user.Account.AccountConfirmedAt = time.Now().Unix()
+		_, err = h.userDBConn.ReplaceUser(token.InstanceID, user)
+		if err != nil {
+			slog.Error("failed to update user", slog.String("error", err.Error()))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
+	}
+
 	mainProfileID, otherProfileIDs := umUtils.GetMainAndOtherProfiles(user)
 
 	if token.LastOTPProvided == nil {
