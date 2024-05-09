@@ -44,10 +44,10 @@ func (h *HttpEndpoints) AddParticipantAuthAPI(rg *gin.RouterGroup) {
 		authGroup.POST("/verify-email", mw.RequirePayload(), h.verifyEmail)
 	}
 
-	otpGroup := rg.Group("/otp")
+	otpGroup := authGroup.Group("/otp")
 	otpGroup.Use(mw.GetAndValidateParticipantUserJWT(h.tokenSignKey))
 	{
-		otpGroup.GET("/request", h.requestOTP)
+		otpGroup.GET("", h.requestOTP)
 		otpGroup.POST("/verify", h.verifyOTP)
 	}
 
@@ -784,6 +784,7 @@ func (h *HttpEndpoints) requestOTP(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid OTP type"})
 		return
 	}
+	c.JSON(http.StatusOK, gin.H{"message": "OTP sent"})
 }
 
 type VerifyOTPReq struct {
@@ -820,6 +821,17 @@ func (h *HttpEndpoints) verifyOTP(c *gin.Context) {
 		randomWait(10)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 		return
+	}
+
+	// mark account verified if email otp is valid
+	if otp.Type == userTypes.EmailOTP && user.Account.AccountConfirmedAt == 0 {
+		user.Account.AccountConfirmedAt = time.Now().Unix()
+		_, err = h.userDBConn.ReplaceUser(token.InstanceID, user)
+		if err != nil {
+			slog.Error("failed to update user", slog.String("error", err.Error()))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
 	}
 
 	mainProfileID, otherProfileIDs := umUtils.GetMainAndOtherProfiles(user)

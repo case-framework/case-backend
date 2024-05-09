@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	globalinfosDB "github.com/case-framework/case-backend/pkg/db/global-infos"
 	userDB "github.com/case-framework/case-backend/pkg/db/participant-user"
@@ -43,6 +44,13 @@ func SendOTPByEmail(
 	if count >= MAX_OTP_ATTEMPTS {
 		slog.Warn("too many OTP requests", slog.String("instanceID", instanceID), slog.String("userID", userID))
 		return errors.New("too many attempts")
+	}
+
+	otp, err := pUserDBService.GetLastOTP(instanceID, userID, string(userTypes.EmailOTP))
+	if err == nil && otp.CreatedAt.After(time.Now().Add(-time.Second*30)) {
+		// last OTP was sent less than 30 seconds ago, so don't send another one - for rate limiting
+		slog.Debug("last OTP was sent less than 30 seconds ago", slog.String("instanceID", instanceID), slog.String("userID", userID))
+		return nil
 	}
 
 	user, err := pUserDBService.GetUser(instanceID, userID)
