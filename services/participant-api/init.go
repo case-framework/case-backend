@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/apihelpers"
+	"github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
 	"github.com/case-framework/case-backend/pkg/db"
 	httpclient "github.com/case-framework/case-backend/pkg/http-client"
 	emailsending "github.com/case-framework/case-backend/pkg/messaging/email-sending"
@@ -57,6 +58,7 @@ type ParticipantApiConfig struct {
 			Use              bool                        `json:"use" yaml:"use"`
 			CertificatePaths apihelpers.CertificatePaths `json:"certificate_paths" yaml:"certificate_paths"`
 		} `json:"mtls" yaml:"mtls"`
+		OtpConfigs []middlewares.OTPConfig `json:"otp_configs" yaml:"otp_configs"`
 	} `json:"gin_config" yaml:"gin_config"`
 
 	// user management configs
