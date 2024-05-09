@@ -79,3 +79,15 @@ func (dbService *ParticipantUserDBService) CountOTP(instanceID string, userID st
 	count, err := dbService.collectionOTPs(instanceID).CountDocuments(ctx, filter)
 	return count, err
 }
+
+func (dbService *ParticipantUserDBService) GetLastOTP(instanceID string, userID string, otpType string) (userTypes.OTP, error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	filter := bson.M{"userID": userID, "type": otpType}
+	sort := bson.M{"createdAt": -1}
+
+	var otp userTypes.OTP
+	err := dbService.collectionOTPs(instanceID).FindOne(ctx, filter, options.FindOne().SetSort(sort)).Decode(&otp)
+	return otp, err
+}
