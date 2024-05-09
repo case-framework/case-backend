@@ -44,10 +44,10 @@ func (h *HttpEndpoints) AddParticipantAuthAPI(rg *gin.RouterGroup) {
 		authGroup.POST("/verify-email", mw.RequirePayload(), h.verifyEmail)
 	}
 
-	otpGroup := rg.Group("/otp")
+	otpGroup := authGroup.Group("/otp")
 	otpGroup.Use(mw.GetAndValidateParticipantUserJWT(h.tokenSignKey))
 	{
-		otpGroup.GET("/request", h.requestOTP)
+		otpGroup.GET("", h.requestOTP)
 		otpGroup.POST("/verify", h.verifyOTP)
 	}
 
@@ -784,6 +784,7 @@ func (h *HttpEndpoints) requestOTP(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid OTP type"})
 		return
 	}
+	c.JSON(http.StatusOK, gin.H{"message": "OTP sent"})
 }
 
 type VerifyOTPReq struct {
