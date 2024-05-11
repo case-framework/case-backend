@@ -53,6 +53,8 @@ func ExpressionEval(expression studyTypes.Expression, evalCtx EvalContext) (val 
 		val, err = evalCtx.getEventPayloadValueAsNum(expression)
 	case "hasEventPayloadKey":
 		val, err = evalCtx.hasEventPayloadKey(expression)
+	case "hasEventPayloadKeyWithValue":
+		val, err = evalCtx.hasEventPayloadKeyWithValue(expression)
 	// Participant state:
 	case "getStudyEntryTime":
 		val, err = evalCtx.getStudyEntryTime(false)
@@ -430,6 +432,33 @@ func (ctx EvalContext) hasEventPayloadKey(exp studyTypes.Expression) (val bool, 
 
 	_, ok := ctx.Event.Payload[arg1Val]
 	return ok, nil
+}
+
+func (ctx EvalContext) hasEventPayloadKeyWithValue(exp studyTypes.Expression) (val bool, err error) {
+	if len(exp.Data) != 2 {
+		return val, errors.New("unexpected numbers of arguments")
+	}
+
+	arg1Val, err := ctx.mustGetStrValue(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+
+	arg2Val, err := ctx.mustGetStrValue(exp.Data[1])
+	if err != nil {
+		return val, err
+	}
+
+	value, ok := ctx.Event.Payload[arg1Val]
+	if !ok {
+		return false, nil
+	}
+
+	if value == arg2Val {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 func (ctx EvalContext) getStudyEntryTime(withIncomingParticipantState bool) (t float64, err error) {
