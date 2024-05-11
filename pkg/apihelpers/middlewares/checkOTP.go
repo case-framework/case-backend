@@ -1,7 +1,6 @@
 package middlewares
 
 import (
-	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -26,8 +25,6 @@ func CheckOTP(otpConf []OTPConfig, tokenSignKey string) gin.HandlerFunc {
 		method := c.Request.Method
 
 		conf := getOTPConfigForRoute(route, method, otpConf)
-		fmt.Printf("route: %s, conf: %+v\n", route, conf)
-
 		if conf == nil {
 			// no OTP is required for this route
 			c.Next()
