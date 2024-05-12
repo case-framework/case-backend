@@ -48,21 +48,23 @@ func OnEnterStudy(instanceID string, studyKey string, profileID string) (result 
 	// To improve privace, we reduce resolution of the timestamp to the day
 	noon := time.Now().Truncate(24 * time.Hour).Add(12 * time.Hour).Unix()
 
-	pState := studyTypes.Participant{
-		ParticipantID: participantID,
-		EnteredAt:     noon,
-		StudyStatus:   studyTypes.PARTICIPANT_STUDY_STATUS_ACTIVE,
-	}
-
 	isNewParticipant := true
 
 	// if participant exists, reuse it
-	pState, err = studyDBService.GetParticipantByID(instanceID, studyKey, participantID)
+	pState, err := studyDBService.GetParticipantByID(instanceID, studyKey, participantID)
 	if err == nil {
 		// participant exists
 		slog.Debug("Participant exists", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID))
 		pState.StudyStatus = studyTypes.PARTICIPANT_STUDY_STATUS_ACTIVE
 		isNewParticipant = false
+	}
+
+	if isNewParticipant {
+		pState = studyTypes.Participant{
+			ParticipantID: participantID,
+			EnteredAt:     noon,
+			StudyStatus:   studyTypes.PARTICIPANT_STUDY_STATUS_ACTIVE,
+		}
 	}
 
 	if isNewParticipant {
