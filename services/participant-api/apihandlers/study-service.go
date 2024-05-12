@@ -55,13 +55,19 @@ func (h *HttpEndpoints) enterStudy(c *gin.Context) {
 		return
 	}
 
+	if req.ProfileID == "" {
+		slog.Error("profileID is required", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "profileID is required"})
+		return
+	}
+
 	if !h.checkProfileBelongsToUser(token.InstanceID, token.Subject, req.ProfileID) {
 		slog.Warn("profile not found", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("profileID", req.ProfileID))
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "profile not found"})
 		return
 	}
 
-	slog.Info("entering study", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+	slog.Debug("entering study", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
 
 	result, err := studyService.OnEnterStudy(token.InstanceID, studyKey, req.ProfileID)
 	if err != nil {
@@ -80,7 +86,7 @@ func (h *HttpEndpoints) customStudyEvent(c *gin.Context) {
 
 	var req struct {
 		EventKey  string                 `json:"eventKey"`
-		ProfileID string                 `json:"profileId"`
+		ProfileID string                 `json:"profileID"`
 		Payload   map[string]interface{} `json:"payload"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -101,7 +107,13 @@ func (h *HttpEndpoints) customStudyEvent(c *gin.Context) {
 		return
 	}
 
-	slog.Info("custom study event", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("eventKey", req.EventKey))
+	if req.ProfileID == "" {
+		slog.Error("profileID is required", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "profileID is required"})
+		return
+	}
+
+	slog.Debug("custom study event", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("eventKey", req.EventKey))
 
 	result, err := studyService.OnCustomStudyEvent(token.InstanceID, studyKey, req.ProfileID, req.EventKey, req.Payload)
 	if err != nil {

@@ -88,7 +88,7 @@ func OnEnterStudy(instanceID string, studyKey string, profileID string) (result 
 	}
 
 	// save participant state
-	pState, err = studyDBService.SaveParticipantState(instanceID, studyKey, pState)
+	pState, err = studyDBService.SaveParticipantState(instanceID, studyKey, actionResult.PState)
 	if err != nil {
 		slog.Error("Error saving participant state", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
 		return
@@ -147,7 +147,7 @@ func OnCustomStudyEvent(instanceID string, studyKey string, profileID string, ev
 	}
 
 	// save participant state
-	pState, err = studyDBService.SaveParticipantState(instanceID, studyKey, pState)
+	pState, err = studyDBService.SaveParticipantState(instanceID, studyKey, actionResult.PState)
 	if err != nil {
 		slog.Error("Error saving participant state", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
 		return
