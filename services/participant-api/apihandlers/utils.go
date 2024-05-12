@@ -128,3 +128,18 @@ func (h *HttpEndpoints) validateTempToken(token string, purposes []string) (tt u
 	err = fmt.Errorf("wrong token purpose: %s", tokenInfos.Purpose)
 	return
 }
+
+func (h *HttpEndpoints) checkProfileBelongsToUser(instanceID, userID, profileID string) bool {
+	user, err := h.userDBConn.GetUser(instanceID, userID)
+	if err != nil {
+		slog.Warn("user not found", slog.String("instanceID", instanceID), slog.String("userID", userID), slog.String("error", err.Error()))
+		return false
+	}
+
+	for _, profile := range user.Profiles {
+		if profile.ID.Hex() == profileID {
+			return true
+		}
+	}
+	return false
+}

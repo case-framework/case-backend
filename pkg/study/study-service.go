@@ -1,11 +1,12 @@
 package study
 
 import (
+	"errors"
 	"log/slog"
+	"time"
 
 	studydb "github.com/case-framework/case-backend/pkg/db/study"
 	"github.com/case-framework/case-backend/pkg/study/studyengine"
-	"github.com/case-framework/case-backend/pkg/study/types"
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 	studyUtils "github.com/case-framework/case-backend/pkg/study/utils"
 )
@@ -24,6 +25,147 @@ func Init(
 	globalSecret = gSecret
 	studyengine.InitStudyEngine(studyDB, externalServices)
 }
+
+func OnEnterStudy(instanceID string, studyKey string, profileID string) (result []studyTypes.AssignedSurvey, err error) {
+	study, err := studyDBService.GetStudy(instanceID, studyKey)
+	if err != nil {
+		slog.Error("Error getting study", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+		return
+	}
+
+	if study.Status != studyTypes.STUDY_STATUS_ACTIVE {
+		slog.Error("Study is not active", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
+		err = errors.New("study is not active")
+		return
+	}
+
+	participantID, confidentialID, err := ComputeParticipantIDs(study, profileID)
+	if err != nil {
+		slog.Error("Error computing participant IDs", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+		return
+	}
+
+	// To improve privace, we reduce resolution of the timestamp to the day
+	noon := time.Now().Truncate(24 * time.Hour).Add(12 * time.Hour).Unix()
+
+	isNewParticipant := true
+
+	// if participant exists, reuse it
+	pState, err := studyDBService.GetParticipantByID(instanceID, studyKey, participantID)
+	if err == nil {
+		// participant exists
+		slog.Debug("Participant exists", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID))
+		pState.StudyStatus = studyTypes.PARTICIPANT_STUDY_STATUS_ACTIVE
+		isNewParticipant = false
+	}
+
+	if isNewParticipant {
+		pState = studyTypes.Participant{
+			ParticipantID: participantID,
+			EnteredAt:     noon,
+			StudyStatus:   studyTypes.PARTICIPANT_STUDY_STATUS_ACTIVE,
+		}
+	}
+
+	if isNewParticipant {
+		// save particicpant id profile lookup
+		if err = studyDBService.AddConfidentialIDMapEntry(instanceID, confidentialID, profileID, studyKey); err != nil {
+			slog.Error("Error saving participant ID profile lookup", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+			return
+		}
+	}
+
+	currentEvent := studyengine.StudyEvent{
+		Type:                                  studyengine.STUDY_EVENT_TYPE_ENTER,
+		InstanceID:                            instanceID,
+		StudyKey:                              studyKey,
+		ParticipantIDForConfidentialResponses: confidentialID,
+	}
+	actionResult, err := getAndPerformStudyRules(instanceID, studyKey, pState, currentEvent)
+	if err != nil {
+		slog.Error("Error getting and performing study rules", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+		return
+	}
+
+	// save participant state
+	pState, err = studyDBService.SaveParticipantState(instanceID, studyKey, actionResult.PState)
+	if err != nil {
+		slog.Error("Error saving participant state", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+		return
+	}
+
+	// save reports
+	saveReports(
+		instanceID,
+		studyKey,
+		actionResult.ReportsToCreate,
+		studyengine.STUDY_EVENT_TYPE_ENTER,
+	)
+
+	result = pState.AssignedSurveys
+	return
+}
+
+func OnCustomStudyEvent(instanceID string, studyKey string, profileID string, eventKey string, payload map[string]interface{}) (result []studyTypes.AssignedSurvey, err error) {
+	study, err := studyDBService.GetStudy(instanceID, studyKey)
+	if err != nil {
+		slog.Error("Error getting study", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+		return
+	}
+
+	if study.Status != studyTypes.STUDY_STATUS_ACTIVE {
+		slog.Error("Study is not active", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
+		err = errors.New("study is not active")
+		return
+	}
+
+	participantID, confidentialID, err := ComputeParticipantIDs(study, profileID)
+	if err != nil {
+		slog.Error("Error computing participant IDs", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+		return
+	}
+
+	pState, err := studyDBService.GetParticipantByID(instanceID, studyKey, participantID)
+	if err != nil {
+		slog.Error("Error getting participant state", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+		return
+	}
+
+	currentEvent := studyengine.StudyEvent{
+		Type:                                  studyengine.STUDY_EVENT_TYPE_CUSTOM,
+		InstanceID:                            instanceID,
+		StudyKey:                              studyKey,
+		ParticipantIDForConfidentialResponses: confidentialID,
+		EventKey:                              eventKey,
+		Payload:                               payload,
+	}
+
+	actionResult, err := getAndPerformStudyRules(instanceID, studyKey, pState, currentEvent)
+	if err != nil {
+		slog.Error("Error getting and performing study rules", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+		return
+	}
+
+	// save participant state
+	pState, err = studyDBService.SaveParticipantState(instanceID, studyKey, actionResult.PState)
+	if err != nil {
+		slog.Error("Error saving participant state", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+		return
+	}
+
+	// save reports
+	saveReports(
+		instanceID,
+		studyKey,
+		actionResult.ReportsToCreate,
+		studyengine.STUDY_EVENT_TYPE_CUSTOM,
+	)
+
+	result = pState.AssignedSurveys
+	return
+}
+
+func OnLeaveStudy() {}
 
 func OnProfileDeleted(instanceID, profileID string) {
 	studies, err := studyDBService.GetStudies(instanceID, "", true)
@@ -113,26 +255,6 @@ func EvalCustomExpressionForParticipant(instanceID, studyKey, participantID stri
 	return studyengine.ExpressionEval(expression, evalCtx)
 }
 
-func getAndPerformStudyRules(instanceID, studyKey string, pState studyTypes.Participant, currentEvent studyengine.StudyEvent) (newState studyengine.ActionData, err error) {
-	newState = studyengine.ActionData{
-		PState:          pState,
-		ReportsToCreate: map[string]types.Report{},
-	}
-
-	rulesObj, err := studyDBService.GetCurrentStudyRules(instanceID, studyKey)
-	if err != nil {
-		return
-	}
-	for _, rule := range rulesObj.Rules {
-		newState, err = studyengine.ActionEval(rule, newState, currentEvent)
-		if err != nil {
-			return
-		}
-	}
-
-	return newState, nil
-}
-
 func ComputeParticipantIDs(study studyTypes.Study, profileID string) (string, string, error) {
 	pID, err := studyUtils.ProfileIDtoParticipantID(profileID, globalSecret, study.SecretKey, study.Configs.IdMappingMethod)
 	if err != nil {
@@ -152,17 +274,4 @@ func ComputeConfidentialIDForParticipant(study studyTypes.Study, participantID s
 		return "", err
 	}
 	return confidentialID, nil
-}
-
-func saveReports(instanceID string, studyKey string, reports map[string]studyTypes.Report, withResponseID string) {
-	// save reports
-	for _, report := range reports {
-		report.ResponseID = withResponseID
-		err := studyDBService.SaveReport(instanceID, studyKey, report)
-		if err != nil {
-			slog.Error("Error saving report", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", report.ParticipantID), slog.String("error", err.Error()))
-		} else {
-			slog.Debug("Report with key '%s' for participant %s saved.", report.Key, report.ParticipantID)
-		}
-	}
 }
