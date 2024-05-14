@@ -27,18 +27,30 @@ func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
 	{
 		eventsGroup.POST("/enter", h.enterStudy)
 		eventsGroup.POST("/custom", h.customStudyEvent)
-		//eventsGroup.POST("/submit", h.submitSurvey)
+		// eventsGroup.POST("/submit", h.submitSurvey)
 		// eventsGroup.POST("/leave", h.leaveStudy)
+		// merge temporary participant
 	}
 
-	// get assigned surveys
-	// get survey infos
-	// get survey for participant
+	participantInfoGroup := studyServiceGroup.Group("/participant-data/:studyKey")
+	participantInfoGroup.Use(mw.GetAndValidateParticipantUserJWT(h.tokenSignKey))
+	{
+		participantInfoGroup.GET("/surveys", h.getAssignedSurveys)
+		participantInfoGroup.GET("/survey/:surveyKey", h.getSurveyWithContext) // ?pid=profileID
 
-	// merge temporary participant
+		// delete files
+		// file upload
 
-	// delete files
-	// file upload
+		// reports:
+		// get reports reports/studyKey - query for profileIDs, report key, page, limit, filter
+	}
+
+	// temporary participants
+	// register temporary participant
+	// get assigned surveys for temporary participant with info to display
+	// get survey with context for temporary participant
+	// submit response for temporary participant
+
 }
 
 func (h *HttpEndpoints) enterStudy(c *gin.Context) {
@@ -123,4 +135,38 @@ func (h *HttpEndpoints) customStudyEvent(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"assignedSurveys": result})
+}
+
+func (h *HttpEndpoints) getAssignedSurveys(c *gin.Context) {
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) getSurveyWithContext(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	studyKey := c.Param("studyKey")
+	surveyKey := c.Param("surveyKey")
+	pid := c.DefaultQuery("pid", "")
+
+	if pid == "" {
+		slog.Error("profileID is required", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "profileID is required"})
+		return
+	}
+
+	if !h.checkProfileBelongsToUser(token.InstanceID, token.Subject, pid) {
+		slog.Warn("profile not found", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("profileID", pid))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "profile not found"})
+		return
+	}
+
+	slog.Info("getting survey with context", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey), slog.String("profileID", pid))
+
+	result, err := studyService.GetAssignedSurveyWithContext(token.InstanceID, studyKey, surveyKey, pid)
+	if err != nil {
+		slog.Error("error getting survey with context", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting survey with context"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"surveyWithContext": result})
 }
