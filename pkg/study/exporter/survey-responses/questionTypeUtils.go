@@ -47,9 +47,7 @@ func parseSimpleSingleChoiceGroup(questionKey string, responseSlotDef sd.Respons
 					}
 				}
 			} else {
-				if _, hasKey := responseCols[valueKey]; hasKey {
-					responseCols[valueKey] = selection.Value
-				}
+				responseCols[valueKey] = selection.Value
 			}
 		}
 	}
@@ -95,9 +93,7 @@ func parseSingleChoiceGroupList(questionKey string, responseSlotDefs []sd.Respon
 				}
 			}
 		} else {
-			if _, hasKey := responseCols[valueKey]; hasKey {
-				responseCols[valueKey] = selection.Value
-			}
+			responseCols[valueKey] = selection.Value
 		}
 	}
 	return responseCols
@@ -143,9 +139,7 @@ func parseSimpleMultipleChoiceGroup(questionKey string, responseSlotDef sd.Respo
 					}
 				} else {
 					valueKey += questionOptionSep + sd.OPEN_FIELD_COL_SUFFIX
-					if _, hasKey := responseCols[valueKey]; hasKey {
-						responseCols[valueKey] = item.Value
-					}
+					responseCols[valueKey] = item.Value
 				}
 			}
 		}
@@ -197,9 +191,7 @@ func parseMultipleChoiceGroupList(questionKey string, responseSlotDefs []sd.Resp
 						}
 					} else {
 						valueKey += questionOptionSep + sd.OPEN_FIELD_COL_SUFFIX
-						if _, hasKey := responseCols[valueKey]; hasKey {
-							responseCols[valueKey] = item.Value
-						}
+						responseCols[valueKey] = item.Value
 					}
 				}
 			}
