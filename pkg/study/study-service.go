@@ -107,7 +107,7 @@ func OnEnterStudy(instanceID string, studyKey string, profileID string) (result 
 	return
 }
 
-func RegisterTempParticipant(instanceID string, studyKey string) (pState *studyTypes.Participant, err error) {
+func OnRegisterTempParticipant(instanceID string, studyKey string) (pState *studyTypes.Participant, err error) {
 	study, err := studyDBService.GetStudy(instanceID, studyKey)
 	if err != nil {
 		slog.Error("error getting study", slog.String("error", err.Error()))
@@ -210,6 +210,69 @@ func OnCustomStudyEvent(instanceID string, studyKey string, profileID string, ev
 		actionResult.ReportsToCreate,
 		studyengine.STUDY_EVENT_TYPE_CUSTOM,
 	)
+
+	result = pState.AssignedSurveys
+	return
+}
+
+func OnSubmitResponseForTempParticipant(instanceID string, studyKey string, participantID string, response studyTypes.SurveyResponse) (result []studyTypes.AssignedSurvey, err error) {
+	study, err := studyDBService.GetStudy(instanceID, studyKey)
+	if err != nil {
+		slog.Error("error getting study", slog.String("error", err.Error()))
+		return
+	}
+
+	if study.Status != studyTypes.STUDY_STATUS_ACTIVE {
+		slog.Error("study is not active", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
+		err = errors.New("study is not active")
+		return
+	}
+
+	pState, err := studyDBService.GetParticipantByID(instanceID, studyKey, participantID)
+	if err != nil {
+		slog.Error("error getting participant", slog.String("error", err.Error()))
+		return
+	}
+
+	if pState.StudyStatus != studyTypes.PARTICIPANT_STUDY_STATUS_TEMPORARY {
+		slog.Error("participant is not temporary", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID))
+		err = errors.New("participant is not temporary")
+		return
+	}
+
+	confidentialID, err := ComputeConfidentialIDForParticipant(study, participantID)
+	if err != nil {
+		slog.Error("Error computing confidential ID", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+		return
+	}
+
+	currentEvent := studyengine.StudyEvent{
+		Type:                                  studyengine.STUDY_EVENT_TYPE_SUBMIT,
+		InstanceID:                            instanceID,
+		StudyKey:                              studyKey,
+		Response:                              response,
+		ParticipantIDForConfidentialResponses: confidentialID,
+	}
+	actionResult, err := getAndPerformStudyRules(instanceID, studyKey, pState, currentEvent)
+	if err != nil {
+		slog.Error("Error getting and performing study rules", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+		return
+	}
+
+	// save participant state
+	_, err = studyDBService.SaveParticipantState(instanceID, studyKey, actionResult.PState)
+	if err != nil {
+		slog.Error("Error saving participant state", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+		return
+	}
+
+	responseId, err := saveResponses(instanceID, studyKey, response, pState, confidentialID)
+	if err != nil {
+		slog.Error("Error saving responses", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+		return
+	}
+
+	saveReports(instanceID, studyKey, actionResult.ReportsToCreate, responseId)
 
 	result = pState.AssignedSurveys
 	return
