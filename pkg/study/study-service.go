@@ -9,6 +9,7 @@ import (
 	"github.com/case-framework/case-backend/pkg/study/studyengine"
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 	studyUtils "github.com/case-framework/case-backend/pkg/study/utils"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 var (
@@ -103,6 +104,55 @@ func OnEnterStudy(instanceID string, studyKey string, profileID string) (result 
 	)
 
 	result = pState.AssignedSurveys
+	return
+}
+
+func RegisterTempParticipant(instanceID string, studyKey string) (pState *studyTypes.Participant, err error) {
+	study, err := studyDBService.GetStudy(instanceID, studyKey)
+	if err != nil {
+		slog.Error("error getting study", slog.String("error", err.Error()))
+		return
+	}
+
+	if study.Status != studyTypes.STUDY_STATUS_ACTIVE {
+		slog.Error("study is not active", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
+		err = errors.New("study is not active")
+		return
+	}
+
+	tempProfileID := primitive.NewObjectID().Hex()
+	participantID, _, err := ComputeParticipantIDs(study, tempProfileID)
+	if err != nil {
+		slog.Error("Error computing participant IDs", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+		return
+	}
+
+	pState = &studyTypes.Participant{
+		ParticipantID: participantID,
+		StudyStatus:   studyTypes.PARTICIPANT_STUDY_STATUS_TEMPORARY,
+		EnteredAt:     time.Now().Unix(),
+	}
+
+	currentEvent := studyengine.StudyEvent{
+		Type:       studyengine.STUDY_EVENT_TYPE_ENTER,
+		InstanceID: instanceID,
+		StudyKey:   studyKey,
+	}
+
+	actionResult, err := getAndPerformStudyRules(instanceID, studyKey, *pState, currentEvent)
+	if err != nil {
+		slog.Error("Error getting and performing study rules", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+		return
+	}
+
+	// save participant state
+	_, err = studyDBService.SaveParticipantState(instanceID, studyKey, actionResult.PState)
+	if err != nil {
+		slog.Error("Error saving participant state", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+		return
+	}
+
+	saveReports(instanceID, studyKey, actionResult.ReportsToCreate, studyengine.STUDY_EVENT_TYPE_ENTER)
 	return
 }
 

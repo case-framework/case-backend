@@ -48,7 +48,7 @@ func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
 	// temporary participants
 	tempParticipantGroup := studyServiceGroup.Group("/temp-participant")
 	{
-		// tempParticipantGroup.POST("/register", mw.RequirePayload(), h.registerTempParticipant)
+		tempParticipantGroup.POST("/register", mw.RequirePayload(), h.registerTempParticipant)
 		// tempParticipantGroup.GET("/surveys", h.getTempParticipantSurveys)                     // ?pid=profileID&instanceID=instanceID&studyKey=studyKey
 		tempParticipantGroup.GET("/survey", h.getTempParticipantSurveyWithContext) // ?pid=profileID&instanceID=instanceID&studyKey=studyKey&surveyKey=surveyKey
 		// tempParticipantGroup.POST("/submit-response", mw.RequirePayload(), h.submitTempParticipantResponse)
@@ -171,6 +171,40 @@ func (h *HttpEndpoints) getSurveyWithContext(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"surveyWithContext": result})
+}
+
+func (h *HttpEndpoints) registerTempParticipant(c *gin.Context) {
+	var req struct {
+		InstanceID string `json:"instanceId"`
+		StudyKey   string `json:"studyKey"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if req.InstanceID == "" || req.StudyKey == "" {
+		slog.Error("missing required fields", slog.String("instanceID", req.InstanceID), slog.String("studyKey", req.StudyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing required fields"})
+		return
+	}
+
+	if !h.isInstanceAllowed(req.InstanceID) {
+		slog.Error("instance not allowed", slog.String("instanceID", req.InstanceID))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "instance not allowed"})
+		return
+	}
+
+	slog.Info("registering temporary participant", slog.String("instanceID", req.InstanceID), slog.String("studyKey", req.StudyKey))
+
+	pState, err := studyService.RegisterTempParticipant(req.InstanceID, req.StudyKey)
+	if err != nil {
+		slog.Error("error registering temporary participant", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error registering temporary participant"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"participant": pState})
 }
 
 func (h *HttpEndpoints) getTempParticipantSurveyWithContext(c *gin.Context) {
