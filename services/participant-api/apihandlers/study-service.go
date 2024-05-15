@@ -3,6 +3,7 @@ package apihandlers
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
@@ -37,14 +38,14 @@ func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
 	participantInfoGroup := studyServiceGroup.Group("/participant-data/:studyKey")
 	participantInfoGroup.Use(mw.GetAndValidateParticipantUserJWT(h.tokenSignKey))
 	{
-		participantInfoGroup.GET("/surveys", h.getAssignedSurveys)
+		participantInfoGroup.GET("/surveys", h.getAssignedSurveys)             // ?pids=p1,p2,p3
 		participantInfoGroup.GET("/survey/:surveyKey", h.getSurveyWithContext) // ?pid=profileID
 
-		// delete files
-		// file upload
+		// TODO: delete files
+		// TODO: file upload
 
 		// reports:
-		// get reports reports/studyKey - query for profileIDs, report key, page, limit, filter
+		// TODO: get reports reports/studyKey - query for profileIDs, report key, page, limit, filter
 	}
 
 	// temporary participants
@@ -173,7 +174,32 @@ func (h *HttpEndpoints) mergeTempParticipant(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getAssignedSurveys(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	pids := c.DefaultQuery("pids", "")
+	profileIDs := strings.Split(pids, ",")
+	if len(profileIDs) < 1 {
+		slog.Error("missing required fields", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing required fields"})
+		return
+	}
+
+	if !h.checkAllProfilesBelongsToUser(token.InstanceID, token.Subject, profileIDs) {
+		slog.Warn("at least one profile did not belong to the user", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "at least one profile did not belong to the user"})
+		return
+	}
+
+	assignedSurveysWithInfos, err := studyService.GetAssignedSurveys(token.InstanceID, studyKey, profileIDs)
+	if err != nil {
+		slog.Error("error getting assigned surveys", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting assigned surveys"})
+		return
+	}
+
+	c.JSON(http.StatusOK, assignedSurveysWithInfos)
 }
 
 func (h *HttpEndpoints) getSurveyWithContext(c *gin.Context) {

@@ -143,3 +143,25 @@ func (h *HttpEndpoints) checkProfileBelongsToUser(instanceID, userID, profileID 
 	}
 	return false
 }
+
+func (h *HttpEndpoints) checkAllProfilesBelongsToUser(instanceID, userID string, profileIDs []string) bool {
+	user, err := h.userDBConn.GetUser(instanceID, userID)
+	if err != nil {
+		slog.Warn("user not found", slog.String("instanceID", instanceID), slog.String("userID", userID), slog.String("error", err.Error()))
+		return false
+	}
+
+	for _, profileID := range profileIDs {
+		found := false
+		for _, profile := range user.Profiles {
+			if profile.ID.Hex() == profileID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
+}
