@@ -3,6 +3,7 @@ package study
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -48,6 +49,15 @@ func (dbService *StudyDBService) CreateIndexForResponsesCollection(instanceID st
 	}
 	_, err := collection.Indexes().CreateMany(ctx, indexes)
 	return err
+}
+
+func (dbService *StudyDBService) AddSurveyResponse(instanceID string, studyKey string, response studyTypes.SurveyResponse) (string, error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+	response.ArrivedAt = time.Now().Unix()
+	res, err := dbService.collectionResponses(instanceID, studyKey).InsertOne(ctx, response)
+	id := res.InsertedID.(primitive.ObjectID)
+	return id.Hex(), err
 }
 
 // get response by id
