@@ -17,6 +17,10 @@ var (
 	globalSecret   string
 )
 
+const (
+	TEMPORARY_PARTICIPANT_TAKEOVER_PERIOD = 24 * 60 * 60 // seconds - after this period, the temporary participant is considered to be inactive and cannot be used anymore
+)
+
 func Init(
 	studyDB *studydb.StudyDBService,
 	gSecret string,
@@ -237,6 +241,14 @@ func OnSubmitResponseForTempParticipant(instanceID string, studyKey string, part
 	if pState.StudyStatus != studyTypes.PARTICIPANT_STUDY_STATUS_TEMPORARY {
 		slog.Error("participant is not temporary", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID))
 		err = errors.New("participant is not temporary")
+		return
+	}
+
+	if pState.EnteredAt+TEMPORARY_PARTICIPANT_TAKEOVER_PERIOD < time.Now().Unix() {
+		// This is to prevent takeover of temporary participants by brute force trial
+		time.Sleep(10 * time.Second)
+		slog.Error("temporary participant is too old", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID))
+		err = errors.New("temporary participant is too old")
 		return
 	}
 
