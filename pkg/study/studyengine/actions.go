@@ -18,7 +18,7 @@ import (
 )
 
 func ActionEval(action studyTypes.Expression, oldState ActionData, event StudyEvent) (newState ActionData, err error) {
-	if event.Type == STUDY_EVENT_TYPE_SUBMISSION {
+	if event.Type == STUDY_EVENT_TYPE_SUBMIT {
 		oldState, err = updateLastSubmissionForSurvey(oldState, event)
 		if err != nil {
 			return oldState, err

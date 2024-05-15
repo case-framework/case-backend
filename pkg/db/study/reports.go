@@ -2,6 +2,7 @@ package study
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -75,6 +76,20 @@ func (dbService *StudyDBService) GetReportCountForQuery(instanceID string, study
 	defer cancel()
 
 	return dbService.collectionReports(instanceID, studyKey).CountDocuments(ctx, filter)
+}
+
+func (dbService *StudyDBService) UpdateParticipantIDonReports(instanceID string, studyKey string, oldID string, newID string) (count int64, err error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	if oldID == "" || newID == "" {
+		return 0, errors.New("participant id must be defined")
+	}
+	filter := bson.M{"participantID": oldID}
+	update := bson.M{"$set": bson.M{"participantID": newID}}
+
+	res, err := dbService.collectionReports(instanceID, studyKey).UpdateMany(ctx, filter, update)
+	return res.ModifiedCount, err
 }
 
 // get reports for query with pagination

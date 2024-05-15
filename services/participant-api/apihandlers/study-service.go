@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	studyService "github.com/case-framework/case-backend/pkg/study"
+	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
 func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
@@ -24,12 +25,13 @@ func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
 	// study events
 	eventsGroup := studyServiceGroup.Group("/events/:studyKey")
 	eventsGroup.Use(mw.GetAndValidateParticipantUserJWT(h.tokenSignKey))
+	eventsGroup.Use(mw.RequirePayload())
 	{
 		eventsGroup.POST("/enter", h.enterStudy)
 		eventsGroup.POST("/custom", h.customStudyEvent)
 		// eventsGroup.POST("/submit", h.submitSurvey)
 		// eventsGroup.POST("/leave", h.leaveStudy)
-		// merge temporary participant
+		eventsGroup.POST("/merge-temporary-participant", h.mergeTempParticipant)
 	}
 
 	participantInfoGroup := studyServiceGroup.Group("/participant-data/:studyKey")
@@ -48,10 +50,10 @@ func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
 	// temporary participants
 	tempParticipantGroup := studyServiceGroup.Group("/temp-participant")
 	{
-		// tempParticipantGroup.POST("/register", mw.RequirePayload(), h.registerTempParticipant)
-		// tempParticipantGroup.GET("/surveys", h.getTempParticipantSurveys)                     // ?pid=profileID&instanceID=instanceID&studyKey=studyKey
+		tempParticipantGroup.POST("/register", mw.RequirePayload(), h.registerTempParticipant)
+		tempParticipantGroup.GET("/surveys", h.getTempParticipantSurveys)          // ?pid=profileID&instanceID=instanceID&studyKey=studyKey
 		tempParticipantGroup.GET("/survey", h.getTempParticipantSurveyWithContext) // ?pid=profileID&instanceID=instanceID&studyKey=studyKey&surveyKey=surveyKey
-		// tempParticipantGroup.POST("/submit-response", mw.RequirePayload(), h.submitTempParticipantResponse)
+		tempParticipantGroup.POST("/submit-response", mw.RequirePayload(), h.submitTempParticipantResponse)
 	}
 }
 
@@ -139,6 +141,37 @@ func (h *HttpEndpoints) customStudyEvent(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"assignedSurveys": result})
 }
 
+func (h *HttpEndpoints) mergeTempParticipant(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	var req struct {
+		ProfileID              string `json:"profileID"`
+		TemporaryParticipantID string `json:"temporaryParticipantID"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if !h.checkProfileBelongsToUser(token.InstanceID, token.Subject, req.ProfileID) {
+		slog.Warn("profile not found", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("profileID", req.ProfileID))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "profile not found"})
+		return
+	}
+
+	result, err := studyService.OnMergeTempParticipant(token.InstanceID, studyKey, req.ProfileID, req.TemporaryParticipantID)
+	if err != nil {
+		slog.Error("error merging temporary participant", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error merging temporary participant"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"participant": result})
+}
+
 func (h *HttpEndpoints) getAssignedSurveys(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
@@ -173,6 +206,67 @@ func (h *HttpEndpoints) getSurveyWithContext(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"surveyWithContext": result})
 }
 
+func (h *HttpEndpoints) registerTempParticipant(c *gin.Context) {
+	var req struct {
+		InstanceID string `json:"instanceId"`
+		StudyKey   string `json:"studyKey"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if req.InstanceID == "" || req.StudyKey == "" {
+		slog.Error("missing required fields", slog.String("instanceID", req.InstanceID), slog.String("studyKey", req.StudyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing required fields"})
+		return
+	}
+
+	if !h.isInstanceAllowed(req.InstanceID) {
+		slog.Error("instance not allowed", slog.String("instanceID", req.InstanceID))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "instance not allowed"})
+		return
+	}
+
+	slog.Info("registering temporary participant", slog.String("instanceID", req.InstanceID), slog.String("studyKey", req.StudyKey))
+
+	pState, err := studyService.OnRegisterTempParticipant(req.InstanceID, req.StudyKey)
+	if err != nil {
+		slog.Error("error registering temporary participant", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error registering temporary participant"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"participant": pState})
+}
+
+func (h *HttpEndpoints) getTempParticipantSurveys(c *gin.Context) {
+	instanceID := c.DefaultQuery("instanceID", "")
+	studyKey := c.DefaultQuery("studyKey", "")
+	pid := c.DefaultQuery("pid", "")
+
+	if !h.isInstanceAllowed(instanceID) {
+		slog.Error("instance not allowed", slog.String("instanceID", instanceID))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "instance not allowed"})
+		return
+	}
+
+	if instanceID == "" || studyKey == "" || pid == "" {
+		slog.Error("missing required fields", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("pid", pid))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing required fields"})
+		return
+	}
+
+	assignedSurveysWithInfos, err := studyService.GetAssignedSurveysForTempParticipant(instanceID, studyKey, pid)
+	if err != nil {
+		slog.Error("error getting assigned surveys for temporary participant", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting assigned surveys for temporary participant"})
+		return
+	}
+
+	c.JSON(http.StatusOK, assignedSurveysWithInfos)
+}
+
 func (h *HttpEndpoints) getTempParticipantSurveyWithContext(c *gin.Context) {
 	instanceID := c.DefaultQuery("instanceID", "")
 	studyKey := c.DefaultQuery("studyKey", "")
@@ -198,4 +292,40 @@ func (h *HttpEndpoints) getTempParticipantSurveyWithContext(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"surveyWithContext": result})
+}
+
+func (h *HttpEndpoints) submitTempParticipantResponse(c *gin.Context) {
+	var req struct {
+		InstanceID string                    `json:"instanceId"`
+		StudyKey   string                    `json:"studyKey"`
+		Pid        string                    `json:"pid"`
+		Response   studyTypes.SurveyResponse `json:"response"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if req.InstanceID == "" || req.StudyKey == "" || req.Pid == "" {
+		slog.Error("missing required fields", slog.String("instanceID", req.InstanceID), slog.String("studyKey", req.StudyKey), slog.String("pid", req.Pid))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing required fields"})
+		return
+	}
+
+	if !h.isInstanceAllowed(req.InstanceID) {
+		slog.Error("instance not allowed", slog.String("instanceID", req.InstanceID))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "instance not allowed"})
+		return
+	}
+
+	slog.Info("submitting response for temporary participant", slog.String("instanceID", req.InstanceID), slog.String("studyKey", req.StudyKey), slog.String("pid", req.Pid))
+
+	result, err := studyService.OnSubmitResponseForTempParticipant(req.InstanceID, req.StudyKey, req.Pid, req.Response)
+	if err != nil {
+		slog.Error("error submitting response for temporary participant", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error submitting response for temporary participant"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"assignedSurveys": result})
 }

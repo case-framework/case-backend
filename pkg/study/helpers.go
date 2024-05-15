@@ -1,6 +1,7 @@
 package study
 
 import (
+	"errors"
 	"log/slog"
 	"time"
 
@@ -10,12 +11,26 @@ import (
 )
 
 /* func checkIfParticipantExists(instanceID string, studyKey string, participantID string, withStatus string) bool {
-	pState, err := studyDBService.GetParticipantByID(instanceID, studyKey, participantID)
-	if err != nil || (withStatus != "" && pState.StudyStatus != withStatus) {
-		return false
+pState, err := studyDBService.GetParticipantByID(instanceID, studyKey, participantID)
+if err != nil || (withStatus != "" && pState.StudyStatus != withStatus) {
+	return false
+}
+return err == nil
+}
+*/
+
+func getStudyIfActive(instanceID string, studyKey string) (study studyTypes.Study, err error) {
+	study, err = studyDBService.GetStudy(instanceID, studyKey)
+	if err != nil {
+		return study, err
 	}
-	return err == nil
-} */
+
+	if study.Status != studyTypes.STUDY_STATUS_ACTIVE {
+		return study, errors.New("study is not active")
+	}
+
+	return study, nil
+}
 
 func getAndPerformStudyRules(instanceID, studyKey string, pState studyTypes.Participant, currentEvent studyengine.StudyEvent) (newState studyengine.ActionData, err error) {
 	newState = studyengine.ActionData{
@@ -35,6 +50,62 @@ func getAndPerformStudyRules(instanceID, studyKey string, pState studyTypes.Part
 	}
 
 	return newState, nil
+}
+
+func saveResponses(instanceID string, studyKey string, response studyTypes.SurveyResponse, pState studyTypes.Participant, confidentialID string) (string, error) {
+	nonConfidentialResponses := []studyTypes.SurveyItemResponse{}
+	confidentialResponses := []studyTypes.SurveyItemResponse{}
+
+	for _, item := range response.Responses {
+		if len(item.ConfidentialMode) > 0 {
+			item.Meta = types.ResponseMeta{}
+			confidentialResponses = append(confidentialResponses, item)
+		} else {
+			nonConfidentialResponses = append(nonConfidentialResponses, item)
+		}
+	}
+	response.Responses = nonConfidentialResponses
+	response.ParticipantID = pState.ParticipantID
+
+	if response.Context == nil {
+		response.Context = map[string]string{}
+	}
+	response.Context["session"] = pState.CurrentStudySession
+
+	var rID string
+	var err error
+	if len(nonConfidentialResponses) > 0 || len(confidentialResponses) < 1 {
+		// Save responses only if non empty or there were no confidential responses
+		rID, err = studyDBService.AddSurveyResponse(instanceID, studyKey, response)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	// Save confidential data:
+	if len(confidentialResponses) > 0 {
+		for _, confItem := range confidentialResponses {
+			rItem := studyTypes.SurveyResponse{
+				Key:           confItem.Key,
+				ParticipantID: confidentialID,
+				Responses:     []studyTypes.SurveyItemResponse{confItem},
+			}
+			if confItem.ConfidentialMode == "add" {
+				_, err := studyDBService.AddConfidentialResponse(instanceID, studyKey, rItem)
+				if err != nil {
+					slog.Error("Unexpected error", slog.String("error", err.Error()))
+				}
+			} else {
+				// Replace
+				err := studyDBService.ReplaceConfidentialResponse(instanceID, studyKey, rItem)
+				if err != nil {
+					slog.Error("Unexpected error", slog.String("error", err.Error()))
+				}
+			}
+		}
+	}
+
+	return rID, nil
 }
 
 func saveReports(instanceID string, studyKey string, reports map[string]studyTypes.Report, withResponseID string) {

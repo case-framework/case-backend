@@ -23,16 +23,76 @@ type SurveyContext struct {
 	ParticipantFlags  map[string]string           `json:"participantFlags,omitempty"`
 }
 
-func GetAssignedSurveyWithContext(instanceID string, studyKey string, surveyKey string, profileID string) (surveyWithContent AssignedSurveyWithContext, err error) {
-	study, err := studyDBService.GetStudy(instanceID, studyKey)
+type SurveyInfo struct {
+	SurveyKey       string                       `json:"surveyKey"`
+	StudyKey        string                       `json:"studyKey"`
+	Name            []studyTypes.LocalisedObject `json:"name"`
+	Description     []studyTypes.LocalisedObject `json:"description"`
+	TypicalDuration []studyTypes.LocalisedObject `json:"typicalDuration"`
+}
+
+type AssignedSurveysWithInfos struct {
+	Surveys     []studyTypes.AssignedSurvey `json:"surveys"`
+	SurveyInfos []*SurveyInfo               `json:"surveyInfos"`
+}
+
+func GetAssignedSurveysForTempParticipant(instanceID string, studyKey string, participantID string) (surveysWithInfos AssignedSurveysWithInfos, err error) {
+	_, err = getStudyIfActive(instanceID, studyKey)
 	if err != nil {
 		slog.Error("error getting study", slog.String("error", err.Error()))
 		return
 	}
 
-	if study.Status != studyTypes.STUDY_STATUS_ACTIVE {
-		slog.Error("study is not active", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
-		err = errors.New("study is not active")
+	pState, err := studyDBService.GetParticipantByID(instanceID, studyKey, participantID)
+	if err != nil {
+		slog.Error("error getting participant state", slog.String("error", err.Error()))
+		return
+	}
+
+	if pState.StudyStatus != studyTypes.PARTICIPANT_STUDY_STATUS_TEMPORARY {
+		slog.Error("participant is not temporary", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID))
+		err = errors.New("participant is not temporary")
+		return
+	}
+
+	surveysWithInfos = AssignedSurveysWithInfos{
+		Surveys:     pState.AssignedSurveys,
+		SurveyInfos: []*SurveyInfo{},
+	}
+
+	for _, survey := range pState.AssignedSurveys {
+		// is not in the survey info list yet
+		found := false
+		for _, surveyInfo := range surveysWithInfos.SurveyInfos {
+			if surveyInfo.SurveyKey == survey.SurveyKey {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			surveyDef, err := studyDBService.GetCurrentSurveyVersion(instanceID, studyKey, survey.SurveyKey)
+			if err != nil {
+				slog.Error("error getting survey definition", slog.String("error", err.Error()))
+				continue
+			}
+			surveyInfo := SurveyInfo{
+				SurveyKey:       survey.SurveyKey,
+				StudyKey:        studyKey,
+				Name:            surveyDef.Props.Name,
+				Description:     surveyDef.Props.Description,
+				TypicalDuration: surveyDef.Props.TypicalDuration,
+			}
+			surveysWithInfos.SurveyInfos = append(surveysWithInfos.SurveyInfos, &surveyInfo)
+		}
+	}
+	return
+}
+
+func GetAssignedSurveyWithContext(instanceID string, studyKey string, surveyKey string, profileID string) (surveyWithContent AssignedSurveyWithContext, err error) {
+	study, err := getStudyIfActive(instanceID, studyKey)
+	if err != nil {
+		slog.Error("error getting study", slog.String("error", err.Error()))
 		return
 	}
 
@@ -97,15 +157,9 @@ func GetAssignedSurveyWithContext(instanceID string, studyKey string, surveyKey 
 }
 
 func GetSurveyWithContextForTempParticipant(instanceID string, studyKey string, surveyKey string, tempParticipantID string) (surveyWithContent AssignedSurveyWithContext, err error) {
-	study, err := studyDBService.GetStudy(instanceID, studyKey)
+	_, err = getStudyIfActive(instanceID, studyKey)
 	if err != nil {
 		slog.Error("error getting study", slog.String("error", err.Error()))
-		return
-	}
-
-	if study.Status != studyTypes.STUDY_STATUS_ACTIVE {
-		slog.Error("study is not active", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
-		err = errors.New("study is not active")
 		return
 	}
 
