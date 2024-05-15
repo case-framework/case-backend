@@ -297,13 +297,6 @@ func OnMergeTempParticipant(instanceID string, studyKey string, profileID string
 		return
 	}
 
-	// delete temporary participant
-	err = studyDBService.DeleteParticipantByID(instanceID, studyKey, temporaryParticipantID)
-	if err != nil {
-		slog.Error("Error deleting temporary participant", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
-		return
-	}
-
 	// update participant ID to all response object
 	count, err := studyDBService.UpdateParticipantIDonResponses(instanceID, studyKey, temporaryParticipantID, participantID)
 	if err != nil {
@@ -326,13 +319,21 @@ func OnMergeTempParticipant(instanceID string, studyKey string, profileID string
 		slog.Error("Error computing confidential ID", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
 		return
 	}
-	count, err = studyDBService.UpdateParticipantIDonConfidentialResponses(instanceID, studyKey, oldConfidentialID, participantID)
+	count, err = studyDBService.UpdateParticipantIDonConfidentialResponses(instanceID, studyKey, oldConfidentialID, confidentialID)
 	if err != nil {
 		slog.Error("Error updating participant ID on confidential responses", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
 	} else {
 		slog.Debug("updated confidential responses for participant", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.Int64("count", count))
 	}
 
+	// delete temporary participant
+	err = studyDBService.DeleteParticipantByID(instanceID, studyKey, temporaryParticipantID)
+	if err != nil {
+		slog.Error("Error deleting temporary participant", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+		return
+	}
+
+	err = nil
 	result = pState.AssignedSurveys
 	return
 }
