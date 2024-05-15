@@ -2,6 +2,13 @@ package types
 
 import "go.mongodb.org/mongo-driver/bson/primitive"
 
+const (
+	SURVEY_AVAILABLE_FOR_PUBLIC                   = "public"
+	SURVEY_AVAILABLE_FOR_TEMPORARY_PARTICIPANTS   = "temporary_participants"
+	SURVEY_AVAILABLE_FOR_ACTIVE_PARTICIPANTS      = "active_participants"
+	SURVEY_AVAILABLE_FOR_PARTICIPANTS_IF_ASSIGNED = "participants_if_assigned"
+)
+
 type Survey struct {
 	ID                           primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
 	SurveyKey                    string             `bson:"surveyKey,omitempty" json:"surveyKey,omitempty"`

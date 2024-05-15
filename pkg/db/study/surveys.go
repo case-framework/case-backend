@@ -143,7 +143,10 @@ func (dbService *StudyDBService) GetCurrentSurveyVersion(instanceID string, stud
 
 	filter := bson.M{
 		"surveyDefinition.key": surveyKey,
-		"unpublished":          0,
+		"$or": []bson.M{
+			{"unpublished": 0},
+			{"unpublished": bson.M{"$exists": false}},
+		},
 	}
 
 	opts := &options.FindOneOptions{}

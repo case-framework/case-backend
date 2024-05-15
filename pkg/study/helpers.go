@@ -2,6 +2,7 @@ package study
 
 import (
 	"log/slog"
+	"time"
 
 	"github.com/case-framework/case-backend/pkg/study/studyengine"
 	"github.com/case-framework/case-backend/pkg/study/types"
@@ -47,4 +48,27 @@ func saveReports(instanceID string, studyKey string, reports map[string]studyTyp
 			slog.Debug("Report with key '%s' for participant %s saved.", report.Key, report.ParticipantID)
 		}
 	}
+}
+
+func isSurveyAssignedAndActive(pState studyTypes.Participant, surveyKey string) bool {
+	now := time.Now().Unix()
+
+	for _, as := range pState.AssignedSurveys {
+		if as.SurveyKey != surveyKey {
+			continue
+		}
+
+		if as.ValidFrom > 0 && now < as.ValidFrom {
+			continue
+		}
+
+		if as.ValidUntil > 0 && now > as.ValidUntil {
+			continue
+		}
+
+		// --> survey is currently active
+		return true
+	}
+
+	return false
 }

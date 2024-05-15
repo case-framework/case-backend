@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	OTP_TTL = 60 * 5 // 5 minutes
+	OTP_TTL = 60 * 15 // 5 minutes
 )
 
 func (dbService *ParticipantUserDBService) CreateIndexForOTPs(instanceID string) error {
