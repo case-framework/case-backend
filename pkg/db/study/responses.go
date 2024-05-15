@@ -2,6 +2,7 @@ package study
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -180,6 +181,20 @@ func (dbService *StudyDBService) DeleteResponseByID(instanceID string, studyKey 
 	}
 
 	return err
+}
+
+func (dbService *StudyDBService) UpdateParticipantIDonResponses(instanceID string, studyKey string, oldID string, newID string) (count int64, err error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	if oldID == "" || newID == "" {
+		return 0, errors.New("participant id must be defined")
+	}
+	filter := bson.M{"participantID": oldID}
+	update := bson.M{"$set": bson.M{"participantID": newID}}
+
+	res, err := dbService.collectionResponses(instanceID, studyKey).UpdateMany(ctx, filter, update)
+	return res.ModifiedCount, err
 }
 
 // delete responses by query

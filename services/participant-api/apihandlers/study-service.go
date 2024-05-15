@@ -25,12 +25,13 @@ func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
 	// study events
 	eventsGroup := studyServiceGroup.Group("/events/:studyKey")
 	eventsGroup.Use(mw.GetAndValidateParticipantUserJWT(h.tokenSignKey))
+	eventsGroup.Use(mw.RequirePayload())
 	{
 		eventsGroup.POST("/enter", h.enterStudy)
 		eventsGroup.POST("/custom", h.customStudyEvent)
 		// eventsGroup.POST("/submit", h.submitSurvey)
 		// eventsGroup.POST("/leave", h.leaveStudy)
-		// merge temporary participant
+		eventsGroup.POST("/merge-temporary-participant", h.mergeTempParticipant)
 	}
 
 	participantInfoGroup := studyServiceGroup.Group("/participant-data/:studyKey")
@@ -138,6 +139,37 @@ func (h *HttpEndpoints) customStudyEvent(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"assignedSurveys": result})
+}
+
+func (h *HttpEndpoints) mergeTempParticipant(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	var req struct {
+		ProfileID              string `json:"profileID"`
+		TemporaryParticipantID string `json:"temporaryParticipantID"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if !h.checkProfileBelongsToUser(token.InstanceID, token.Subject, req.ProfileID) {
+		slog.Warn("profile not found", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("profileID", req.ProfileID))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "profile not found"})
+		return
+	}
+
+	result, err := studyService.OnMergeTempParticipant(token.InstanceID, studyKey, req.ProfileID, req.TemporaryParticipantID)
+	if err != nil {
+		slog.Error("error merging temporary participant", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error merging temporary participant"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"participant": result})
 }
 
 func (h *HttpEndpoints) getAssignedSurveys(c *gin.Context) {

@@ -219,6 +219,124 @@ func OnCustomStudyEvent(instanceID string, studyKey string, profileID string, ev
 	return
 }
 
+func OnMergeTempParticipant(instanceID string, studyKey string, profileID string, temporaryParticipantID string) (result []studyTypes.AssignedSurvey, err error) {
+	study, err := studyDBService.GetStudy(instanceID, studyKey)
+	if err != nil {
+		slog.Error("error getting study", slog.String("error", err.Error()))
+		return
+	}
+
+	if study.Status != studyTypes.STUDY_STATUS_ACTIVE {
+		slog.Error("study is not active", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
+		err = errors.New("study is not active")
+		return
+	}
+
+	tempParticipantState, err := studyDBService.GetParticipantByID(instanceID, studyKey, temporaryParticipantID)
+	if err != nil {
+		slog.Error("error getting temporary participant", slog.String("error", err.Error()))
+		return
+	}
+
+	if tempParticipantState.StudyStatus != studyTypes.PARTICIPANT_STUDY_STATUS_TEMPORARY {
+		slog.Error("temporary participant is not temporary", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", temporaryParticipantID))
+		err = errors.New("temporary participant is not temporary")
+		return
+	}
+
+	if tempParticipantState.EnteredAt+TEMPORARY_PARTICIPANT_TAKEOVER_PERIOD < time.Now().Unix() {
+		// This is to prevent takeover of temporary participants by brute force trial
+		time.Sleep(10 * time.Second)
+		slog.Error("temporary participant is too old", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", temporaryParticipantID))
+		err = errors.New("temporary participant is too old")
+		return
+	}
+
+	participantID, confidentialID, err := ComputeParticipantIDs(study, profileID)
+	if err != nil {
+		slog.Error("Error computing participant IDs", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+		return
+	}
+
+	pState, err := studyDBService.GetParticipantByID(instanceID, studyKey, participantID)
+	if err != nil {
+		slog.Info("participant not found, creating new one", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID))
+		pState = studyTypes.Participant{
+			ParticipantID: participantID,
+			StudyStatus:   studyTypes.PARTICIPANT_STUDY_STATUS_ACTIVE,
+			EnteredAt:     time.Now().Unix(),
+		}
+
+		// save lookup for participant ID
+		err = studyDBService.AddConfidentialIDMapEntry(instanceID, confidentialID, profileID, studyKey)
+		if err != nil {
+			slog.Error("Error saving participant ID lookup", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+			return
+		}
+	}
+
+	// Merge participant states
+	currentEvent := studyengine.StudyEvent{
+		InstanceID:                            instanceID,
+		StudyKey:                              studyKey,
+		Type:                                  studyengine.STUDY_EVENT_TYPE_MERGE,
+		MergeWithParticipant:                  tempParticipantState,
+		ParticipantIDForConfidentialResponses: confidentialID,
+	}
+
+	actionResult, err := getAndPerformStudyRules(instanceID, studyKey, pState, currentEvent)
+	if err != nil {
+		slog.Error("Error getting and performing study rules", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+		return
+	}
+
+	// save participant state
+	pState, err = studyDBService.SaveParticipantState(instanceID, studyKey, actionResult.PState)
+	if err != nil {
+		slog.Error("Error saving participant state", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+		return
+	}
+
+	// delete temporary participant
+	err = studyDBService.DeleteParticipantByID(instanceID, studyKey, temporaryParticipantID)
+	if err != nil {
+		slog.Error("Error deleting temporary participant", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+		return
+	}
+
+	// update participant ID to all response object
+	count, err := studyDBService.UpdateParticipantIDonResponses(instanceID, studyKey, temporaryParticipantID, participantID)
+	if err != nil {
+		slog.Error("Error updating participant ID on responses", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+	} else {
+		slog.Debug("updated responses for participant", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.Int64("count", count))
+	}
+
+	// update participant ID to all history object
+	count, err = studyDBService.UpdateParticipantIDonReports(instanceID, studyKey, temporaryParticipantID, participantID)
+	if err != nil {
+		slog.Error("Error updating participant ID on reports", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+	} else {
+		slog.Debug("updated reports for participant", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.Int64("count", count))
+	}
+
+	// update participant ID to all confidential responses
+	oldConfidentialID, err := ComputeConfidentialIDForParticipant(study, temporaryParticipantID)
+	if err != nil {
+		slog.Error("Error computing confidential ID", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+		return
+	}
+	count, err = studyDBService.UpdateParticipantIDonConfidentialResponses(instanceID, studyKey, oldConfidentialID, participantID)
+	if err != nil {
+		slog.Error("Error updating participant ID on confidential responses", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+	} else {
+		slog.Debug("updated confidential responses for participant", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.Int64("count", count))
+	}
+
+	result = pState.AssignedSurveys
+	return
+}
+
 func OnSubmitResponseForTempParticipant(instanceID string, studyKey string, participantID string, response studyTypes.SurveyResponse) (result []studyTypes.AssignedSurvey, err error) {
 	study, err := studyDBService.GetStudy(instanceID, studyKey)
 	if err != nil {
