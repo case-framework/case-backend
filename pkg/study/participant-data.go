@@ -96,6 +96,90 @@ func GetAssignedSurveyWithContext(instanceID string, studyKey string, surveyKey 
 	return
 }
 
+func GetSurveyWithContextForTempParticipant(instanceID string, studyKey string, surveyKey string, tempParticipantID string) (surveyWithContent AssignedSurveyWithContext, err error) {
+	study, err := studyDBService.GetStudy(instanceID, studyKey)
+	if err != nil {
+		slog.Error("error getting study", slog.String("error", err.Error()))
+		return
+	}
+
+	if study.Status != studyTypes.STUDY_STATUS_ACTIVE {
+		slog.Error("study is not active", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
+		err = errors.New("study is not active")
+		return
+	}
+
+	surveyDef, err := studyDBService.GetCurrentSurveyVersion(instanceID, studyKey, surveyKey)
+	if err != nil {
+		slog.Error("error getting survey", slog.String("error", err.Error()))
+		return
+	}
+
+	if tempParticipantID == "" {
+		// check if survey is available for public
+		if surveyDef.AvailableFor != studyTypes.SURVEY_AVAILABLE_FOR_PUBLIC {
+			slog.Error("survey is not available for public", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey))
+			err = errors.New("survey is not available for public")
+			return
+		}
+	} else {
+		// check if survey is available for temporary participant
+		requiredAllowedFor := []string{studyTypes.SURVEY_AVAILABLE_FOR_TEMPORARY_PARTICIPANTS, studyTypes.SURVEY_AVAILABLE_FOR_PUBLIC}
+		allowed := false
+		for _, allowedFor := range requiredAllowedFor {
+			if surveyDef.AvailableFor == allowedFor {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			slog.Error("survey is not available for temporary participant", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey))
+			err = errors.New("survey is not available for temporary participant")
+			return
+		}
+	}
+
+	// Prepare context
+	var surveyContext *SurveyContext
+	if tempParticipantID != "" {
+		pState, err2 := studyDBService.GetParticipantByID(instanceID, studyKey, tempParticipantID)
+		if err2 != nil {
+			err = err2
+			slog.Error("error getting participant state", slog.String("error", err.Error()))
+			return
+		}
+
+		if pState.StudyStatus != studyTypes.PARTICIPANT_STUDY_STATUS_TEMPORARY {
+			slog.Error("participant is not temporary", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", tempParticipantID))
+			err = errors.New("participant is not temporary")
+			return
+		}
+
+		surveyContext, err = resolveContextRules(instanceID, studyKey, pState, surveyDef.ContextRules)
+		if err != nil {
+			slog.Error("error resolving context rules", slog.String("error", err.Error()))
+			return
+		}
+	}
+
+	// Prepare prefill
+	prefill, err := resolvePrefillRules(instanceID, studyKey, tempParticipantID, surveyDef.PrefillRules)
+	if err != nil {
+		slog.Error("error resolving prefill rules", slog.String("error", err.Error()))
+		return
+	}
+
+	surveyDef.PrefillRules = nil
+	surveyDef.ContextRules = nil
+
+	surveyWithContent = AssignedSurveyWithContext{
+		Survey:  surveyDef,
+		Context: surveyContext,
+		Prefill: prefill,
+	}
+	return
+}
+
 func resolveContextRules(instanceID string, studyKey string, pState studyTypes.Participant, contextRules *studyTypes.SurveyContextDef) (sCtx *SurveyContext, err error) {
 	sCtx = &SurveyContext{
 		ParticipantFlags: pState.Flags,
@@ -210,7 +294,12 @@ func resolvePrefillRules(instanceID string, studyKey string, participantID strin
 			}
 		case "GET_LAST_SURVEY_ITEM":
 			if len(rule.Data) < 2 {
-				return prefills, errors.New("GET_LAST_SURVEY_ITEM must have at least two arguments")
+				slog.Error("GET_LAST_SURVEY_ITEM must have at least two arguments")
+				continue
+			}
+			if participantID == "" {
+				slog.Error("participantID is required")
+				continue
 			}
 			surveyKey := rule.Data[0].Str
 			itemKey := rule.Data[1].Str

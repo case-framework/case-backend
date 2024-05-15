@@ -46,11 +46,13 @@ func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
 	}
 
 	// temporary participants
-	// register temporary participant
-	// get assigned surveys for temporary participant with info to display
-	// get survey with context for temporary participant
-	// submit response for temporary participant
-
+	tempParticipantGroup := studyServiceGroup.Group("/temp-participant")
+	{
+		// tempParticipantGroup.POST("/register", mw.RequirePayload(), h.registerTempParticipant)
+		// tempParticipantGroup.GET("/surveys", h.getTempParticipantSurveys)                     // ?pid=profileID&instanceID=instanceID&studyKey=studyKey
+		tempParticipantGroup.GET("/survey", h.getTempParticipantSurveyWithContext) // ?pid=profileID&instanceID=instanceID&studyKey=studyKey&surveyKey=surveyKey
+		// tempParticipantGroup.POST("/submit-response", mw.RequirePayload(), h.submitTempParticipantResponse)
+	}
 }
 
 func (h *HttpEndpoints) enterStudy(c *gin.Context) {
@@ -163,6 +165,33 @@ func (h *HttpEndpoints) getSurveyWithContext(c *gin.Context) {
 	slog.Info("getting survey with context", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey), slog.String("profileID", pid))
 
 	result, err := studyService.GetAssignedSurveyWithContext(token.InstanceID, studyKey, surveyKey, pid)
+	if err != nil {
+		slog.Error("error getting survey with context", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting survey with context"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"surveyWithContext": result})
+}
+
+func (h *HttpEndpoints) getTempParticipantSurveyWithContext(c *gin.Context) {
+	instanceID := c.DefaultQuery("instanceID", "")
+	studyKey := c.DefaultQuery("studyKey", "")
+	surveyKey := c.DefaultQuery("surveyKey", "")
+	pid := c.DefaultQuery("pid", "")
+
+	if !h.isInstanceAllowed(instanceID) {
+		slog.Error("instance not allowed", slog.String("instanceID", instanceID))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "instance not allowed"})
+		return
+	}
+
+	if instanceID == "" || studyKey == "" || surveyKey == "" {
+		slog.Error("missing required fields", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing required fields"})
+		return
+	}
+
+	result, err := studyService.GetSurveyWithContextForTempParticipant(instanceID, studyKey, surveyKey, pid)
 	if err != nil {
 		slog.Error("error getting survey with context", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting survey with context"})
