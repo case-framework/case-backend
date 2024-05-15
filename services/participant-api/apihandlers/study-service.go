@@ -51,7 +51,7 @@ func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
 	tempParticipantGroup := studyServiceGroup.Group("/temp-participant")
 	{
 		tempParticipantGroup.POST("/register", mw.RequirePayload(), h.registerTempParticipant)
-		// tempParticipantGroup.GET("/surveys", h.getTempParticipantSurveys)                     // ?pid=profileID&instanceID=instanceID&studyKey=studyKey
+		tempParticipantGroup.GET("/surveys", h.getTempParticipantSurveys)          // ?pid=profileID&instanceID=instanceID&studyKey=studyKey
 		tempParticipantGroup.GET("/survey", h.getTempParticipantSurveyWithContext) // ?pid=profileID&instanceID=instanceID&studyKey=studyKey&surveyKey=surveyKey
 		tempParticipantGroup.POST("/submit-response", mw.RequirePayload(), h.submitTempParticipantResponse)
 	}
@@ -238,6 +238,33 @@ func (h *HttpEndpoints) registerTempParticipant(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"participant": pState})
+}
+
+func (h *HttpEndpoints) getTempParticipantSurveys(c *gin.Context) {
+	instanceID := c.DefaultQuery("instanceID", "")
+	studyKey := c.DefaultQuery("studyKey", "")
+	pid := c.DefaultQuery("pid", "")
+
+	if !h.isInstanceAllowed(instanceID) {
+		slog.Error("instance not allowed", slog.String("instanceID", instanceID))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "instance not allowed"})
+		return
+	}
+
+	if instanceID == "" || studyKey == "" || pid == "" {
+		slog.Error("missing required fields", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("pid", pid))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing required fields"})
+		return
+	}
+
+	assignedSurveysWithInfos, err := studyService.GetAssignedSurveysForTempParticipant(instanceID, studyKey, pid)
+	if err != nil {
+		slog.Error("error getting assigned surveys for temporary participant", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting assigned surveys for temporary participant"})
+		return
+	}
+
+	c.JSON(http.StatusOK, assignedSurveysWithInfos)
 }
 
 func (h *HttpEndpoints) getTempParticipantSurveyWithContext(c *gin.Context) {

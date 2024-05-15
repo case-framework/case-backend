@@ -1,6 +1,7 @@
 package study
 
 import (
+	"errors"
 	"log/slog"
 	"time"
 
@@ -10,12 +11,26 @@ import (
 )
 
 /* func checkIfParticipantExists(instanceID string, studyKey string, participantID string, withStatus string) bool {
-	pState, err := studyDBService.GetParticipantByID(instanceID, studyKey, participantID)
-	if err != nil || (withStatus != "" && pState.StudyStatus != withStatus) {
-		return false
+pState, err := studyDBService.GetParticipantByID(instanceID, studyKey, participantID)
+if err != nil || (withStatus != "" && pState.StudyStatus != withStatus) {
+	return false
+}
+return err == nil
+}
+*/
+
+func getStudyIfActive(instanceID string, studyKey string) (study studyTypes.Study, err error) {
+	study, err = studyDBService.GetStudy(instanceID, studyKey)
+	if err != nil {
+		return study, err
 	}
-	return err == nil
-} */
+
+	if study.Status != studyTypes.STUDY_STATUS_ACTIVE {
+		return study, errors.New("study is not active")
+	}
+
+	return study, nil
+}
 
 func getAndPerformStudyRules(instanceID, studyKey string, pState studyTypes.Participant, currentEvent studyengine.StudyEvent) (newState studyengine.ActionData, err error) {
 	newState = studyengine.ActionData{

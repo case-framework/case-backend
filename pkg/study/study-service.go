@@ -32,15 +32,9 @@ func Init(
 }
 
 func OnEnterStudy(instanceID string, studyKey string, profileID string) (result []studyTypes.AssignedSurvey, err error) {
-	study, err := studyDBService.GetStudy(instanceID, studyKey)
+	study, err := getStudyIfActive(instanceID, studyKey)
 	if err != nil {
-		slog.Error("Error getting study", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
-		return
-	}
-
-	if study.Status != studyTypes.STUDY_STATUS_ACTIVE {
-		slog.Error("Study is not active", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
-		err = errors.New("study is not active")
+		slog.Error("error getting study", slog.String("error", err.Error()))
 		return
 	}
 
@@ -112,15 +106,9 @@ func OnEnterStudy(instanceID string, studyKey string, profileID string) (result 
 }
 
 func OnRegisterTempParticipant(instanceID string, studyKey string) (pState *studyTypes.Participant, err error) {
-	study, err := studyDBService.GetStudy(instanceID, studyKey)
+	study, err := getStudyIfActive(instanceID, studyKey)
 	if err != nil {
 		slog.Error("error getting study", slog.String("error", err.Error()))
-		return
-	}
-
-	if study.Status != studyTypes.STUDY_STATUS_ACTIVE {
-		slog.Error("study is not active", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
-		err = errors.New("study is not active")
 		return
 	}
 
@@ -161,15 +149,9 @@ func OnRegisterTempParticipant(instanceID string, studyKey string) (pState *stud
 }
 
 func OnCustomStudyEvent(instanceID string, studyKey string, profileID string, eventKey string, payload map[string]interface{}) (result []studyTypes.AssignedSurvey, err error) {
-	study, err := studyDBService.GetStudy(instanceID, studyKey)
+	study, err := getStudyIfActive(instanceID, studyKey)
 	if err != nil {
-		slog.Error("Error getting study", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
-		return
-	}
-
-	if study.Status != studyTypes.STUDY_STATUS_ACTIVE {
-		slog.Error("Study is not active", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
-		err = errors.New("study is not active")
+		slog.Error("error getting study", slog.String("error", err.Error()))
 		return
 	}
 
@@ -220,15 +202,9 @@ func OnCustomStudyEvent(instanceID string, studyKey string, profileID string, ev
 }
 
 func OnMergeTempParticipant(instanceID string, studyKey string, profileID string, temporaryParticipantID string) (result []studyTypes.AssignedSurvey, err error) {
-	study, err := studyDBService.GetStudy(instanceID, studyKey)
+	study, err := getStudyIfActive(instanceID, studyKey)
 	if err != nil {
 		slog.Error("error getting study", slog.String("error", err.Error()))
-		return
-	}
-
-	if study.Status != studyTypes.STUDY_STATUS_ACTIVE {
-		slog.Error("study is not active", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
-		err = errors.New("study is not active")
 		return
 	}
 
@@ -339,15 +315,9 @@ func OnMergeTempParticipant(instanceID string, studyKey string, profileID string
 }
 
 func OnSubmitResponseForTempParticipant(instanceID string, studyKey string, participantID string, response studyTypes.SurveyResponse) (result []studyTypes.AssignedSurvey, err error) {
-	study, err := studyDBService.GetStudy(instanceID, studyKey)
+	study, err := getStudyIfActive(instanceID, studyKey)
 	if err != nil {
 		slog.Error("error getting study", slog.String("error", err.Error()))
-		return
-	}
-
-	if study.Status != studyTypes.STUDY_STATUS_ACTIVE {
-		slog.Error("study is not active", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
-		err = errors.New("study is not active")
 		return
 	}
 
