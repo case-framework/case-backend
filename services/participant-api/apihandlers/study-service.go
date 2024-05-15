@@ -30,7 +30,7 @@ func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
 	{
 		eventsGroup.POST("/enter", h.enterStudy)
 		eventsGroup.POST("/custom", h.customStudyEvent)
-		// eventsGroup.POST("/submit", h.submitSurvey)
+		eventsGroup.POST("/submit", h.submitSurveyEvent)
 		eventsGroup.POST("/leave", h.leaveStudyEvent)
 		eventsGroup.POST("/merge-temporary-participant", h.mergeTempParticipant)
 	}
@@ -136,6 +136,39 @@ func (h *HttpEndpoints) customStudyEvent(c *gin.Context) {
 	if err != nil {
 		slog.Error("error entering study", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error entering study"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"assignedSurveys": result})
+}
+
+func (h *HttpEndpoints) submitSurveyEvent(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	var req struct {
+		ProfileID string                    `json:"profileID"`
+		Response  studyTypes.SurveyResponse `json:"response"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if !h.checkProfileBelongsToUser(token.InstanceID, token.Subject, req.ProfileID) {
+		slog.Warn("profile not found", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("profileID", req.ProfileID))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "profile not found"})
+		return
+	}
+
+	slog.Debug("submitting survey", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("profileID", req.ProfileID))
+
+	result, err := studyService.OnSubmitResponse(token.InstanceID, studyKey, req.ProfileID, req.Response)
+	if err != nil {
+		slog.Error("error submitting survey", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error submitting survey"})
 		return
 	}
 

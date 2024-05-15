@@ -314,6 +314,58 @@ func OnMergeTempParticipant(instanceID string, studyKey string, profileID string
 	return
 }
 
+func OnSubmitResponse(instanceID string, studyKey string, profileID string, response studyTypes.SurveyResponse) (result []studyTypes.AssignedSurvey, err error) {
+	study, err := getStudyIfActive(instanceID, studyKey)
+	if err != nil {
+		slog.Error("error getting study", slog.String("error", err.Error()))
+		return
+	}
+
+	participantID, confidentialID, err := ComputeParticipantIDs(study, profileID)
+	if err != nil {
+		slog.Error("Error computing participant IDs", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+		return
+	}
+
+	pState, err := studyDBService.GetParticipantByID(instanceID, studyKey, participantID)
+	if err != nil {
+		slog.Error("error getting participant state", slog.String("error", err.Error()))
+		return
+	}
+
+	if pState.StudyStatus != studyTypes.PARTICIPANT_STUDY_STATUS_ACTIVE {
+		slog.Error("participant is not active", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID))
+		err = errors.New("participant is not active")
+		return
+	}
+
+	currentEvent := studyengine.StudyEvent{
+		Type:                                  studyengine.STUDY_EVENT_TYPE_SUBMIT,
+		InstanceID:                            instanceID,
+		StudyKey:                              studyKey,
+		ParticipantIDForConfidentialResponses: confidentialID,
+		Response:                              response,
+	}
+
+	actionResult, err := getAndPerformStudyRules(instanceID, studyKey, pState, currentEvent)
+	if err != nil {
+		slog.Error("Error getting and performing study rules", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+		return
+	}
+
+	// save participant state
+	_, err = studyDBService.SaveParticipantState(instanceID, studyKey, actionResult.PState)
+	if err != nil {
+		slog.Error("Error saving participant state", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+		return
+	}
+
+	saveReports(instanceID, studyKey, actionResult.ReportsToCreate, studyengine.STUDY_EVENT_TYPE_SUBMIT)
+
+	result = pState.AssignedSurveys
+	return
+}
+
 func OnSubmitResponseForTempParticipant(instanceID string, studyKey string, participantID string, response studyTypes.SurveyResponse) (result []studyTypes.AssignedSurvey, err error) {
 	study, err := getStudyIfActive(instanceID, studyKey)
 	if err != nil {
