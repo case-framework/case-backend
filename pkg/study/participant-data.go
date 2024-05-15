@@ -36,6 +36,73 @@ type AssignedSurveysWithInfos struct {
 	SurveyInfos []*SurveyInfo               `json:"surveyInfos"`
 }
 
+func GetAssignedSurveys(instanceID string, studyKey string, profileIDs []string) (surveysWithInfos AssignedSurveysWithInfos, err error) {
+	study, err := getStudyIfActive(instanceID, studyKey)
+	if err != nil {
+		slog.Error("error getting study", slog.String("error", err.Error()))
+		return
+	}
+
+	surveysWithInfos = AssignedSurveysWithInfos{
+		Surveys:     []studyTypes.AssignedSurvey{},
+		SurveyInfos: []*SurveyInfo{},
+	}
+
+	for _, profileID := range profileIDs {
+		participantID, _, err := ComputeParticipantIDs(study, profileID)
+		if err != nil {
+			slog.Error("Error computing participant IDs", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+			continue
+		}
+
+		pState, err := studyDBService.GetParticipantByID(instanceID, studyKey, participantID)
+		if err != nil {
+			slog.Error("Error getting participant state", slog.String("error", err.Error()))
+			continue
+		}
+
+		if pState.StudyStatus != studyTypes.PARTICIPANT_STUDY_STATUS_ACTIVE {
+			slog.Error("Participant is not active", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID))
+			continue
+		}
+
+		for _, survey := range pState.AssignedSurveys {
+			survey.ProfileID = profileID
+			surveysWithInfos.Surveys = append(surveysWithInfos.Surveys, survey)
+		}
+	}
+
+	for _, survey := range surveysWithInfos.Surveys {
+		// is not in the survey info list yet
+		found := false
+		for _, surveyInfo := range surveysWithInfos.SurveyInfos {
+			if surveyInfo.SurveyKey == survey.SurveyKey {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			surveyDef, err := studyDBService.GetCurrentSurveyVersion(instanceID, studyKey, survey.SurveyKey)
+			if err != nil {
+				slog.Error("error getting survey definition", slog.String("error", err.Error()))
+				continue
+			}
+			surveyInfo := SurveyInfo{
+				SurveyKey:       survey.SurveyKey,
+				StudyKey:        studyKey,
+				Name:            surveyDef.Props.Name,
+				Description:     surveyDef.Props.Description,
+				TypicalDuration: surveyDef.Props.TypicalDuration,
+			}
+			surveysWithInfos.SurveyInfos = append(surveysWithInfos.SurveyInfos, &surveyInfo)
+		}
+	}
+
+	err = nil
+	return
+}
+
 func GetAssignedSurveysForTempParticipant(instanceID string, studyKey string, participantID string) (surveysWithInfos AssignedSurveysWithInfos, err error) {
 	_, err = getStudyIfActive(instanceID, studyKey)
 	if err != nil {
