@@ -8,6 +8,7 @@ const (
 )
 
 type AssignedSurvey struct {
+	StudyKey   string `bson:"studyKey" json:"studyKey"`
 	SurveyKey  string `bson:"surveyKey" json:"surveyKey"`
 	ValidFrom  int64  `bson:"validFrom" json:"validFrom"`
 	ValidUntil int64  `bson:"validUntil" json:"validUntil"`

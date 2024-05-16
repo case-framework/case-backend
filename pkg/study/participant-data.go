@@ -57,7 +57,7 @@ func GetAssignedSurveys(instanceID string, studyKey string, profileIDs []string)
 
 		pState, err := studyDBService.GetParticipantByID(instanceID, studyKey, participantID)
 		if err != nil {
-			slog.Error("Error getting participant state", slog.String("error", err.Error()))
+			slog.Debug("Error getting participant state", slog.String("error", err.Error()))
 			continue
 		}
 
@@ -68,6 +68,7 @@ func GetAssignedSurveys(instanceID string, studyKey string, profileIDs []string)
 
 		for _, survey := range pState.AssignedSurveys {
 			survey.ProfileID = profileID
+			survey.StudyKey = studyKey
 			surveysWithInfos.Surveys = append(surveysWithInfos.Surveys, survey)
 		}
 	}
