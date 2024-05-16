@@ -16,12 +16,12 @@ import (
 func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
 	studyServiceGroup := rg.Group("/study-service")
 
-	/* studiesGroup := studyServiceGroup.Group("/studies")
+	studiesGroup := studyServiceGroup.Group("/studies")
 	{
-		studiesGroup.GET("/", h.getAllStudies) // ?status=active
+		studiesGroup.GET("/", h.getStudiesByStatus) // ?status=active&instanceID=test
 		studiesGroup.GET("/:studyKey", h.getStudy)
 		studiesGroup.GET("/participating", mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.getParticipatingStudies)
-	} */
+	}
 
 	// study events
 	eventsGroup := studyServiceGroup.Group("/events/:studyKey")
@@ -56,6 +56,68 @@ func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
 		tempParticipantGroup.GET("/survey", h.getTempParticipantSurveyWithContext) // ?pid=profileID&instanceID=instanceID&studyKey=studyKey&surveyKey=surveyKey
 		tempParticipantGroup.POST("/submit-response", mw.RequirePayload(), h.submitTempParticipantResponse)
 	}
+}
+
+func (h *HttpEndpoints) getStudiesByStatus(c *gin.Context) {
+	instanceID := c.DefaultQuery("instanceID", "")
+	status := c.DefaultQuery("status", "")
+
+	if !h.isInstanceAllowed(instanceID) {
+		slog.Error("instance not allowed", slog.String("instanceID", instanceID))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "instance not allowed"})
+		return
+	}
+
+	studies, err := h.studyDBConn.GetStudies(instanceID, status, false)
+	if err != nil {
+		slog.Error("error getting studies", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting studies"})
+		return
+	}
+
+	// To avaid exposing sensitive data, map the study to a simpler struct
+	studyInfos := make([]studyTypes.Study, len(studies))
+	for i, study := range studies {
+		studyInfos[i] = studyTypes.Study{
+			Key:    study.Key,
+			Status: study.Status,
+			Props:  study.Props,
+			Stats:  study.Stats,
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"studies": studyInfos})
+}
+
+func (h *HttpEndpoints) getStudy(c *gin.Context) {
+	instanceID := c.DefaultQuery("instanceID", "")
+	studyKey := c.Param("studyKey")
+
+	if !h.isInstanceAllowed(instanceID) {
+		slog.Error("instance not allowed", slog.String("instanceID", instanceID))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "instance not allowed"})
+		return
+	}
+
+	if studyKey == "" {
+		slog.Error("studyKey is required", slog.String("instanceID", instanceID))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "studyKey is required"})
+		return
+	}
+
+	study, err := h.studyDBConn.GetStudy(instanceID, studyKey)
+	if err != nil {
+		slog.Error("error getting study", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting study"})
+		return
+	}
+
+	studyInfo := studyTypes.Study{
+		Key:    study.Key,
+		Status: study.Status,
+		Props:  study.Props,
+		Stats:  study.Stats,
+	}
+	c.JSON(http.StatusOK, gin.H{"study": studyInfo})
 }
 
 func (h *HttpEndpoints) enterStudy(c *gin.Context) {
