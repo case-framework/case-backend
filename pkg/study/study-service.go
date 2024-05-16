@@ -360,7 +360,13 @@ func OnSubmitResponse(instanceID string, studyKey string, profileID string, resp
 		return
 	}
 
-	saveReports(instanceID, studyKey, actionResult.ReportsToCreate, studyengine.STUDY_EVENT_TYPE_SUBMIT)
+	responseId, err := saveResponses(instanceID, studyKey, response, pState, confidentialID)
+	if err != nil {
+		slog.Error("Error saving responses", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+		return
+	}
+
+	saveReports(instanceID, studyKey, actionResult.ReportsToCreate, responseId)
 
 	result = pState.AssignedSurveys
 	return
