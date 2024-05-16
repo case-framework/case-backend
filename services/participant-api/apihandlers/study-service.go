@@ -76,9 +76,9 @@ func (h *HttpEndpoints) getStudiesByStatus(c *gin.Context) {
 	}
 
 	// To avaid exposing sensitive data, map the study to a simpler struct
-	studyInfos := make([]studyTypes.Study, len(studies))
+	studyInfos := make([]StudyInfo, len(studies))
 	for i, study := range studies {
-		studyInfos[i] = studyTypes.Study{
+		studyInfos[i] = StudyInfo{
 			Key:    study.Key,
 			Status: study.Status,
 			Props:  study.Props,
@@ -86,6 +86,14 @@ func (h *HttpEndpoints) getStudiesByStatus(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{"studies": studyInfos})
+}
+
+type StudyInfo struct {
+	Key        string                `json:"key"`
+	Status     string                `json:"status"`
+	Props      studyTypes.StudyProps `json:"props"`
+	Stats      studyTypes.StudyStats `json:"stats"`
+	ProfileIds []string              `json:"profileIds"`
 }
 
 func (h *HttpEndpoints) getStudy(c *gin.Context) {
@@ -111,13 +119,69 @@ func (h *HttpEndpoints) getStudy(c *gin.Context) {
 		return
 	}
 
-	studyInfo := studyTypes.Study{
+	studyInfo := StudyInfo{
 		Key:    study.Key,
 		Status: study.Status,
 		Props:  study.Props,
 		Stats:  study.Stats,
 	}
 	c.JSON(http.StatusOK, gin.H{"study": studyInfo})
+}
+
+func (h *HttpEndpoints) getParticipatingStudies(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	studies, err := h.studyDBConn.GetStudies(token.InstanceID, "", false)
+	if err != nil {
+		slog.Error("error getting studies", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting studies"})
+		return
+	}
+
+	user, err := h.userDBConn.GetUser(token.InstanceID, token.Subject)
+	if err != nil {
+		slog.Error("error getting user", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting user"})
+		return
+	}
+
+	studyInfos := []StudyInfo{}
+
+	for _, study := range studies {
+		studyInfoForUser := StudyInfo{
+			Key:        study.Key,
+			Status:     study.Status,
+			Props:      study.Props,
+			Stats:      study.Stats,
+			ProfileIds: []string{},
+		}
+
+		for _, profile := range user.Profiles {
+			participantID, _, err := studyService.ComputeParticipantIDs(study, profile.ID.Hex())
+			if err != nil {
+				slog.Error("Error computing participant IDs", slog.String("instanceID", token.InstanceID), slog.String("studyKey", study.Key), slog.String("error", err.Error()))
+				continue
+			}
+
+			pState, err := h.studyDBConn.GetParticipantByID(token.InstanceID, study.Key, participantID)
+			if err != nil {
+				continue
+			}
+
+			if pState.StudyStatus != studyTypes.PARTICIPANT_STUDY_STATUS_ACTIVE {
+				slog.Error("Participant is not active", slog.String("instanceID", token.InstanceID), slog.String("studyKey", study.Key), slog.String("participantID", participantID))
+				continue
+			}
+
+			studyInfoForUser.ProfileIds = append(studyInfoForUser.ProfileIds, profile.ID.Hex())
+		}
+
+		if len(studyInfoForUser.ProfileIds) > 0 {
+			studyInfos = append(studyInfos, studyInfoForUser)
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"studies": studyInfos})
 }
 
 func (h *HttpEndpoints) enterStudy(c *gin.Context) {
