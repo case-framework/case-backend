@@ -93,6 +93,10 @@ func VerifyOTP(
 		return nil, err
 	}
 
+	if otp.CreatedAt.Before(time.Now().Add(-userDB.OTP_TTL * time.Second)) {
+		return nil, errors.New("OTP has expired")
+	}
+
 	err = pUserDBService.DeleteOTP(instanceID, userID, code)
 	if err != nil {
 		return &otp, err
