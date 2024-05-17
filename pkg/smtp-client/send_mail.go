@@ -4,10 +4,9 @@ import (
 	"errors"
 	"log/slog"
 	"net/textproto"
-	"time"
 
 	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
-	"github.com/jordan-wright/email"
+	"github.com/knadh/smtppool"
 )
 
 func (sc *SmtpClients) SendMail(
@@ -46,7 +45,7 @@ func (sc *SmtpClients) SendMail(
 		}
 	}
 
-	e := &email.Email{
+	e := smtppool.Email{
 		To:      to,
 		From:    From,
 		Sender:  Sender,
@@ -55,7 +54,7 @@ func (sc *SmtpClients) SendMail(
 		HTML:    []byte(htmlContent),
 		Headers: textproto.MIMEHeader{},
 	}
-	err := selectedServer.Send(e, time.Second*time.Duration(sc.servers.Servers[index].SendTimeout))
+	err := selectedServer.Send(e)
 
 	if err != nil {
 		// close and try to reconnect
@@ -66,7 +65,7 @@ func (sc *SmtpClients) SendMail(
 			slog.Error("cannot reconnect pool", slog.String("error", errReconnect.Error()), slog.String("server", sc.servers.Servers[index].Host))
 		} else {
 			slog.Error("reconnected to pool", slog.String("server", sc.servers.Servers[index].Host))
-			sc.connectionPool[index] = *pool
+			sc.connectionPool[index] = pool
 		}
 	}
 	return err
