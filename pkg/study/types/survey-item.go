@@ -58,8 +58,8 @@ type Style struct {
 }
 
 type ComponentProperties struct {
-	Min           *ExpressionArg `bson:"min" json:"min"`
-	Max           *ExpressionArg `bson:"max" json:"max"`
-	StepSize      *ExpressionArg `bson:"stepSize" json:"stepSize"`
-	DateInputMode *ExpressionArg `bson:"dateInputMode" json:"dateInputMode"`
+	Min           *ExpressionArg `bson:"min,omitempty" json:"min,omitempty"`
+	Max           *ExpressionArg `bson:"max,omitempty" json:"max,omitempty"`
+	StepSize      *ExpressionArg `bson:"stepSize,omitempty" json:"stepSize,omitempty"`
+	DateInputMode *ExpressionArg `bson:"dateInputMode,omitempty" json:"dateInputMode,omitempty"`
 }
