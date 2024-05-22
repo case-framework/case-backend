@@ -178,6 +178,21 @@ func (dbService *StudyDBService) UpdateStudyDisplayProps(instanceID string, stud
 	return nil
 }
 
+func (dbService *StudyDBService) UpdateStudyStats(instanceID string, studyKey string, stats studyTypes.StudyStats) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	filter := bson.M{
+		"key": studyKey,
+	}
+	update := bson.M{"$set": bson.M{"studyStats": stats}}
+	_, err := dbService.collectionStudyInfos(instanceID).UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (dbService *StudyDBService) GetNotificationSubscriptions(instanceID string, studyKey string) ([]studyTypes.NotificationSubscription, error) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
