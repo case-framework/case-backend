@@ -1,6 +1,7 @@
 package study
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/case-framework/case-backend/pkg/study/studyengine"
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 	studyUtils "github.com/case-framework/case-backend/pkg/study/utils"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -440,6 +442,74 @@ func OnSubmitResponseForTempParticipant(instanceID string, studyKey string, part
 
 	result = pState.AssignedSurveys
 	return
+}
+
+// Run study timer event for participants
+func OnStudyTimer(instanceID string, study *studyTypes.Study) {
+	if study == nil {
+		slog.Error("study is nil", slog.String("instanceID", instanceID))
+		return
+	}
+	rulesObj, err := studyDBService.GetCurrentStudyRules(instanceID, study.Key)
+	if err != nil {
+		return
+	}
+
+	currentEvent := studyengine.StudyEvent{
+		Type:       studyengine.STUDY_EVENT_TYPE_TIMER,
+		InstanceID: instanceID,
+		StudyKey:   study.Key,
+	}
+
+	if !hasRuleForEventType(rulesObj.Rules, currentEvent) {
+		slog.Debug("no timer event rules found", slog.String("instanceID", instanceID), slog.String("studyKey", study.Key))
+		return
+	}
+
+	err = studyDBService.FindAndExecuteOnParticipantsStates(
+		context.Background(),
+		instanceID,
+		study.Key,
+		bson.M{"studyStatus": bson.M{"$ne": studyTypes.PARTICIPANT_STUDY_STATUS_TEMPORARY}},
+		nil,
+		false,
+		func(dbService *studydb.StudyDBService, p studyTypes.Participant, instanceID string, studyKey string, args ...interface{}) error {
+			confidentialID, err := ComputeConfidentialIDForParticipant(*study, p.ParticipantID)
+			if err != nil {
+				slog.Error("Error computing confidential ID", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", p.ParticipantID), slog.String("error", err.Error()))
+				return err
+			}
+
+			currentEvent.ParticipantIDForConfidentialResponses = confidentialID
+
+			newState := studyengine.ActionData{
+				PState:          p,
+				ReportsToCreate: map[string]studyTypes.Report{},
+			}
+
+			for _, rule := range rulesObj.Rules {
+				newState, err = studyengine.ActionEval(rule, newState, currentEvent)
+				if err != nil {
+					slog.Error("Error evaluating study rule", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", p.ParticipantID), slog.String("error", err.Error()))
+					continue
+				}
+			}
+
+			// save participant state
+			_, err = studyDBService.SaveParticipantState(instanceID, studyKey, newState.PState)
+			if err != nil {
+				slog.Error("Error saving participant state", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", p.ParticipantID), slog.String("error", err.Error()))
+				return err
+			}
+
+			saveReports(instanceID, studyKey, newState.ReportsToCreate, studyengine.STUDY_EVENT_TYPE_TIMER)
+
+			return nil
+		},
+	)
+	if err != nil {
+		slog.Error("Error executing study timer event", slog.String("instanceID", instanceID), slog.String("studyKey", study.Key), slog.String("error", err.Error()))
+	}
 }
 
 func OnLeaveStudy(instanceID string, studyKey string, profileID string) (result []studyTypes.AssignedSurvey, err error) {

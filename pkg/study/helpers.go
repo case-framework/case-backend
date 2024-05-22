@@ -143,3 +143,17 @@ func isSurveyAssignedAndActive(pState studyTypes.Participant, surveyKey string) 
 
 	return false
 }
+
+func hasRuleForEventType(rules []types.Expression, event studyengine.StudyEvent) bool {
+	for _, rule := range rules {
+		if len(rule.Data) < 1 {
+			continue
+		}
+		exp := rule.Data[0].Exp
+		if exp == nil || len(exp.Data) < 1 || exp.Data[0].Str != event.Type {
+			continue
+		}
+		return true
+	}
+	return false
+}

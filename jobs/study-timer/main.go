@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"time"
 
+	studyservice "github.com/case-framework/case-backend/pkg/study"
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -22,7 +23,7 @@ func main() {
 
 		for _, study := range studies {
 			updateStudyStats(instanceID, study)
-			performStudyTimer(instanceID, study)
+			studyservice.OnStudyTimer(instanceID, &study)
 		}
 	}
 
@@ -59,8 +60,4 @@ func updateStudyStats(instanceID string, study studyTypes.Study) {
 	if err != nil {
 		slog.Error("Failed to update study stats", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 	}
-}
-
-func performStudyTimer(instanceID string, study studyTypes.Study) {
-
 }
