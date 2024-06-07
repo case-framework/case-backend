@@ -36,6 +36,7 @@ func (h *HttpEndpoints) AddParticipantAuthAPI(rg *gin.RouterGroup) {
 		authGroup.POST("/signup", mw.RequirePayload(), h.signupWithEmail)
 
 		authGroup.POST("/login-with-temptoken", mw.RequirePayload(), h.loginWithTempToken)
+		authGroup.POST("/temptoken-info", mw.RequirePayload(), h.getTempTokenInfo)
 
 		authGroup.POST("/token/renew", mw.RequirePayload(), mw.GetAndValidateParticipantUserJWTWithIgnoringExpiration(h.tokenSignKey), h.refreshToken)
 		authGroup.GET("/token/validate", mw.RequirePayload(), mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.validateToken)
@@ -338,6 +339,48 @@ func (h *HttpEndpoints) signupWithEmail(c *gin.Context) {
 			"selectedProfile": mainProfileID,
 		},
 		"user": newUser,
+	})
+}
+
+func (h *HttpEndpoints) getTempTokenInfo(c *gin.Context) {
+	var req struct {
+		InstanceID string `json:"instanceId"`
+		TempToken  string `json:"tempToken"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	tokenInfos, err := h.validateTempToken(
+		req.TempToken, []string{
+			userTypes.TOKEN_PURPOSE_SURVEY_LOGIN,
+			userTypes.TOKEN_PURPOSE_INVITATION,
+		},
+	)
+	if err != nil {
+		slog.Error("invalid token", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid token"})
+		return
+	}
+
+	if req.InstanceID != tokenInfos.InstanceID {
+		slog.Error("instanceID does not match", slog.String("instanceID", req.InstanceID), slog.String("tokenInfos.InstanceID", tokenInfos.InstanceID))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid token"})
+		return
+	}
+
+	user, err := h.userDBConn.GetUser(tokenInfos.InstanceID, tokenInfos.UserID)
+	if err != nil {
+		slog.Error("failed to get user", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve infos"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"userID": tokenInfos.UserID,
+		"email":  user.Account.AccountID,
 	})
 }
 
