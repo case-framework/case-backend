@@ -95,7 +95,7 @@ func (h *HttpEndpoints) loginWithEmail(c *gin.Context) {
 		if err := h.userDBConn.SaveFailedLoginAttempt(req.InstanceID, user.ID.Hex()); err != nil {
 			slog.Error("failed to save failed login attempt", slog.String("error", err.Error()))
 		}
-		randomWait(5)
+		randomWait(5, 10)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
 		return
 	}
@@ -109,7 +109,7 @@ func (h *HttpEndpoints) loginWithEmail(c *gin.Context) {
 		if err := h.userDBConn.SaveFailedLoginAttempt(req.InstanceID, user.ID.Hex()); err != nil {
 			slog.Error("failed to save failed login attempt", slog.String("error", err.Error()))
 		}
-		randomWait(10)
+		randomWait(5, 10)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
 		return
 	}
@@ -213,7 +213,7 @@ func (h *HttpEndpoints) signupWithEmail(c *gin.Context) {
 
 	if req.InfoCheck != "" {
 		slog.Warn("honeypot field filled out", slog.String("email", req.Email), slog.String("instanceID", req.InstanceID), slog.String("infoCheck", req.InfoCheck))
-		randomWait(5)
+		randomWait(5, 10)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid request"})
 		return
 	}
@@ -253,7 +253,7 @@ func (h *HttpEndpoints) signupWithEmail(c *gin.Context) {
 	}
 	if newUserCount >= int64(h.maxNewUsersPer5Minute) {
 		slog.Warn("rate limit for new users reached", slog.String("instanceID", req.InstanceID))
-		randomWait(5)
+		randomWait(5, 10)
 		c.JSON(http.StatusTooManyRequests, gin.H{"error": "try again later"})
 		return
 	}
@@ -271,7 +271,7 @@ func (h *HttpEndpoints) signupWithEmail(c *gin.Context) {
 	id, err := h.userDBConn.AddUser(req.InstanceID, newUser)
 	if err != nil {
 		slog.Error("failed to create new user", slog.String("error", err.Error()))
-		randomWait(5)
+		randomWait(5, 10)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 
@@ -670,7 +670,7 @@ func (h *HttpEndpoints) resendEmailVerification(c *gin.Context) {
 
 	if ci.ConfirmationLinkSentAt > time.Now().Unix()-emailVerificationMessageCooldown {
 		slog.Warn("email verification message cooldown", slog.String("email", req.Email))
-		randomWait(5)
+		randomWait(5, 10)
 		c.JSON(http.StatusTooManyRequests, gin.H{"error": "try again later"})
 		return
 	}
@@ -852,7 +852,7 @@ func (h *HttpEndpoints) verifyOTP(c *gin.Context) {
 	)
 	if err != nil {
 		slog.Warn("failed to verify OTP", slog.String("error", err.Error()))
-		randomWait(10)
+		randomWait(5, 10)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid code"})
 		return
 	}
@@ -861,7 +861,7 @@ func (h *HttpEndpoints) verifyOTP(c *gin.Context) {
 	user, err := h.userDBConn.GetUser(token.InstanceID, token.Subject)
 	if err != nil {
 		slog.Warn("user not found", slog.String("subject", token.Subject), slog.String("instanceID", token.InstanceID), slog.String("error", err.Error()))
-		randomWait(10)
+		randomWait(5, 10)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 		return
 	}

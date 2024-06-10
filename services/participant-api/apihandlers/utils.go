@@ -107,8 +107,8 @@ func (h *HttpEndpoints) sendSimpleEmail(
 	}
 }
 
-func randomWait(maxTimeSec int) {
-	time.Sleep(time.Duration(rand.Intn(maxTimeSec)) * time.Second)
+func randomWait(minTimeSec int, maxTimeSec int) {
+	time.Sleep(time.Duration(rand.Intn(maxTimeSec-minTimeSec)+minTimeSec) * time.Second)
 }
 
 func (h *HttpEndpoints) validateTempToken(token string, purposes []string) (tt userTypes.TempToken, err error) {

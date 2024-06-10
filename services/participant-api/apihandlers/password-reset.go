@@ -52,14 +52,14 @@ func (h *HttpEndpoints) initiatePasswordReset(c *gin.Context) {
 	user, err := h.userDBConn.GetUserByAccountID(req.InstanceID, req.Email)
 	if err != nil {
 		slog.Warn("password reset for non-existing user", slog.String("email", req.Email), slog.String("instanceID", req.InstanceID), slog.String("error", err.Error()))
-		randomWait(10)
+		randomWait(5, 10)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
 	if umUtils.HasMoreAttemptsRecently(user.Account.PasswordResetTriggers, PASSWWORD_RESET_MAX_ATTEMPTS, passwordResetAttemptWindow) {
 		slog.Warn("password reset rate limited", slog.String("email", req.Email), slog.String("instanceID", req.InstanceID))
-		randomWait(10)
+		randomWait(5, 10)
 		c.JSON(http.StatusTooManyRequests, gin.H{"error": "rate limited"})
 		return
 	}
@@ -85,7 +85,7 @@ func (h *HttpEndpoints) initiatePasswordReset(c *gin.Context) {
 	}
 
 	slog.Info("password reset initiated", slog.String("email", req.Email), slog.String("instanceID", req.InstanceID))
-	randomWait(3) // to discourage click-flooding
+	randomWait(1, 4) // to discourage click-flooding
 	c.JSON(http.StatusOK, gin.H{"message": "password reset initiated"})
 }
 
@@ -111,7 +111,7 @@ func (h *HttpEndpoints) getPasswordResetInfos(c *gin.Context) {
 		})
 	if err != nil {
 		slog.Error("invalid token", slog.String("error", err.Error()))
-		randomWait(10)
+		randomWait(5, 10)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid token"})
 		return
 	}
@@ -140,7 +140,7 @@ func (h *HttpEndpoints) resetPassword(c *gin.Context) {
 	}
 
 	if req.Token == "" {
-		randomWait(5)
+		randomWait(5, 10)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "token is required"})
 		return
 	}
@@ -158,7 +158,7 @@ func (h *HttpEndpoints) resetPassword(c *gin.Context) {
 		})
 	if err != nil {
 		slog.Error("invalid token", slog.String("error", err.Error()))
-		randomWait(5)
+		randomWait(5, 10)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid token"})
 		return
 	}
