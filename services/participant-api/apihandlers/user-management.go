@@ -8,6 +8,7 @@ import (
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	emailTypes "github.com/case-framework/case-backend/pkg/messaging/types"
+	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 
@@ -120,7 +121,8 @@ func (h *HttpEndpoints) removeProfileHandl(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
 
 	var req struct {
-		ProfileID string `json:"profileId"`
+		ProfileID          string                     `json:"profileId"`
+		ExitSurveyResponse *studyTypes.SurveyResponse `json:"exitSurveyResponse"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot bind profile"})
@@ -148,7 +150,7 @@ func (h *HttpEndpoints) removeProfileHandl(c *gin.Context) {
 		return
 	}
 
-	studyService.OnProfileDeleted(token.InstanceID, req.ProfileID)
+	studyService.OnProfileDeleted(token.InstanceID, req.ProfileID, req.ExitSurveyResponse)
 
 	c.JSON(http.StatusOK, gin.H{"message": "profile removed"})
 }
@@ -355,6 +357,15 @@ func (h *HttpEndpoints) changeAccountEmailHandl(c *gin.Context) {
 func (h *HttpEndpoints) deleteUser(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
 
+	var req struct {
+		ExitSurveyResponse *studyTypes.SurveyResponse `json:"exitSurveyResponse"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
 	user, err := h.userDBConn.GetUser(token.InstanceID, token.Subject)
 	if err != nil {
 		slog.Error("user not found", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))
@@ -363,7 +374,13 @@ func (h *HttpEndpoints) deleteUser(c *gin.Context) {
 	}
 
 	for _, profile := range user.Profiles {
-		studyService.OnProfileDeleted(token.InstanceID, profile.ID.Hex())
+		var exitResp *studyTypes.SurveyResponse
+		if profile.MainProfile {
+			exitResp = req.ExitSurveyResponse
+		} else {
+			exitResp = nil
+		}
+		studyService.OnProfileDeleted(token.InstanceID, profile.ID.Hex(), exitResp)
 	}
 
 	// delete all temp tokens
