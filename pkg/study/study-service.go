@@ -568,8 +568,8 @@ func OnLeaveStudy(instanceID string, studyKey string, profileID string) (result 
 	return
 }
 
-func OnProfileDeleted(instanceID, profileID string) {
-	studies, err := studyDBService.GetStudies(instanceID, "", true)
+func OnProfileDeleted(instanceID, profileID string, exitSurveyResp *studyTypes.SurveyResponse) {
+	studies, err := studyDBService.GetStudies(instanceID, "", false)
 	if err != nil {
 		slog.Error("Error getting studies by status", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
 		return
@@ -583,6 +583,17 @@ func OnProfileDeleted(instanceID, profileID string) {
 		if err != nil {
 			slog.Error("Error computing participant IDs", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
 			continue
+		}
+
+		// save exit survey response even if no participant state is found, if it's a system default study
+		if study.Props.SystemDefaultStudy && exitSurveyResp != nil {
+			_, err := saveResponses(instanceID, study.Key, *exitSurveyResp, studyTypes.Participant{
+				ParticipantID: participantID,
+			}, confidentialID)
+			if err != nil {
+				slog.Error("Error saving responses", slog.String("instanceID", instanceID), slog.String("studyKey", study.Key), slog.String("participantID", participantID), slog.String("error", err.Error()))
+				return
+			}
 		}
 
 		// compute participantIDs for study
