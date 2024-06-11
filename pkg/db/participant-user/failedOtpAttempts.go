@@ -41,7 +41,13 @@ func (dbService *ParticipantUserDBService) CreateIndexForFailedOtpAttempts(insta
 func (dbService *ParticipantUserDBService) CountFailedOtpAttempts(instanceID string, userID string) (int64, error) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
-	return dbService.collectionFailedOtpAttempts(instanceID).CountDocuments(ctx, bson.M{"userID": userID})
+
+	filter := bson.M{"userID": userID,
+		"timestamp": bson.M{
+			"$gt": time.Now().Add(-FAILED_OTP_ATTEMP_WINDOW * time.Second),
+		},
+	}
+	return dbService.collectionFailedOtpAttempts(instanceID).CountDocuments(ctx, filter)
 }
 
 func (dbService *ParticipantUserDBService) AddFailedOtpAttempt(instanceID string, userID string) error {
