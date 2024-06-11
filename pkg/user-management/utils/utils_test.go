@@ -49,25 +49,25 @@ func TestCheckPasswordFormat(t *testing.T) {
 		}
 	})
 	t.Run("with a too weak password", func(t *testing.T) {
-		if CheckPasswordFormat("13342678") {
+		if CheckPasswordFormat("1334267891011") {
 			t.Error("should be false")
 		}
-		if CheckPasswordFormat("11111aaaa") {
+		if CheckPasswordFormat("11111aaaaaaaaaa") {
 			t.Error("should be false")
 		}
 	})
 	t.Run("with good passwords", func(t *testing.T) {
 
-		if !CheckPasswordFormat("1n34T678") {
+		if !CheckPasswordFormat("1n34T67891011") {
 			t.Error("should be true")
 		}
-		if !CheckPasswordFormat("nnnnnnT@@") {
+		if !CheckPasswordFormat("nnnnnnnnnnT@@") {
 			t.Error("should be true")
 		}
-		if !CheckPasswordFormat("TTTTTTTT77.") {
+		if !CheckPasswordFormat("TTTTTTTTTTTT77.") {
 			t.Error("should be true")
 		}
-		if !CheckPasswordFormat("Tt1,.Lo%4") {
+		if !CheckPasswordFormat("Ttttttt1,.Lo%4") {
 			t.Error("should be true")
 		}
 	})
