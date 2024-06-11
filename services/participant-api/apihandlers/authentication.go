@@ -27,6 +27,8 @@ const (
 	signupRateLimitWindow = 5 * 60 // to count the new signups, seconds
 
 	emailVerificationMessageCooldown = 60 // seconds
+
+	maxFailedOtpAttempts = 3
 )
 
 func (h *HttpEndpoints) AddParticipantAuthAPI(rg *gin.RouterGroup) {
@@ -850,6 +852,20 @@ func (h *HttpEndpoints) verifyOTP(c *gin.Context) {
 		return
 	}
 
+	count, err := h.userDBConn.CountFailedOtpAttempts(token.InstanceID, token.Subject)
+	if err != nil {
+		slog.Error("failed to count failed otp attempts", slog.String("error", err.Error()))
+	}
+	if count >= maxFailedOtpAttempts {
+		slog.Warn("too many failed otp attempts", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+		if err = h.userDBConn.DeleteOTPs(token.InstanceID, token.Subject); err != nil {
+			slog.Error("failed to delete otps", slog.String("error", err.Error()))
+		}
+		randomWait(5, 10)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "too many failed otp attempts"})
+		return
+	}
+
 	// user management method to verify OTP
 	otp, err := usermanagement.VerifyOTP(
 		token.InstanceID,
@@ -858,6 +874,9 @@ func (h *HttpEndpoints) verifyOTP(c *gin.Context) {
 	)
 	if err != nil {
 		slog.Warn("failed to verify OTP", slog.String("error", err.Error()))
+		if err := h.userDBConn.AddFailedOtpAttempt(token.InstanceID, token.Subject); err != nil {
+			slog.Error("failed to add failed otp attempt", slog.String("error", err.Error()))
+		}
 		randomWait(5, 10)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid code"})
 		return

@@ -12,9 +12,10 @@ import (
 
 // collection names
 const (
-	COLLECTION_NAME_PARTICIPANT_USERS = "users"
-	COLLECTION_NAME_RENEW_TOKENS      = "renewTokens"
-	COLLECTION_NAME_OTPS              = "otps"
+	COLLECTION_NAME_PARTICIPANT_USERS   = "users"
+	COLLECTION_NAME_RENEW_TOKENS        = "renewTokens"
+	COLLECTION_NAME_OTPS                = "otps"
+	COLLECTION_NAME_FAILED_OTP_ATTEMPTS = "failedOtpAttempts"
 )
 
 type ParticipantUserDBService struct {
@@ -81,6 +82,10 @@ func (dbService *ParticipantUserDBService) collectionOTPs(instanceID string) *mo
 	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_OTPS)
 }
 
+func (dbService *ParticipantUserDBService) collectionFailedOtpAttempts(instanceID string) *mongo.Collection {
+	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_FAILED_OTP_ATTEMPTS)
+}
+
 func (dbService *ParticipantUserDBService) ensureIndexes() {
 	slog.Debug("Ensuring indexes for participant user DB")
 	for _, instanceID := range dbService.InstanceIDs {
@@ -98,6 +103,11 @@ func (dbService *ParticipantUserDBService) ensureIndexes() {
 		err = dbService.CreateIndexForOTPs(instanceID)
 		if err != nil {
 			slog.Debug("Error creating indexes for OTPs: ", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
+		}
+
+		err = dbService.CreateIndexForFailedOtpAttempts(instanceID)
+		if err != nil {
+			slog.Debug("Error creating indexes for failed OTP attempts: ", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
 		}
 	}
 }
