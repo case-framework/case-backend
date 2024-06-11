@@ -174,6 +174,12 @@ func (h *HttpEndpoints) changePasswordHandl(c *gin.Context) {
 		return
 	}
 
+	if umUtils.IsPasswordOnBlocklist(req.NewPassword) {
+		slog.Error("password on blocklist", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", "password on blocklist"))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "password on blocklist"})
+		return
+	}
+
 	user, err := h.userDBConn.GetUser(token.InstanceID, token.Subject)
 	if err != nil {
 		slog.Error("user not found", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))

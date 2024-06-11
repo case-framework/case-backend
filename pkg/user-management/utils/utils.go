@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bufio"
+	"log/slog"
 	"net/mail"
 	"os"
 	"regexp"
@@ -15,23 +16,33 @@ const (
 
 var blockedPasswords map[string]struct{}
 
-func LoadBlockedPasswords(filename string) (map[string]struct{}, error) {
+func LoadBlockedPasswords(filename string) error {
 	file, err := os.Open(filename)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer file.Close()
 
-	blockedPasswords := make(map[string]struct{})
+	blockedPasswords = make(map[string]struct{})
 	scanner := bufio.NewScanner(file)
+	lines := 0
+	usedEntries := 0
 	for scanner.Scan() {
-		blockedPasswords[scanner.Text()] = struct{}{}
+		lines += 1
+		passwordEntry := scanner.Text()
+		passwordEntry = strings.TrimSpace(passwordEntry)
+		passwordEntry = strings.Trim(passwordEntry, "\n")
+		if CheckPasswordFormat(passwordEntry) {
+			usedEntries += 1
+			blockedPasswords[scanner.Text()] = struct{}{}
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, err
+		return err
 	}
-	return blockedPasswords, nil
+	slog.Info("loaded blocked password list", slog.Int("lines", lines), slog.Int("used", usedEntries))
+	return nil
 }
 
 func SanitizeEmail(email string) string {

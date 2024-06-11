@@ -151,6 +151,12 @@ func (h *HttpEndpoints) resetPassword(c *gin.Context) {
 		return
 	}
 
+	if umUtils.IsPasswordOnBlocklist(req.NewPassword) {
+		slog.Error("password on blocklist")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "password on blocklist"})
+		return
+	}
+
 	tokenInfos, err := h.validateTempToken(
 		req.Token, []string{
 			userTypes.TOKEN_PURPOSE_PASSWORD_RESET,
