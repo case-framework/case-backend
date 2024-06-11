@@ -51,7 +51,7 @@ func cleanUpUnverifiedUsers() {
 					user.ID.Hex(),
 					func(instanceID string, profiles []string) error {
 						for _, profile := range profiles {
-							studyService.OnProfileDeleted(instanceID, profile)
+							studyService.OnProfileDeleted(instanceID, profile, nil)
 						}
 						return nil
 					},
@@ -285,7 +285,7 @@ func cleanUpUsersMarkedForDeletion() {
 					user.ID.Hex(),
 					func(instanceID string, profiles []string) error {
 						for _, profile := range profiles {
-							studyService.OnProfileDeleted(instanceID, profile)
+							studyService.OnProfileDeleted(instanceID, profile, nil)
 						}
 						return nil
 					},
