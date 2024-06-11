@@ -8,3 +8,4 @@ test/smtp-bridge.yaml
 storage
 serviceInfos.json
 test/jobs
+blocked_passwordlist.txt

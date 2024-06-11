@@ -75,6 +75,7 @@ type ParticipantApiConfig struct {
 		MaxNewUsersPer5Minutes           int            `json:"max_new_users_per_5_minutes" yaml:"max_new_users_per_5_minutes"`
 		EmailContactVerificationTokenTTL time.Duration  `json:"email_contact_verification_token_ttl" yaml:"email_contact_verification_token_ttl"`
 		WeekdayAssignationWeights        map[string]int `json:"weekday_assignation_weights" yaml:"weekday_assignation_weights"`
+		BlockedPasswordsFilePath         string         `json:"blocked_passwords_file_path" yaml:"blocked_passwords_file_path"`
 	} `json:"user_management_config" yaml:"user_management_config"`
 
 	AllowedInstanceIDs []string `json:"allowed_instance_ids" yaml:"allowed_instance_ids"`
@@ -148,6 +149,12 @@ func init() {
 	)
 
 	umUtils.InitWeekdayAssignationStrategy(conf.UserManagementConfig.WeekdayAssignationWeights)
+
+	if conf.UserManagementConfig.BlockedPasswordsFilePath != "" {
+		if err := umUtils.LoadBlockedPasswords(conf.UserManagementConfig.BlockedPasswordsFilePath); err != nil {
+			panic(err)
+		}
+	}
 
 	// init user management
 	initUserManagement()

@@ -1,10 +1,49 @@
 package utils
 
 import (
+	"bufio"
+	"log/slog"
 	"net/mail"
+	"os"
 	"regexp"
 	"strings"
 )
+
+const (
+	PASSWORD_MIN_LEN = 12
+	PASSWORD_MAX_LEN = 512
+)
+
+var blockedPasswords map[string]struct{}
+
+func LoadBlockedPasswords(filename string) error {
+	file, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	blockedPasswords = make(map[string]struct{})
+	scanner := bufio.NewScanner(file)
+	lines := 0
+	usedEntries := 0
+	for scanner.Scan() {
+		lines += 1
+		passwordEntry := scanner.Text()
+		passwordEntry = strings.TrimSpace(passwordEntry)
+		passwordEntry = strings.Trim(passwordEntry, "\n")
+		if CheckPasswordFormat(passwordEntry) {
+			usedEntries += 1
+			blockedPasswords[scanner.Text()] = struct{}{}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+	slog.Info("loaded blocked password list", slog.Int("lines", lines), slog.Int("used", usedEntries))
+	return nil
+}
 
 func SanitizeEmail(email string) string {
 	email = strings.ToLower(email)
@@ -40,7 +79,7 @@ func BlurEmailAddress(email string) string {
 // CheckPasswordFormat to check if password fulfills password rules
 func CheckPasswordFormat(password string) bool {
 	pl := len(password)
-	if pl < 8 || pl > 512 {
+	if pl < PASSWORD_MIN_LEN || pl > PASSWORD_MAX_LEN {
 		return false
 	}
 
@@ -64,6 +103,11 @@ func CheckPasswordFormat(password string) bool {
 		res++
 	}
 	return res > 2
+}
+
+func IsPasswordOnBlocklist(password string) bool {
+	_, exists := blockedPasswords[password]
+	return exists
 }
 
 // CheckLanguageCode checks if a string can be considered as a language code

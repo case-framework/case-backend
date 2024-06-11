@@ -238,6 +238,12 @@ func (h *HttpEndpoints) signupWithEmail(c *gin.Context) {
 		return
 	}
 
+	if umUtils.IsPasswordOnBlocklist(req.Password) {
+		slog.Error("password on blocklist")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "password on blocklist"})
+		return
+	}
+
 	if !umUtils.CheckLanguageCode(req.PreferredLanguage) {
 		slog.Error("invalid preferred language code", slog.String("preferredLanguage", req.PreferredLanguage))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid preferred language code"})
