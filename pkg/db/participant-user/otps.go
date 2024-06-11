@@ -71,6 +71,15 @@ func (dbService *ParticipantUserDBService) DeleteOTP(instanceID string, userID s
 	return err
 }
 
+func (dbService *ParticipantUserDBService) DeleteOTPs(instanceID string, userID string) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	filter := bson.M{"userID": userID}
+	_, err := dbService.collectionOTPs(instanceID).DeleteMany(ctx, filter)
+	return err
+}
+
 func (dbService *ParticipantUserDBService) CountOTP(instanceID string, userID string) (int64, error) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
