@@ -87,6 +87,7 @@ func (h *HttpEndpoints) loginWithEmail(c *gin.Context) {
 	user, err := h.userDBConn.GetUserByAccountID(req.InstanceID, req.Email)
 	if err != nil {
 		slog.Warn("login attempt with wrong email address", slog.String("email", req.Email), slog.String("instanceID", req.InstanceID), slog.String("error", err.Error()))
+		randomWait(5, 10)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
 		return
 	}
