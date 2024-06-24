@@ -479,6 +479,57 @@ func mapToResponseDef(rItem *studytypes.ItemComponent, lang string) []ResponseDe
 		}
 		responseDef.ResponseType = QUESTION_TYPE_CLOZE
 		return []ResponseDef{responseDef}
+	case "contact":
+		responses := []ResponseDef{}
+		for _, o := range rItem.Items {
+			label, err := getPreviewText(&o, lang)
+			if err != nil {
+				slog.Debug("label not found for component")
+			}
+
+			switch o.Role {
+			case "fullName":
+				responses = append(responses, ResponseDef{
+					ID:           rItem.Key + "." + o.Key,
+					ResponseType: QUESTION_TYPE_TEXT_INPUT,
+					Label:        label,
+				})
+			case "email":
+				responses = append(responses, ResponseDef{
+					ID:           rItem.Key + "." + o.Key,
+					ResponseType: QUESTION_TYPE_TEXT_INPUT,
+					Label:        label,
+				})
+			case "phone":
+				responses = append(responses, ResponseDef{
+					ID:           rItem.Key + "." + o.Key,
+					ResponseType: QUESTION_TYPE_TEXT_INPUT,
+					Label:        label,
+				})
+			case "address":
+				responses = append(responses, ResponseDef{
+					ID:           rItem.Key + "." + "street",
+					ResponseType: QUESTION_TYPE_TEXT_INPUT,
+					Label:        "Street",
+				})
+				responses = append(responses, ResponseDef{
+					ID:           rItem.Key + "." + "street2",
+					ResponseType: QUESTION_TYPE_TEXT_INPUT,
+					Label:        "Street 2",
+				})
+				responses = append(responses, ResponseDef{
+					ID:           rItem.Key + "." + "city",
+					ResponseType: QUESTION_TYPE_TEXT_INPUT,
+					Label:        "City",
+				})
+				responses = append(responses, ResponseDef{
+					ID:           rItem.Key + "." + "postalCode",
+					ResponseType: QUESTION_TYPE_TEXT_INPUT,
+					Label:        "Postal Code",
+				})
+			}
+		}
+		return responses
 	default:
 		if roleSeparatorIndex > 0 {
 			responseDef.ResponseType = QUESTION_TYPE_UNKNOWN
