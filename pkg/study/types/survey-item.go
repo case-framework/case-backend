@@ -62,4 +62,5 @@ type ComponentProperties struct {
 	Max           *ExpressionArg `bson:"max,omitempty" json:"max,omitempty"`
 	StepSize      *ExpressionArg `bson:"stepSize,omitempty" json:"stepSize,omitempty"`
 	DateInputMode *ExpressionArg `bson:"dateInputMode,omitempty" json:"dateInputMode,omitempty"`
+	Pattern       string         `bson:"pattern,omitempty" json:"pattern,omitempty"`
 }
