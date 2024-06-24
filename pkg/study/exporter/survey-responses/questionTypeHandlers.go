@@ -29,6 +29,7 @@ var questionTypeHandlers = map[string]QuestionTypeHandler{
 	sd.QUESTION_TYPE_RESPONSIVE_TABLE:                &ResponsiveTableHandler{},
 	sd.QUESTION_TYPE_MATRIX:                          &MatrixHandler{},
 	sd.QUESTION_TYPE_CLOZE:                           &ClozeHandler{},
+	sd.QUESTION_TYPE_EMPTY:                           &EmptyHandler{},
 	sd.QUESTION_TYPE_UNKNOWN:                         &UnknownTypeHandler{},
 }
 
@@ -360,6 +361,20 @@ func (h *ClozeHandler) ParseResponse(question sd.SurveyQuestion, response *study
 	} else {
 		responseCols = parseClozeList(question.ID, question.Responses, response, questionOptionSep)
 	}
+
+	return responseCols
+}
+
+type EmptyHandler struct{}
+
+func (h *EmptyHandler) GetResponseColumnNames(question sd.SurveyQuestion, questionOptionSep string) []string {
+	colNames := []string{}
+
+	return colNames
+}
+
+func (h *EmptyHandler) ParseResponse(question sd.SurveyQuestion, response *studytypes.SurveyItemResponse, questionOptionSep string) map[string]interface{} {
+	responseCols := map[string]interface{}{}
 
 	return responseCols
 }
