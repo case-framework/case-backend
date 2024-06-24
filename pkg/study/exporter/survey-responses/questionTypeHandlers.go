@@ -19,8 +19,8 @@ var questionTypeHandlers = map[string]QuestionTypeHandler{
 	sd.QUESTION_TYPE_DROPDOWN:                        &SingleChoiceHandler{},
 	sd.QUESTION_TYPE_LIKERT:                          &SingleChoiceHandler{},
 	sd.QUESTION_TYPE_LIKERT_GROUP:                    &SingleChoiceHandler{},
-	sd.QUESTION_TYPE_RESPONSIVE_SINGLE_CHOICE_ARRAY:  &SingleChoiceHandler{},
-	sd.QUESTION_TYPE_RESPONSIVE_BIPOLAR_LIKERT_ARRAY: &SingleChoiceHandler{},
+	sd.QUESTION_TYPE_RESPONSIVE_SINGLE_CHOICE_ARRAY:  &SingleChoiceGroupHandler{},
+	sd.QUESTION_TYPE_RESPONSIVE_BIPOLAR_LIKERT_ARRAY: &SingleChoiceGroupHandler{},
 	sd.QUESTION_TYPE_TEXT_INPUT:                      &InputValueHandler{},
 	sd.QUESTION_TYPE_DATE_INPUT:                      &InputValueHandler{},
 	sd.QUESTION_TYPE_NUMBER_INPUT:                    &InputValueHandler{},
@@ -73,6 +73,32 @@ func (h *SingleChoiceHandler) ParseResponse(question sd.SurveyQuestion, response
 	} else {
 		responseCols = parseSingleChoiceGroupList(question.ID, question.Responses, response, questionOptionSep)
 	}
+	return responseCols
+}
+
+type SingleChoiceGroupHandler struct{}
+
+func (h *SingleChoiceGroupHandler) GetResponseColumnNames(question sd.SurveyQuestion, questionOptionSep string) []string {
+	cols := []string{}
+	questionKey := question.ID
+
+	for _, rSlot := range question.Responses {
+		cols = append(cols, questionKey+questionOptionSep+rSlot.ID)
+		for _, option := range rSlot.Options {
+			if option.OptionType != sd.OPTION_TYPE_RADIO &&
+				option.OptionType != sd.OPTION_TYPE_DROPDOWN_OPTION && option.OptionType != sd.OPTION_TYPE_CLOZE {
+				cols = append(cols, questionKey+questionOptionSep+rSlot.ID+"."+option.ID)
+			}
+		}
+
+	}
+
+	return cols
+}
+
+func (h *SingleChoiceGroupHandler) ParseResponse(question sd.SurveyQuestion, response *studytypes.SurveyItemResponse, questionOptionSep string) map[string]interface{} {
+	responseCols := parseSingleChoiceGroupList(question.ID, question.Responses, response, questionOptionSep)
+
 	return responseCols
 }
 
