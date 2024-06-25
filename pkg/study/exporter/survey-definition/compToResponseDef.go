@@ -494,6 +494,12 @@ func mapToResponseDef(rItem *studytypes.ItemComponent, lang string) []ResponseDe
 					ResponseType: QUESTION_TYPE_TEXT_INPUT,
 					Label:        label,
 				})
+			case "company":
+				responses = append(responses, ResponseDef{
+					ID:           rItem.Key + "." + o.Key,
+					ResponseType: QUESTION_TYPE_TEXT_INPUT,
+					Label:        label,
+				})
 			case "email":
 				responses = append(responses, ResponseDef{
 					ID:           rItem.Key + "." + o.Key,
