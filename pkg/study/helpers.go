@@ -114,9 +114,9 @@ func saveReports(instanceID string, studyKey string, reports map[string]studyTyp
 		report.ResponseID = withResponseID
 		err := studyDBService.SaveReport(instanceID, studyKey, report)
 		if err != nil {
-			slog.Error("Error saving report", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", report.ParticipantID), slog.String("error", err.Error()))
+			slog.Error("Error saving report", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", report.ParticipantID), slog.String("error", err.Error()), slog.String("reportKey", report.Key))
 		} else {
-			slog.Debug("Report with key '%s' for participant %s saved.", report.Key, report.ParticipantID)
+			slog.Debug("Repor saved.", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", report.ParticipantID), slog.String("reportKey", report.Key))
 		}
 	}
 }
