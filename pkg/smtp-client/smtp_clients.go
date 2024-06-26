@@ -4,13 +4,15 @@ import (
 	"crypto/tls"
 	"log/slog"
 	"net/smtp"
+	"strconv"
+	"time"
 
-	"github.com/jordan-wright/email"
+	"github.com/knadh/smtppool"
 )
 
 type SmtpClients struct {
 	servers        SmtpServerList
-	connectionPool []email.Pool
+	connectionPool []*smtppool.Pool
 	counter        int
 }
 
@@ -24,8 +26,8 @@ func NewSmtpClients(config SmtpServerList) (*SmtpClients, error) {
 	return sc, nil
 }
 
-func initConnectionPool(serverList SmtpServerList) []email.Pool {
-	connectionPools := []email.Pool{}
+func initConnectionPool(serverList SmtpServerList) []*smtppool.Pool {
+	connectionPools := []*smtppool.Pool{}
 	for _, server := range serverList.Servers {
 		pool, err := connectToPool(server)
 		if err != nil {
@@ -33,7 +35,7 @@ func initConnectionPool(serverList SmtpServerList) []email.Pool {
 
 			continue
 		} else {
-			connectionPools = append(connectionPools, *pool)
+			connectionPools = append(connectionPools, pool)
 		}
 	}
 	if len(connectionPools) < 1 {
@@ -42,7 +44,8 @@ func initConnectionPool(serverList SmtpServerList) []email.Pool {
 	return connectionPools
 }
 
-func connectToPool(server SmtpServer) (*email.Pool, error) {
+func connectToPool(server SmtpServer) (*smtppool.Pool, error) {
+
 	//Set number of concurrent connections here
 	auth := smtp.PlainAuth(
 		"",
@@ -58,6 +61,20 @@ func connectToPool(server SmtpServer) (*email.Pool, error) {
 		InsecureSkipVerify: server.InsecureSkipVerify,
 		ServerName:         server.Host,
 	}
-	pool, err := email.NewPool(server.Address(), server.Connections, auth, tlsOpts)
+	port, err := strconv.Atoi(server.Port)
+	if err != nil {
+		return nil, err
+	}
+
+	pool, err := smtppool.New(smtppool.Opt{
+		Host:            server.Host,
+		Port:            port,
+		MaxConns:        server.Connections,
+		IdleTimeout:     time.Duration(server.SendTimeout) * time.Second,
+		PoolWaitTimeout: time.Duration(server.SendTimeout) * time.Second,
+		TLSConfig:       tlsOpts,
+		Auth:            auth,
+	})
+	// pool, err := email.NewPool(server.Address(), server.Connections, auth, tlsOpts)
 	return pool, err
 }
