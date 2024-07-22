@@ -21,7 +21,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	studyDB "github.com/case-framework/case-backend/pkg/db/study"
-	studydefinition "github.com/case-framework/case-backend/pkg/study/exporter/survey-definition"
 	surveydefinition "github.com/case-framework/case-backend/pkg/study/exporter/survey-definition"
 	surveyresponses "github.com/case-framework/case-backend/pkg/study/exporter/survey-responses"
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
@@ -1619,7 +1618,7 @@ func (h *HttpEndpoints) getSurveyInfo(c *gin.Context) {
 
 	slog.Info("getting survey info", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey))
 
-	sInfos, err := studydefinition.PrepareSurveyInfosFromDB(
+	sInfos, err := surveydefinition.PrepareSurveyInfosFromDB(
 		h.studyDBConn,
 		token.InstanceID,
 		studyKey,
@@ -1634,7 +1633,7 @@ func (h *HttpEndpoints) getSurveyInfo(c *gin.Context) {
 		return
 	}
 
-	siExp := studydefinition.NewSurveyInfoExporter(
+	siExp := surveydefinition.NewSurveyInfoExporter(
 		sInfos,
 		surveyKey,
 		shortKeys,
@@ -1718,7 +1717,7 @@ func (h *HttpEndpoints) generateResponsesExport(c *gin.Context) {
 		return
 	}
 
-	surveyVersions, err := studydefinition.PrepareSurveyInfosFromDB(
+	surveyVersions, err := surveydefinition.PrepareSurveyInfosFromDB(
 		h.studyDBConn,
 		token.InstanceID,
 		studyKey,
@@ -1741,6 +1740,7 @@ func (h *HttpEndpoints) generateResponsesExport(c *gin.Context) {
 		query.UseShortKeys,
 		query.IncludeMeta,
 		query.QuestionOptionSep,
+		nil, // TODO: add extra context columns optionally
 	)
 	if err != nil {
 		slog.Error("failed to create response parser", slog.String("error", err.Error()))
@@ -2443,7 +2443,7 @@ func (h *HttpEndpoints) getStudyResponses(c *gin.Context) {
 		return
 	}
 
-	surveyVersions, err := studydefinition.PrepareSurveyInfosFromDB(
+	surveyVersions, err := surveydefinition.PrepareSurveyInfosFromDB(
 		h.studyDBConn,
 		token.InstanceID,
 		studyKey,
@@ -2466,6 +2466,7 @@ func (h *HttpEndpoints) getStudyResponses(c *gin.Context) {
 		query.UseShortKeys,
 		query.IncludeMeta,
 		query.QuestionOptionSep,
+		nil, // TODO: add extra context columns optionally
 	)
 	if err != nil {
 		slog.Error("failed to create response parser", slog.String("error", err.Error()))
@@ -2517,7 +2518,7 @@ func (h *HttpEndpoints) getStudyResponseById(c *gin.Context) {
 		return
 	}
 
-	surveyVersions, err := studydefinition.PrepareSurveyInfosFromDB(
+	surveyVersions, err := surveydefinition.PrepareSurveyInfosFromDB(
 		h.studyDBConn,
 		token.InstanceID,
 		studyKey,
@@ -2540,6 +2541,7 @@ func (h *HttpEndpoints) getStudyResponseById(c *gin.Context) {
 		query.UseShortKeys,
 		query.IncludeMeta,
 		query.QuestionOptionSep,
+		nil, // TODO: add extra context columns optionally
 	)
 	if err != nil {
 		slog.Error("failed to create response parser", slog.String("error", err.Error()))

@@ -86,7 +86,7 @@ func GetAssignedSurveys(instanceID string, studyKey string, profileIDs []string)
 		if !found {
 			surveyDef, err := studyDBService.GetCurrentSurveyVersion(instanceID, studyKey, survey.SurveyKey)
 			if err != nil {
-				slog.Error("error getting survey definition", slog.String("error", err.Error()))
+				slog.Error("error getting survey definition", slog.String("error", err.Error()), slog.String("surveyKey", survey.SurveyKey))
 				continue
 			}
 			surveyInfo := SurveyInfo{
