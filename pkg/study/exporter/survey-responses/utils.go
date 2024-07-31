@@ -21,6 +21,8 @@ func valueToStr(resultVal interface{}) string {
 		str = colValue
 	case int:
 		str = fmt.Sprintf("%d", colValue)
+	case int32:
+		str = fmt.Sprintf("%d", colValue)
 	case int64:
 		str = fmt.Sprintf("%d", colValue)
 	case float64:
