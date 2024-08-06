@@ -70,7 +70,7 @@ func NewStudyDBService(configs db.DBConfig) (*StudyDBService, error) {
 
 	if configs.RunIndexCreation {
 		if err := studyDBSc.ensureIndexes(); err != nil {
-			slog.Error("Error ensuring indexes for study DB: ", err)
+			slog.Error("Error ensuring indexes for study DB", slog.String("error", err.Error()))
 		}
 	}
 
@@ -144,13 +144,13 @@ func (dbService *StudyDBService) ensureIndexes() error {
 			},
 		)
 		if err != nil {
-			slog.Error("Error creating index for createdAt in userDB.sessions: ", err)
+			slog.Error("Error creating index for createdAt in userDB.sessions", slog.String("error", err.Error()))
 		}
 
 		// index on studyInfos
 		err = dbService.createIndexForStudyInfosCollection(instanceID)
 		if err != nil {
-			slog.Error("Error creating index for studyInfos: ", err)
+			slog.Error("Error creating index for studyInfos", slog.String("error", err.Error()))
 		}
 
 		// index on confidentialIDMap
@@ -176,7 +176,7 @@ func (dbService *StudyDBService) ensureIndexes() error {
 		// index on studyRules
 		err = dbService.CreateIndexForStudyRulesCollection(instanceID)
 		if err != nil {
-			slog.Error("Error creating index for studyRules: ", err)
+			slog.Error("Error creating index for studyRules: ", slog.String("error", err.Error()))
 		}
 
 		for _, study := range studies {
