@@ -9,6 +9,14 @@ import (
 	studytypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
+var (
+	defaultCtxColNames = []string{
+		"language",
+		"engineVersion",
+		"session",
+	}
+)
+
 type ResponseParser struct {
 	surveyVersions    []studydefinition.SurveyVersionPreview
 	surveyKey         string
@@ -24,6 +32,7 @@ func NewResponseParser(
 	removeRootKey bool,
 	includeMeta *IncludeMeta,
 	questionOptionSep string,
+	extraContextColumns *[]string,
 ) (*ResponseParser, error) {
 	rp := &ResponseParser{
 		surveyKey:         surveyKey,
@@ -33,14 +42,14 @@ func NewResponseParser(
 		questionOptionSep: questionOptionSep,
 	}
 
-	if err := rp.initColumnNames(); err != nil {
+	if err := rp.initColumnNames(extraContextColumns); err != nil {
 		return nil, err
 	}
 
 	return rp, nil
 }
 
-func (rp *ResponseParser) initColumnNames() error {
+func (rp *ResponseParser) initColumnNames(extraContextColumns *[]string) error {
 	fixedCols := []string{
 		"ID",
 		"participantID",
@@ -49,10 +58,9 @@ func (rp *ResponseParser) initColumnNames() error {
 		"submitted",
 	}
 
-	ctxCols := []string{
-		"language",
-		"engineVersion",
-		"session",
+	ctxCols := defaultCtxColNames
+	if extraContextColumns != nil {
+		ctxCols = append(ctxCols, *extraContextColumns...)
 	}
 
 	if rp.removeRootKey {

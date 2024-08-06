@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/url"
 	"strconv"
+	"strings"
 
 	surveyresponses "github.com/case-framework/case-backend/pkg/study/exporter/survey-responses"
 	"github.com/gin-gonic/gin"
@@ -88,6 +89,7 @@ type ResponseExportQuery struct {
 	Format            string
 	IncludeMeta       *surveyresponses.IncludeMeta
 	PaginationInfos   *PagenatedQuery
+	ExtraCtxCols      *[]string
 }
 
 func ParseResponseExportQueryFromCtx(c *gin.Context) (*ResponseExportQuery, error) {
@@ -105,16 +107,22 @@ func ParseResponseExportQueryFromCtx(c *gin.Context) (*ResponseExportQuery, erro
 	questionOptionSep := c.DefaultQuery("questionOptionSep", "-")
 
 	format := c.DefaultQuery("format", "wide")
-
-	includeMeta := &surveyresponses.IncludeMeta{}
-	// TODO
-
-	return &ResponseExportQuery{
+	q := &ResponseExportQuery{
 		SurveyKey:         surveyKey,
 		UseShortKeys:      useShortKeys,
 		QuestionOptionSep: questionOptionSep,
 		Format:            format,
-		IncludeMeta:       includeMeta,
 		PaginationInfos:   paginatedQuery,
-	}, nil
+	}
+
+	extraCtxColsQuery := c.DefaultQuery("extraContextColumns", "")
+	if extraCtxColsQuery != "" {
+		*q.ExtraCtxCols = strings.Split(extraCtxColsQuery, ",")
+	}
+
+	// TODO
+	includeMeta := &surveyresponses.IncludeMeta{}
+	q.IncludeMeta = includeMeta
+
+	return q, nil
 }

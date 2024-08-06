@@ -21,10 +21,24 @@ func valueToStr(resultVal interface{}) string {
 		str = colValue
 	case int:
 		str = fmt.Sprintf("%d", colValue)
+	case int32:
+		str = fmt.Sprintf("%d", colValue)
 	case int64:
 		str = fmt.Sprintf("%d", colValue)
 	case float64:
 		str = fmt.Sprintf("%f", colValue)
+	case []int64:
+		strLst := []string{}
+		for _, v := range colValue {
+			strLst = append(strLst, fmt.Sprintf("%d", v))
+		}
+		str = strings.Join(strLst, ",")
+	case []int32:
+		strLst := []string{}
+		for _, v := range colValue {
+			strLst = append(strLst, fmt.Sprintf("%d", v))
+		}
+		str = strings.Join(strLst, ",")
 	case *studytypes.ResponseItem:
 		jsonBytes, err := json.Marshal(colValue)
 		if err != nil {
