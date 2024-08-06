@@ -1740,7 +1740,7 @@ func (h *HttpEndpoints) generateResponsesExport(c *gin.Context) {
 		query.UseShortKeys,
 		query.IncludeMeta,
 		query.QuestionOptionSep,
-		nil, // TODO: add extra context columns optionally
+		query.ExtraCtxCols,
 	)
 	if err != nil {
 		slog.Error("failed to create response parser", slog.String("error", err.Error()))
@@ -2466,7 +2466,7 @@ func (h *HttpEndpoints) getStudyResponses(c *gin.Context) {
 		query.UseShortKeys,
 		query.IncludeMeta,
 		query.QuestionOptionSep,
-		nil, // TODO: add extra context columns optionally
+		query.ExtraCtxCols,
 	)
 	if err != nil {
 		slog.Error("failed to create response parser", slog.String("error", err.Error()))
