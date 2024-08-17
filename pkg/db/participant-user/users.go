@@ -51,6 +51,21 @@ func (dbService *ParticipantUserDBService) CreateIndexForParticipantUsers(instan
 	return err
 }
 
+func (dbService *ParticipantUserDBService) FixFieldNameForContactInfos(instanceID string) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	collection := dbService.collectionParticipantUsers(instanceID)
+	filter := bson.M{
+		"contactinfos": bson.M{
+			"$exists": true,
+		},
+	}
+	update := bson.M{"$rename": bson.M{"contactinfos": "contactInfos"}}
+	_, err := collection.UpdateMany(ctx, filter, update)
+	return err
+}
+
 func (dbService *ParticipantUserDBService) AddUser(instanceID string, user umTypes.User) (id string, err error) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()

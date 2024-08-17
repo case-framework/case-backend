@@ -16,7 +16,7 @@ type User struct {
 	Timestamps         Timestamps         `bson:"timestamps" json:"timestamps"`
 	Profiles           []Profile          `bson:"profiles" json:"profiles"`
 	ContactPreferences ContactPreferences `bson:"contactPreferences" json:"contactPreferences"`
-	ContactInfos       []ContactInfo
+	ContactInfos       []ContactInfo      `bson:"contactInfos" json:"contactInfos"`
 }
 
 // Add a new email address

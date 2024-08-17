@@ -109,5 +109,11 @@ func (dbService *ParticipantUserDBService) ensureIndexes() {
 		if err != nil {
 			slog.Debug("Error creating indexes for failed OTP attempts: ", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
 		}
+
+		// Fix field name for contactInfos
+		err = dbService.FixFieldNameForContactInfos(instanceID)
+		if err != nil {
+			slog.Debug("Error fixing field name for contactInfos: ", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
+		}
 	}
 }
