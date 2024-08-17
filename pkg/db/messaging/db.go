@@ -14,9 +14,11 @@ import (
 // collection names
 const (
 	COLLECTION_NAME_EMAIL_TEMPLATES = "email-templates"
+	COLLECTION_NAME_SMS_TEMPLATES   = "sms-templates"
 	COLLECTION_NAME_EMAIL_SCHEDULES = "auto-messages"
 	COLLECTION_NAME_OUTGOING_EMAILS = "outgoing-emails"
 	COLLECTION_NAME_SENT_EMAILS     = "sent-emails"
+	COLLECTION_NAME_SENT_SMS        = "sent-sms"
 )
 
 type MessagingDBService struct {
@@ -59,7 +61,7 @@ func NewMessagingDBService(configs db.DBConfig) (*MessagingDBService, error) {
 
 	if configs.RunIndexCreation {
 		if err := messagingDBSc.ensureIndexes(); err != nil {
-			slog.Error("Error ensuring indexes for messaging DB: ", err)
+			slog.Error("Error ensuring indexes for messaging DB: ", slog.String("error", err.Error()))
 		}
 	}
 
@@ -74,6 +76,10 @@ func (dbService *MessagingDBService) collectionEmailTemplates(instanceID string)
 	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_EMAIL_TEMPLATES)
 }
 
+func (dbService *MessagingDBService) collectionSMSTemplates(instanceID string) *mongo.Collection {
+	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_SMS_TEMPLATES)
+}
+
 func (dbService *MessagingDBService) collectionEmailSchedules(instanceID string) *mongo.Collection {
 	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_EMAIL_SCHEDULES)
 }
@@ -84,6 +90,10 @@ func (dbService *MessagingDBService) collectionOutgoingEmails(instanceID string)
 
 func (dbService *MessagingDBService) collectionSentEmails(instanceID string) *mongo.Collection {
 	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_SENT_EMAILS)
+}
+
+func (dbService *MessagingDBService) collectionSentSMS(instanceID string) *mongo.Collection {
+	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_SENT_SMS)
 }
 
 func (dbService *MessagingDBService) getContext() (ctx context.Context, cancel context.CancelFunc) {
@@ -110,6 +120,12 @@ func (dbService *MessagingDBService) ensureIndexes() error {
 		)
 		if err != nil {
 			slog.Error("Error creating index for email templates: ", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
+		}
+
+		// Sent SMS
+		err = dbService.CreateSentSMSIndex(instanceID)
+		if err != nil {
+			slog.Error("Error creating index for sent SMS: ", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
 		}
 
 		// Outgoing Emails
