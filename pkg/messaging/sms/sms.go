@@ -14,6 +14,11 @@ var (
 	MessageDBService *messageDB.MessagingDBService
 )
 
+const (
+	SMS_MESSAGE_TYPE_VERIFY_PHONE_NUMBER = "verify-phone-number"
+	SMS_MESSAGE_TYPE_OTP                 = "otp"
+)
+
 func Init(
 	smsGatewayConfig *types.SMSGatewayConfig,
 	mdb *messageDB.MessagingDBService,
