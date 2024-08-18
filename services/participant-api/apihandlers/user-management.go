@@ -39,7 +39,6 @@ func (h *HttpEndpoints) AddUserManagementAPI(rg *gin.RouterGroup) {
 		userGroup.POST("/change-account-email", mw.RequirePayload(), h.changeAccountEmailHandl)
 		userGroup.POST("/change-phone-number", mw.RequirePayload(), h.updatePhoneNumberHandler)
 		userGroup.GET("/request-phone-number-verification", h.requestPhoneNumberVerificationHandl)
-		userGroup.POST("/verify-phone-number", mw.RequirePayload(), h.verifyPhoneNumberHandler)
 
 		userGroup.DELETE("/", h.deleteUser)
 	}
@@ -534,27 +533,6 @@ func (h *HttpEndpoints) requestPhoneNumberVerificationHandl(c *gin.Context) {
 	}
 	slog.Info("sent SMS for phone number verification", slog.String("instanceId", token.InstanceID), slog.String("userID", token.Subject))
 	c.JSON(http.StatusOK, gin.H{"message": "SMS sent"})
-}
-
-func (h *HttpEndpoints) verifyPhoneNumberHandler(c *gin.Context) {
-	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
-
-	var req struct {
-		Code string `json:"code"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot bind profile"})
-		return
-	}
-
-	slog.Info("verifying account phone number", slog.String("instanceId", token.InstanceID), slog.String("userID", token.Subject))
-	// TODO: lookup user
-	// TODO: lookup code
-	// TODO: check if code is valid
-	// TODO: check if phone is not already verified
-	// TODO: update phone
-
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
 
 func (h *HttpEndpoints) deleteUser(c *gin.Context) {

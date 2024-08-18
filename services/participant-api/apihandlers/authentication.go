@@ -903,6 +903,21 @@ func (h *HttpEndpoints) verifyOTP(c *gin.Context) {
 		}
 	}
 
+	if otp.Type == userTypes.SMSOTP {
+		phoneInfo, err := user.GetPhoneNumber()
+		if err == nil && phoneInfo.ConfirmedAt < 1 {
+			// phone number is not confirmed yet
+			err = user.ConfirmPhoneNumber()
+			if err != nil {
+				slog.Error("failed to confirm phone number", slog.String("error", err.Error()))
+			}
+			_, err = h.userDBConn.ReplaceUser(token.InstanceID, user)
+			if err != nil {
+				slog.Error("failed to update user after confirming phone number", slog.String("error", err.Error()))
+			}
+		}
+	}
+
 	mainProfileID, otherProfileIDs := umUtils.GetMainAndOtherProfiles(user)
 
 	if token.LastOTPProvided == nil {
