@@ -10,6 +10,7 @@ import (
 	"github.com/case-framework/case-backend/pkg/db"
 	httpclient "github.com/case-framework/case-backend/pkg/http-client"
 	emailsending "github.com/case-framework/case-backend/pkg/messaging/email-sending"
+	"github.com/case-framework/case-backend/pkg/messaging/sms"
 	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 	"github.com/case-framework/case-backend/pkg/study"
 	"github.com/case-framework/case-backend/pkg/study/studyengine"
@@ -41,6 +42,7 @@ const (
 	ENV_GLOBAL_INFOS_DB_PASSWORD     = "GLOBAL_INFOS_DB_PASSWORD"
 	ENV_MESSAGING_DB_USERNAME        = "MESSAGING_DB_USERNAME"
 	ENV_MESSAGING_DB_PASSWORD        = "MESSAGING_DB_PASSWORD"
+	ENV_SMS_GATEWAY_API_KEY          = "SMS_GATEWAY_API_KEY"
 )
 
 type ParticipantApiConfig struct {
@@ -204,6 +206,13 @@ func secretsOverride() {
 	if dbPassword := os.Getenv(ENV_MESSAGING_DB_PASSWORD); dbPassword != "" {
 		conf.DBConfigs.MessagingDB.Password = dbPassword
 	}
+
+	if smsGatewayAPIKey := os.Getenv(ENV_SMS_GATEWAY_API_KEY); smsGatewayAPIKey != "" {
+		if conf.MessagingConfigs.SMSConfig == nil {
+			conf.MessagingConfigs.SMSConfig = &messagingTypes.SMSGatewayConfig{}
+		}
+		conf.MessagingConfigs.SMSConfig.APIKey = smsGatewayAPIKey
+	}
 }
 
 func checkParticipantFilestorePath() {
@@ -236,6 +245,11 @@ func initMessageSendingConfig() {
 	emailsending.InitMessageSendingVariables(
 		loadEmailClientHTTPConfig(),
 		conf.MessagingConfigs.GlobalEmailTemplateConstants,
+		messagingDBService,
+	)
+
+	sms.Init(
+		conf.MessagingConfigs.SMSConfig,
 		messagingDBService,
 	)
 }
