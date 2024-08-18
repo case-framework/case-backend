@@ -7,11 +7,11 @@ import (
 )
 
 type SentSMS struct {
-	ID          string    `bson:"_id" json:"id"`
-	UserID      string    `bson:"userID" json:"userID"`
-	MessageType string    `bson:"messageType" json:"messageType"`
-	SentAt      time.Time `bson:"sentAt" json:"sentAt"`
-	PhoneNumber string    `bson:"phoneNumber" json:"phoneNumber"`
+	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	UserID      string             `bson:"userID" json:"userID"`
+	MessageType string             `bson:"messageType" json:"messageType"`
+	SentAt      time.Time          `bson:"sentAt" json:"sentAt"`
+	PhoneNumber string             `bson:"phoneNumber" json:"phoneNumber"`
 }
 
 type SMSTemplate struct {

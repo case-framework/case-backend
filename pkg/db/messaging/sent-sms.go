@@ -5,6 +5,7 @@ import (
 
 	"github.com/case-framework/case-backend/pkg/messaging/types"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -35,7 +36,7 @@ func (dbService *MessagingDBService) AddToSentSMS(instanceID string, sms types.S
 	if err != nil {
 		return sms, err
 	}
-	sms.ID = res.InsertedID.(string)
+	sms.ID = res.InsertedID.(primitive.ObjectID)
 	return sms, nil
 }
 

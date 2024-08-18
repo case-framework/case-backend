@@ -286,7 +286,7 @@ func (h *HttpEndpoints) getSMSTemplate(c *gin.Context) {
 
 	slog.Info("getting SMS template", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("messageType", messageType))
 
-	message, err := h.messagingDBConn.GetGlobalEmailTemplateByMessageType(token.InstanceID, messageType)
+	message, err := h.messagingDBConn.GetSMSTemplateByType(token.InstanceID, messageType)
 	if err != nil {
 		if err.Error() == "mongo: no documents in result" {
 			dummyTemplate := messagingTypes.SMSTemplate{

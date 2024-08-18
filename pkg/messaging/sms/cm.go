@@ -88,21 +88,6 @@ func runSMSsending(to string, message string, from string) error {
 		return err
 	}
 
-	errorCode, ok := res["errorCode"]
-	if !ok {
-		slog.Error("no error code in response")
-		return errors.New("no error code in response")
-	}
-
-	errorCodeInt, ok := errorCode.(int)
-	if !ok {
-		slog.Error("error code is not a number")
-		return errors.New("error code is not a number")
-	}
-	if errorCodeInt != 0 {
-		slog.Error("sms gateway returned error", slog.Int("errorCode", int(errorCodeInt)))
-		return errors.New("sms gateway returned error")
-	}
-
+	slog.Debug("sms gateway response", slog.Any("response", res))
 	return nil
 }
