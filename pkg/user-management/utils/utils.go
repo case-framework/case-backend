@@ -51,6 +51,12 @@ func SanitizeEmail(email string) string {
 	return email
 }
 
+func SanitizePhoneNumber(phone string) string {
+	phone = strings.ToLower(phone)
+	phone = strings.Trim(phone, " \n\r")
+	return phone
+}
+
 // CheckEmailFormat to check if input string is a correct email address
 func CheckEmailFormat(email string) bool {
 	if len(email) > 254 {

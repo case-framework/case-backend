@@ -33,6 +33,42 @@ func (u *User) AddNewEmail(addr string, confirmed bool) {
 	u.ContactInfos = append(u.ContactInfos, contactInfo)
 }
 
+func (u *User) SetPhoneNumber(phone string) {
+	var newContactInfos []ContactInfo
+	for _, ci := range u.ContactInfos {
+		if ci.Type == "phone" {
+			continue
+		}
+		newContactInfos = append(newContactInfos, ci)
+	}
+	contactInfo := ContactInfo{
+		ID:          primitive.NewObjectID(),
+		Type:        "phone",
+		ConfirmedAt: 0,
+		Phone:       phone,
+	}
+	u.ContactInfos = append(newContactInfos, contactInfo)
+}
+
+func (u *User) ConfirmPhoneNumber() error {
+	for i, ci := range u.ContactInfos {
+		if ci.Type == "phone" {
+			u.ContactInfos[i].ConfirmedAt = time.Now().Unix()
+			return nil
+		}
+	}
+	return errors.New("phone number not found")
+}
+
+func (u *User) GetPhoneNumber() (ContactInfo, error) {
+	for _, ci := range u.ContactInfos {
+		if ci.Type == "phone" {
+			return ci, nil
+		}
+	}
+	return ContactInfo{}, errors.New("phone number not found")
+}
+
 func (u *User) ConfirmContactInfo(t string, addr string) error {
 	for i, ci := range u.ContactInfos {
 		if t == "email" && ci.Email == addr {
