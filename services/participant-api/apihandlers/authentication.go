@@ -831,6 +831,16 @@ func (h *HttpEndpoints) requestOTP(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
 		}
+	case "sms":
+		err := usermanagement.SendOTPBySMS(
+			token.InstanceID,
+			token.Subject,
+		)
+		if err != nil {
+			slog.Error("failed to send OTP by SMS", slog.String("error", err.Error()))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
 	default:
 		slog.Error("invalid OTP type", slog.String("type", otpType))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid OTP type"})

@@ -8,6 +8,7 @@ import (
 
 	globalinfosDB "github.com/case-framework/case-backend/pkg/db/global-infos"
 	userDB "github.com/case-framework/case-backend/pkg/db/participant-user"
+	"github.com/case-framework/case-backend/pkg/messaging/sms"
 	userTypes "github.com/case-framework/case-backend/pkg/user-management/types"
 	"github.com/case-framework/case-backend/pkg/user-management/utils"
 )
@@ -81,6 +82,66 @@ func SendOTPByEmail(
 	}
 
 	return nil
+}
+
+func SendOTPBySMS(instanceID, userID string) error {
+	// check count of recent attempts
+	count, err := pUserDBService.CountOTP(instanceID, userID)
+	if err != nil {
+		return err
+	}
+
+	if count >= MAX_OTP_ATTEMPTS {
+		slog.Warn("too many OTP requests", slog.String("instanceID", instanceID), slog.String("userID", userID))
+		return errors.New("too many attempts")
+	}
+
+	otp, err := pUserDBService.GetLastOTP(instanceID, userID, string(userTypes.SMSOTP))
+	if err == nil && otp.CreatedAt.After(time.Now().Add(-time.Second*30)) {
+		// last OTP was sent less than 30 seconds ago, so don't send another one - for rate limiting
+		slog.Debug("last OTP was sent less than 30 seconds ago", slog.String("instanceID", instanceID), slog.String("userID", userID))
+		return nil
+	}
+
+	user, err := pUserDBService.GetUser(instanceID, userID)
+	if err != nil {
+		slog.Error("error getting user", slog.String("instanceID", instanceID), slog.String("userID", userID), slog.String("error", err.Error()))
+		return err
+	}
+
+	phoneInfos, err := user.GetPhoneNumber()
+	if err != nil {
+		slog.Error("failed to get phone number", slog.String("instanceID", instanceID), slog.String("userID", userID), slog.String("error", err.Error()))
+		return err
+	}
+
+	if phoneInfos.ConfirmedAt < 1 {
+		// phone number is not confirmed yet
+		slog.Error("phone number is not confirmed", slog.String("instanceID", instanceID), slog.String("userID", userID))
+		return errors.New("phone number is not confirmed")
+	}
+
+	// generate OTP
+	code, err := utils.GenerateOTPCode(OTP_LENGTH)
+	if err != nil {
+		return err
+	}
+
+	// save OTP
+	err = pUserDBService.CreateOTP(instanceID, userID, code, userTypes.SMSOTP)
+	if err != nil {
+		return err
+	}
+
+	half := len(code) / 2
+	formattedCode := fmt.Sprintf("%s-%s", code[:half], code[half:])
+
+	// send SMS
+	return sms.SendSMS(
+		instanceID, phoneInfos.Phone, userID, sms.SMS_MESSAGE_TYPE_OTP, user.Account.PreferredLanguage, map[string]string{
+			"verificationCode": formattedCode,
+		},
+	)
 }
 
 func VerifyOTP(
