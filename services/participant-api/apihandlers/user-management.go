@@ -1,12 +1,14 @@
 package apihandlers
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
 
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
+	"github.com/case-framework/case-backend/pkg/messaging/sms"
 	emailTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 	"github.com/gin-gonic/gin"
@@ -19,7 +21,8 @@ import (
 )
 
 const (
-	MAX_PROFILES_ALLOWED = 6
+	MAX_PROFILES_ALLOWED                          = 6
+	MAX_PHONE_NUMBER_VERIFICATION_REQUEST_PER_24H = 10
 )
 
 func (h *HttpEndpoints) AddUserManagementAPI(rg *gin.RouterGroup) {
@@ -34,6 +37,8 @@ func (h *HttpEndpoints) AddUserManagementAPI(rg *gin.RouterGroup) {
 		userGroup.POST("/password", mw.RequirePayload(), h.changePasswordHandl)
 
 		userGroup.POST("/change-account-email", mw.RequirePayload(), h.changeAccountEmailHandl)
+		userGroup.POST("/change-phone-number", mw.RequirePayload(), h.updatePhoneNumberHandler)
+		userGroup.GET("/request-phone-number-verification", h.requestPhoneNumberVerificationHandl)
 
 		userGroup.DELETE("/", h.deleteUser)
 	}
@@ -358,6 +363,176 @@ func (h *HttpEndpoints) changeAccountEmailHandl(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "account email changed"})
+}
+
+func (h *HttpEndpoints) updatePhoneNumberHandler(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	var req struct {
+		NewPhoneNumber string `json:"newPhoneNumber"`
+		Password       string `json:"password"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot bind profile"})
+		return
+	}
+
+	user, err := h.userDBConn.GetUser(token.InstanceID, token.Subject)
+	if err != nil {
+		slog.Error("user not found", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))
+		randomWait(5, 10)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "user not found"})
+		return
+	}
+
+	match, err := pwhash.ComparePasswordWithHash(user.Account.Password, req.Password)
+	if err != nil || !match {
+		slog.Error("password does not match", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject))
+		randomWait(5, 10)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "wrong password"})
+		return
+	}
+
+	// if have too many phone numbers within the last 24 hours, return error
+	count, err := h.messagingDBConn.CountSentSMSForUser(token.InstanceID, token.Subject, sms.SMS_MESSAGE_TYPE_VERIFY_PHONE_NUMBER, time.Now().Add(-time.Hour*24))
+	if err != nil {
+		slog.Error("failed to count sent SMS", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))
+	}
+	if count > MAX_PHONE_NUMBER_VERIFICATION_REQUEST_PER_24H || err != nil {
+		slog.Warn("too many phone numbers sent within the last 24 hours", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject))
+		randomWait(5, 10)
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": "too many phone numbers sent within the last 24 hours"})
+		return
+	}
+
+	// check if phone number is already set
+	phoneNumber := umUtils.SanitizePhoneNumber(req.NewPhoneNumber)
+	currentPhoneNumber, err := user.GetPhoneNumber()
+	if err == nil && currentPhoneNumber.Phone == phoneNumber {
+		slog.Error("phone number is already set", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject))
+		randomWait(5, 10)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "phone number is already set"})
+		return
+	}
+
+	user.SetPhoneNumber(req.NewPhoneNumber)
+
+	// send email to user about phone number change
+	if user.Account.AccountConfirmedAt > 0 {
+		// old account is confirmed already
+		go h.prepTokenAndSendEmail(
+			user.ID.Hex(),
+			token.InstanceID,
+			user.Account.AccountID,
+			user.Account.PreferredLanguage,
+			userTypes.TOKEN_PURPOSE_RESTORE_ACCOUNT_ID,
+			h.ttls.EmailContactVerificationToken,
+			emailTypes.EMAIL_TYPE_PHONE_NUMBER_CHANGED,
+			map[string]string{
+				"newPhoneNumber": req.NewPhoneNumber,
+			},
+		)
+	}
+
+	_, err = h.userDBConn.ReplaceUser(token.InstanceID, user)
+	if err != nil {
+		slog.Error("cannot update user", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot update user"})
+		return
+	}
+	slog.Info("phone number changed", slog.String("instanceId", token.InstanceID), slog.String("userID", token.Subject))
+
+	c.JSON(http.StatusOK, gin.H{"message": "phone number changed"})
+}
+
+func (h *HttpEndpoints) requestPhoneNumberVerificationHandl(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	user, err := h.userDBConn.GetUser(token.InstanceID, token.Subject)
+	if err != nil {
+		slog.Error("user not found", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))
+		randomWait(5, 10)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "user not found"})
+		return
+	}
+
+	if user.Account.AccountConfirmedAt < 1 {
+		slog.Error("account not confirmed", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject))
+		randomWait(5, 10)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "account not confirmed"})
+		return
+	}
+
+	// check daily limit
+	count24h, err := h.messagingDBConn.CountSentSMSForUser(token.InstanceID, token.Subject, sms.SMS_MESSAGE_TYPE_VERIFY_PHONE_NUMBER, time.Now().Add(-time.Hour*24))
+	if err != nil {
+		slog.Error("failed to count sent SMS", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))
+	}
+	if count24h > MAX_PHONE_NUMBER_VERIFICATION_REQUEST_PER_24H || err != nil {
+		slog.Warn("too many phone numbers sent within the last 24 hours", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject))
+		randomWait(5, 10)
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": "too many phone numbers sent within the last 24 hours"})
+		return
+	}
+
+	// check short term limit
+	countShortTerm, err := h.messagingDBConn.CountSentSMSForUser(token.InstanceID, token.Subject, sms.SMS_MESSAGE_TYPE_VERIFY_PHONE_NUMBER, time.Now().Add(-time.Second*15))
+	if err != nil {
+		slog.Error("failed to count sent SMS", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))
+	}
+	if countShortTerm > 0 || err != nil {
+		slog.Warn("already sent an SMS within the last 15 seconds", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject))
+		randomWait(5, 10)
+		c.JSON(http.StatusOK, gin.H{"message": "already sent an SMS within the last 15 seconds"})
+		return
+	}
+
+	// check if phone number is already verified
+	phoneContact, err := user.GetPhoneNumber()
+	if err != nil {
+		slog.Error("failed to get phone number, maybe it is not set", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))
+		randomWait(5, 10)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get phone number"})
+		return
+	}
+
+	if phoneContact.ConfirmedAt > 0 {
+		slog.Error("phone number already verified", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject))
+		randomWait(5, 10)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "phone number already verified"})
+		return
+	}
+
+	// generate OTP
+	code, err := umUtils.GenerateOTPCode(6)
+	if err != nil {
+		slog.Error("failed to generate OTP", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate OTP"})
+		return
+	}
+
+	// save OTP
+	err = h.userDBConn.CreateOTP(token.InstanceID, token.Subject, code, userTypes.SMSOTP)
+	if err != nil {
+		slog.Error("failed to save OTP", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save OTP"})
+		return
+	}
+
+	half := len(code) / 2
+	formattedCode := fmt.Sprintf("%s-%s", code[:half], code[half:])
+
+	// send SMS
+	err = sms.SendSMS(token.InstanceID, phoneContact.Phone, token.Subject, sms.SMS_MESSAGE_TYPE_VERIFY_PHONE_NUMBER, user.Account.PreferredLanguage, map[string]string{
+		"verificationCode": formattedCode,
+	})
+	if err != nil {
+		slog.Error("failed to send SMS", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to send SMS"})
+		return
+	}
+	slog.Info("sent SMS for phone number verification", slog.String("instanceId", token.InstanceID), slog.String("userID", token.Subject))
+	c.JSON(http.StatusOK, gin.H{"message": "SMS sent"})
 }
 
 func (h *HttpEndpoints) deleteUser(c *gin.Context) {

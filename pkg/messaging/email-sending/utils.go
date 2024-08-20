@@ -5,6 +5,7 @@ import (
 
 	messageDB "github.com/case-framework/case-backend/pkg/db/messaging"
 	emailtemplates "github.com/case-framework/case-backend/pkg/messaging/email-templates"
+	"github.com/case-framework/case-backend/pkg/messaging/templates"
 	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 )
 
@@ -49,7 +50,7 @@ func prepOutgoingEmail(
 	payload["language"] = lang
 	// execute template
 	templateName := instanceID + messageType + studyKey + lang
-	content, err := emailtemplates.ResolveTemplate(
+	content, err := templates.ResolveTemplate(
 		templateName,
 		string(decodedTemplate),
 		payload,
@@ -90,7 +91,7 @@ func GenerateEmailContent(
 
 	// execute template
 	templateName := templateDef.ID.Hex() + lang
-	content, err := emailtemplates.ResolveTemplate(
+	content, err := templates.ResolveTemplate(
 		templateName,
 		string(decodedTemplate),
 		payload,

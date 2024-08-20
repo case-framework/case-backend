@@ -831,6 +831,16 @@ func (h *HttpEndpoints) requestOTP(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
 		}
+	case "sms":
+		err := usermanagement.SendOTPBySMS(
+			token.InstanceID,
+			token.Subject,
+		)
+		if err != nil {
+			slog.Error("failed to send OTP by SMS", slog.String("error", err.Error()))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
 	default:
 		slog.Error("invalid OTP type", slog.String("type", otpType))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid OTP type"})
@@ -900,6 +910,21 @@ func (h *HttpEndpoints) verifyOTP(c *gin.Context) {
 			slog.Error("failed to update user", slog.String("error", err.Error()))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
+		}
+	}
+
+	if otp.Type == userTypes.SMSOTP {
+		phoneInfo, err := user.GetPhoneNumber()
+		if err == nil && phoneInfo.ConfirmedAt < 1 {
+			// phone number is not confirmed yet
+			err = user.ConfirmPhoneNumber()
+			if err != nil {
+				slog.Error("failed to confirm phone number", slog.String("error", err.Error()))
+			}
+			_, err = h.userDBConn.ReplaceUser(token.InstanceID, user)
+			if err != nil {
+				slog.Error("failed to update user after confirming phone number", slog.String("error", err.Error()))
+			}
 		}
 	}
 

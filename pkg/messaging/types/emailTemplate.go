@@ -16,6 +16,8 @@ const (
 	EMAIL_TYPE_ACCOUNT_DELETED                  = "account-deleted"
 	EMAIL_TYPE_ACCOUNT_DELETED_AFTER_INACTIVITY = "account-deleted-after-inactivity"
 	EMAIL_TYPE_ACCOUNT_INACTIVITY               = "account-inactivity"
+
+	EMAIL_TYPE_PHONE_NUMBER_CHANGED = "phone-number-changed"
 )
 
 type EmailTemplate struct {

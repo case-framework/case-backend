@@ -8,6 +8,7 @@ import (
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	emailtemplates "github.com/case-framework/case-backend/pkg/messaging/email-templates"
+	"github.com/case-framework/case-backend/pkg/messaging/templates"
 	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 	"github.com/gin-gonic/gin"
 
@@ -31,6 +32,10 @@ func (h *HttpEndpoints) AddMessagingServiceAPI(rg *gin.RouterGroup) {
 	// Scheduled emails
 	scheduledEmailsGroup := messagingGroup.Group("/scheduled-emails")
 	h.addMessagingScheduledEmailsAPI(scheduledEmailsGroup)
+
+	// SMS templates
+	smsTemplatesGroup := messagingGroup.Group("/sms-templates")
+	h.addMessagingSMSTemplatesAPI(smsTemplatesGroup)
 }
 
 func (h *HttpEndpoints) addMessagingGlobalEmailTemplatesAPI(rg *gin.RouterGroup) {
@@ -72,6 +77,29 @@ func (h *HttpEndpoints) addMessagingGlobalEmailTemplatesAPI(rg *gin.RouterGroup)
 		},
 		nil,
 		h.deleteGlobalMessageTemplate,
+	))
+}
+
+func (h *HttpEndpoints) addMessagingSMSTemplatesAPI(rg *gin.RouterGroup) {
+	smsTemplatesGroup := rg.Group("/")
+
+	smsTemplatesGroup.POST("/", mw.RequirePayload(), h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType: pc.RESOURCE_TYPE_MESSAGING,
+			ResourceKeys: []string{pc.RESOURCE_KEY_MESSAGING_SMS_TEMPLATES},
+			Action:       pc.ACTION_ALL,
+		},
+		nil,
+		h.saveSMSTemplate,
+	))
+	smsTemplatesGroup.GET("/:messageType", h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType: pc.RESOURCE_TYPE_MESSAGING,
+			ResourceKeys: []string{pc.RESOURCE_KEY_MESSAGING_SMS_TEMPLATES},
+			Action:       pc.ACTION_ALL,
+		},
+		nil,
+		h.getSMSTemplate,
 	))
 }
 
@@ -250,6 +278,60 @@ func (h *HttpEndpoints) deleteGlobalMessageTemplate(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "template deleted"})
+}
+
+func (h *HttpEndpoints) getSMSTemplate(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	messageType := c.Param("messageType")
+
+	slog.Info("getting SMS template", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("messageType", messageType))
+
+	message, err := h.messagingDBConn.GetSMSTemplateByType(token.InstanceID, messageType)
+	if err != nil {
+		if err.Error() == "mongo: no documents in result" {
+			dummyTemplate := messagingTypes.SMSTemplate{
+				MessageType:  messageType,
+				Translations: []messagingTypes.LocalizedTemplate{},
+			}
+			c.JSON(http.StatusOK, gin.H{"template": dummyTemplate})
+			return
+		}
+
+		slog.Error("error getting SMS template", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting SMS template"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"template": message})
+}
+
+func (h *HttpEndpoints) saveSMSTemplate(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	// parse body
+	var template messagingTypes.SMSTemplate
+	if err := c.ShouldBindJSON(&template); err != nil {
+		slog.Error("error parsing request body", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "error parsing request body"})
+		return
+	}
+
+	err := templates.CheckAllTranslationsParsable(template.Translations, template.MessageType)
+	if err != nil {
+		slog.Error("error parsing template", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "error while checking template validity"})
+		return
+	}
+
+	slog.Info("saving SMS template", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+
+	savedTemplate, err := h.messagingDBConn.SaveSMSTemplate(token.InstanceID, template)
+	if err != nil {
+		slog.Error("error saving SMS template", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error saving SMS template"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"template": savedTemplate})
 }
 
 func (h *HttpEndpoints) getStudyMessageTemplatesForAllStudies(c *gin.Context) {
