@@ -99,6 +99,12 @@ func ParseResponseExportQueryFromCtx(c *gin.Context) (*ResponseExportQuery, erro
 	}
 
 	surveyKey := c.DefaultQuery("surveyKey", "")
+	if paginatedQuery == nil {
+		paginatedQuery = &PagenatedQuery{
+			Filter: bson.M{},
+		}
+	}
+	paginatedQuery.Filter["key"] = surveyKey
 	useShortKeys, err := strconv.ParseBool(c.DefaultQuery("shortKeys", "false"))
 	if err != nil {
 		return nil, err
