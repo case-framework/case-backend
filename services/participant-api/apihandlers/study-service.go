@@ -5,11 +5,14 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/case-framework/case-backend/pkg/apihelpers"
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	"github.com/gin-gonic/gin"
 
 	studyService "github.com/case-framework/case-backend/pkg/study"
+	surveydefinition "github.com/case-framework/case-backend/pkg/study/exporter/survey-definition"
+	surveyresponses "github.com/case-framework/case-backend/pkg/study/exporter/survey-responses"
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
@@ -46,6 +49,9 @@ func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
 
 		// reports:
 		// TODO: get reports reports/studyKey - query for profileIDs, report key, page, limit, filter
+
+		participantInfoGroup.GET("/responses", h.getStudyResponsesForProfile)
+
 	}
 
 	// temporary participants
@@ -545,4 +551,111 @@ func (h *HttpEndpoints) submitTempParticipantResponse(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"assignedSurveys": result})
+}
+
+func (h *HttpEndpoints) getStudyResponsesForProfile(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	// query params: profileID, surveyKey, start, end, extraContextColumns
+	pid := c.DefaultQuery("pid", "")
+
+	query, err := apihelpers.ParseResponseExportQueryFromCtx(c)
+	if err != nil || query == nil {
+		slog.Error("failed to parse query", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	study, err := h.studyDBConn.GetStudy(token.InstanceID, studyKey)
+	if err != nil {
+		slog.Error("failed to get study", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study"})
+		return
+	}
+
+	participantID, _, err := studyService.ComputeParticipantIDs(study, pid)
+	if err != nil {
+		slog.Error("Error computing participant IDs", slog.String("instanceID", token.InstanceID), slog.String("studyKey", study.Key), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error computing participant IDs"})
+		return
+	}
+
+	filter := query.PaginationInfos.Filter
+	filter["participantID"] = participantID
+
+	if !h.checkProfileBelongsToUser(token.InstanceID, token.Subject, pid) {
+		slog.Warn("profile not found", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("profileID", pid))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "profile not found"})
+		return
+	}
+
+	rawResponses, paginationInfo, err := h.studyDBConn.GetResponses(
+		token.InstanceID,
+		studyKey,
+		query.PaginationInfos.Filter,
+		query.PaginationInfos.Sort,
+		query.PaginationInfos.Page,
+		query.PaginationInfos.Limit,
+	)
+	if err != nil {
+		slog.Error("failed to get study responses", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study responses"})
+		return
+	}
+
+	slog.Debug("survey key", slog.Any("query", query))
+
+	surveyVersions, err := surveydefinition.PrepareSurveyInfosFromDB(
+		h.studyDBConn,
+		token.InstanceID,
+		studyKey,
+		query.SurveyKey,
+		&surveydefinition.ExtractOptions{
+			UseLabelLang: "",
+			IncludeItems: nil,
+			ExcludeItems: nil,
+		},
+	)
+	if err != nil {
+		slog.Error("failed to get survey versions", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get survey versions"})
+		return
+	}
+
+	respParser, err := surveyresponses.NewResponseParser(
+		query.SurveyKey,
+		surveyVersions,
+		query.UseShortKeys,
+		query.IncludeMeta,
+		query.QuestionOptionSep,
+		query.ExtraCtxCols,
+	)
+	if err != nil {
+		slog.Error("failed to create response parser", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create response parser"})
+		return
+	}
+
+	responses := make([]map[string]interface{}, len(rawResponses))
+
+	for i, rawResp := range rawResponses {
+		resp, err := respParser.ParseResponse(&rawResp)
+		if err != nil {
+			slog.Error("failed to parse response", slog.String("error", err.Error()))
+			continue
+		}
+		output, err := respParser.ResponseToFlatObj(resp)
+		if err != nil {
+			slog.Error("failed to convert response to flat object", slog.String("error", err.Error()))
+			continue
+		}
+		responses[i] = output
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"responses":  responses,
+		"pagination": paginationInfo,
+	})
 }

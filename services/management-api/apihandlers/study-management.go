@@ -1699,8 +1699,6 @@ func (h *HttpEndpoints) generateResponsesExport(c *gin.Context) {
 		return
 	}
 
-	query.PaginationInfos.Filter["key"] = query.SurveyKey
-
 	slog.Info("generating responses export", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", query.SurveyKey))
 
 	count, err := h.studyDBConn.GetResponsesCount(token.InstanceID, studyKey, query.PaginationInfos.Filter)
@@ -2424,8 +2422,6 @@ func (h *HttpEndpoints) getStudyResponses(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "surveyKey is required"})
 		return
 	}
-
-	query.PaginationInfos.Filter["key"] = surveyKey
 
 	slog.Info("getting study responses", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey))
 
