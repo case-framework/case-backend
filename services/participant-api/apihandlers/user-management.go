@@ -589,8 +589,37 @@ func (h *HttpEndpoints) unsubscribeNewsletter(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) updateContactPreferences(c *gin.Context) {
-	// token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	var req struct {
+		SubscribedToNewsletter bool `json:"subscribedToNewsletter"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	user, err := h.userDBConn.GetUser(token.InstanceID, token.Subject)
+	if err != nil {
+		slog.Error("failed to get user", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get user"})
+		return
+	}
+
+	user.ContactPreferences.SubscribedToNewsletter = req.SubscribedToNewsletter
+
+	_, err = h.userDBConn.ReplaceUser(token.InstanceID, user)
+	if err != nil {
+		slog.Error("failed to update user", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user"})
+		return
+	}
+
+	slog.Info("updated contact preferences", slog.String("userID", token.Subject), slog.String("instanceID", token.InstanceID))
+
+	c.JSON(http.StatusOK, gin.H{"message": "contact preferences updated"})
 }
 
 func (h *HttpEndpoints) deleteUser(c *gin.Context) {
