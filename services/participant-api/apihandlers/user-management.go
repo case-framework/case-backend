@@ -40,8 +40,12 @@ func (h *HttpEndpoints) AddUserManagementAPI(rg *gin.RouterGroup) {
 		userGroup.POST("/change-phone-number", mw.RequirePayload(), h.updatePhoneNumberHandler)
 		userGroup.GET("/request-phone-number-verification", h.requestPhoneNumberVerificationHandl)
 
+		userGroup.PUT("/contact-preferences", mw.RequirePayload(), h.updateContactPreferences)
+
 		userGroup.DELETE("/", h.deleteUser)
 	}
+
+	rg.POST("/unsubscribe-newsletter", mw.RequirePayload(), h.unsubscribeNewsletter)
 }
 
 func (h *HttpEndpoints) getUser(c *gin.Context) {
@@ -533,6 +537,89 @@ func (h *HttpEndpoints) requestPhoneNumberVerificationHandl(c *gin.Context) {
 	}
 	slog.Info("sent SMS for phone number verification", slog.String("instanceId", token.InstanceID), slog.String("userID", token.Subject))
 	c.JSON(http.StatusOK, gin.H{"message": "SMS sent"})
+}
+
+func (h *HttpEndpoints) unsubscribeNewsletter(c *gin.Context) {
+	var req struct {
+		Token string `json:"token"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	if req.Token == "" {
+		slog.Error("token is required")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "token is required"})
+		return
+	}
+
+	tokenInfos, err := h.validateTempToken(
+		req.Token, []string{
+			userTypes.TOKEN_PURPOSE_UNSUBSCRIBE_NEWSLETTER,
+		},
+	)
+	if err != nil {
+		slog.Error("invalid token", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid token"})
+		return
+	}
+
+	// find user
+	user, err := h.userDBConn.GetUser(tokenInfos.InstanceID, tokenInfos.UserID)
+	if err != nil {
+		slog.Error("failed to get user", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get user"})
+		return
+	}
+
+	// update contact preferences
+	user.ContactPreferences.SubscribedToNewsletter = false
+	_, err = h.userDBConn.ReplaceUser(tokenInfos.InstanceID, user)
+	if err != nil {
+		slog.Error("failed to update user", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user"})
+		return
+	}
+
+	slog.Info("unsubscribed user from newsletter", slog.String("userID", tokenInfos.UserID), slog.String("instanceID", tokenInfos.InstanceID))
+
+	c.JSON(http.StatusOK, gin.H{"message": "newsletter unsubscribed"})
+}
+
+func (h *HttpEndpoints) updateContactPreferences(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	var req struct {
+		SubscribedToNewsletter bool `json:"subscribedToNewsletter"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	user, err := h.userDBConn.GetUser(token.InstanceID, token.Subject)
+	if err != nil {
+		slog.Error("failed to get user", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get user"})
+		return
+	}
+
+	user.ContactPreferences.SubscribedToNewsletter = req.SubscribedToNewsletter
+
+	_, err = h.userDBConn.ReplaceUser(token.InstanceID, user)
+	if err != nil {
+		slog.Error("failed to update user", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user"})
+		return
+	}
+
+	slog.Info("updated contact preferences", slog.String("userID", token.Subject), slog.String("instanceID", token.InstanceID))
+
+	c.JSON(http.StatusOK, gin.H{"message": "contact preferences updated"})
 }
 
 func (h *HttpEndpoints) deleteUser(c *gin.Context) {
