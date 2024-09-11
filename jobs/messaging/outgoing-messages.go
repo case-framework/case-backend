@@ -6,7 +6,17 @@ import (
 	"time"
 
 	emailsending "github.com/case-framework/case-backend/pkg/messaging/email-sending"
+	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 )
+
+func checkIfOutgoingEmailShouldBeSent(email messagingTypes.OutgoingEmail) bool {
+	if len(email.To) < 1 || len(email.To[0]) < 1 {
+		slog.Error("no recipients found", slog.String("messageType", email.MessageType))
+		return false
+	}
+
+	return true
+}
 
 func handleOutgoingMessages(wg *sync.WaitGroup) {
 	defer wg.Done()
@@ -47,6 +57,16 @@ func handleOutgoingMessages(wg *sync.WaitGroup) {
 					err = messagingDBService.ResetLastSendAttemptForOutgoing(instanceID, email.ID.Hex())
 					if err != nil {
 						slog.Error("Failed to reset last send attempt for outgoing email", slog.String("error", err.Error()))
+					}
+					continue
+				}
+
+				// detect emails that should not be sent - remove from db if so
+				if !checkIfOutgoingEmailShouldBeSent(email) {
+					counters.IncreaseCounter(false)
+					err = messagingDBService.DeleteOutgoingEmail(instanceID, email.ID.Hex())
+					if err != nil {
+						slog.Error("Failed to delete outgoing email", slog.String("messageType", email.MessageType), slog.String("error", err.Error()))
 					}
 					continue
 				}
