@@ -250,6 +250,11 @@ func prepOutgoingFromScheduledEmail(
 		payload["loginToken"] = token
 	}
 
+	if len(outgoingEmail.To) < 1 || len(outgoingEmail.To[0]) < 1 {
+		slog.Error("no recipients found", slog.String("instanceID", instanceID), slog.String("studyKey", message.StudyKey))
+		return nil, errors.New("no recipients found")
+	}
+
 	payload["studyKey"] = message.StudyKey
 
 	subject, content, err := emailsending.GenerateEmailContent(message.Template, user.Account.PreferredLanguage, payload)
