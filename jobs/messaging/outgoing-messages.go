@@ -15,6 +15,11 @@ func checkIfOutgoingEmailShouldBeSent(email messagingTypes.OutgoingEmail) bool {
 		return false
 	}
 
+	if email.ExpiresAt > 0 && email.ExpiresAt < time.Now().Unix() {
+		slog.Error("email expired", slog.String("messageType", email.MessageType))
+		return false
+	}
+
 	return true
 }
 

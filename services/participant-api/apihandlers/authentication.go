@@ -806,7 +806,7 @@ func (h *HttpEndpoints) requestOTP(c *gin.Context) {
 		err := usermanagement.SendOTPByEmail(
 			token.InstanceID,
 			token.Subject,
-			func(email string, code string, preferredLang string) error {
+			func(email string, code string, preferredLang string, expiresAt int64) error {
 				err := emailsending.SendInstantEmailByTemplate(
 					token.InstanceID,
 					[]string{email},
@@ -817,6 +817,7 @@ func (h *HttpEndpoints) requestOTP(c *gin.Context) {
 						"verificationCode": code,
 					},
 					false,
+					expiresAt,
 				)
 				if err != nil {
 					slog.Error("failed to send verification email", slog.String("error", err.Error()))

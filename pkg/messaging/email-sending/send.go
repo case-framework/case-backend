@@ -66,6 +66,7 @@ func SendInstantEmailByTemplate(
 	lang string,
 	payload map[string]string,
 	useLowPrio bool,
+	expiresAt int64,
 ) error {
 	if HttpClient == nil || HttpClient.RootURL == "" {
 		return errors.New("connection to smtp bridge not initialized")
@@ -84,6 +85,7 @@ func SendInstantEmailByTemplate(
 	if err != nil {
 		return err
 	}
+	outgoingEmail.ExpiresAt = expiresAt
 
 	// send email
 	err = SendOutgoingEmail(outgoingEmail)
