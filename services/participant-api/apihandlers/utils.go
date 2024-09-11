@@ -52,6 +52,8 @@ func (h *HttpEndpoints) prepTokenAndSendEmail(
 	}
 	payload["token"] = tempToken
 
+	expiresAt := time.Now().Add(expiresIn).Unix()
+
 	err = emailsending.SendInstantEmailByTemplate(
 		instanceID,
 		[]string{email},
@@ -60,6 +62,7 @@ func (h *HttpEndpoints) prepTokenAndSendEmail(
 		lang,
 		payload,
 		false,
+		expiresAt,
 	)
 	if err != nil {
 		slog.Error("failed to send email", slog.String("error", err.Error()))
@@ -100,6 +103,7 @@ func (h *HttpEndpoints) sendSimpleEmail(
 		lang,
 		payload,
 		useLowPrio,
+		0, // does not expire
 	)
 	if err != nil {
 		slog.Error("failed to send email", slog.String("error", err.Error()))

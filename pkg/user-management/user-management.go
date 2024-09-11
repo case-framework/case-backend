@@ -34,7 +34,7 @@ func Init(
 func SendOTPByEmail(
 	instanceID,
 	userID string,
-	sendEmail func(email string, code string, preferredLang string) error,
+	sendEmail func(email string, code string, preferredLang string, expiresAt int64) error,
 ) error {
 	// check count of recent attempts
 	count, err := pUserDBService.CountOTP(instanceID, userID)
@@ -76,7 +76,7 @@ func SendOTPByEmail(
 	formattedCode := fmt.Sprintf("%s-%s", code[:half], code[half:])
 
 	// send OTP
-	err = sendEmail(user.Account.AccountID, formattedCode, user.Account.PreferredLanguage)
+	err = sendEmail(user.Account.AccountID, formattedCode, user.Account.PreferredLanguage, time.Now().Add(time.Second*userDB.OTP_TTL).Unix())
 	if err != nil {
 		return err
 	}
