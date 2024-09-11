@@ -10,6 +10,7 @@ type OutgoingEmail struct {
 	HeaderOverrides *HeaderOverrides   `bson:"headerOverrides" json:"headerOverrides"`
 	Content         string             `bson:"content" json:"content"`
 	AddedAt         int64              `bson:"addedAt" json:"addedAt"`
+	ExpiresAt       int64              `bson:"expiresAt" json:"expiresAt"`
 	HighPrio        bool               `bson:"highPrio" json:"highPrio"`
 	LastSendAttempt int64              `bson:"lastSendAttempt" json:"lastSendAttempt"`
 }
