@@ -1618,8 +1618,44 @@ func (h *HttpEndpoints) getStudyActionTaskResult(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) runActionOnPreviousResponsesForParticipant(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	studyKey := c.Param("studyKey")
+	participantID := c.Param("participantID")
+
+	var req struct {
+		SurveyKeys []string                `json:"surveyKeys"`
+		From       int64                   `json:"from"`
+		To         int64                   `json:"to"`
+		Rules      []studyTypes.Expression `json:"rules"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	slog.Info("running study action on previous responses for participant", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("participantID", participantID))
+
+	result, err := studyService.OnRunStudyActionForPreviousResponses(studyService.RunStudyActionReq{
+		InstanceID:           token.InstanceID,
+		StudyKey:             studyKey,
+		OnlyForParticipantID: participantID,
+		Rules:                req.Rules,
+		OnProgressFn:         nil,
+	}, req.SurveyKeys, req.From, req.To)
+
+	if err != nil {
+		slog.Error("failed to run study action", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"participantCount": result.ParticipantCount,
+		"duration":         result.Duration,
+		"ruleResults":      result.ParticipantStateChangedPerRule,
+	})
 }
 
 func (h *HttpEndpoints) runActionOnPreviousResponsesForParticipants(c *gin.Context) {
