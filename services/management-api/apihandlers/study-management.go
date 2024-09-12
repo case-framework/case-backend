@@ -1607,14 +1607,80 @@ func (h *HttpEndpoints) runActionOnParticipants(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getStudyActionTaskStatus(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	taskID := c.Param("taskID")
+
+	slog.Info("getting study action task status", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("taskID", taskID))
+
+	task, err := h.studyDBConn.GetTaskByID(token.InstanceID, taskID)
+	if err != nil {
+		slog.Error("failed to get export task status", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get export task status"})
+		return
+	}
+
+	if task.CreatedBy != token.Subject && !token.IsAdmin {
+		slog.Warn("user is not allowed to get task status", slog.String("userID", token.Subject), slog.String("taskID", taskID))
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"task": task})
 }
 
 func (h *HttpEndpoints) getStudyActionTaskResult(c *gin.Context) {
-	// TODO: implement
-	// TODO: cleanup after successfully retrieving results
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	taskID := c.Param("taskID")
+
+	slog.Info("getting export task result", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("taskID", taskID))
+
+	task, err := h.studyDBConn.GetTaskByID(token.InstanceID, taskID)
+	if err != nil {
+		slog.Error("failed to get export task result", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get export task result"})
+		return
+	}
+
+	if task.CreatedBy != token.Subject && !token.IsAdmin {
+		slog.Warn("user is not allowed to get task result", slog.String("userID", token.Subject), slog.String("taskID", taskID))
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+
+	if task.Status != studyTypes.TASK_STATUS_COMPLETED {
+		slog.Error("task is not completed", slog.String("taskID", taskID), slog.String("status", task.Status))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "task is not completed"})
+		return
+	}
+
+	resultFilePath := filepath.Join(h.filestorePath, task.ResultFile)
+
+	// file exists?
+	if _, err := os.Stat(resultFilePath); os.IsNotExist(err) {
+		slog.Error("file does not exist", slog.String("path", resultFilePath))
+		c.JSON(http.StatusNotFound, gin.H{"error": "file does not exist"})
+		return
+	}
+
+	// read JSON file and send back
+	file, err := os.Open(resultFilePath)
+	if err != nil {
+		slog.Error("failed to open file", slog.String("path", resultFilePath), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to open file"})
+		return
+	}
+	defer file.Close()
+
+	var result map[string]interface{}
+	err = json.NewDecoder(file).Decode(&result)
+	if err != nil {
+		slog.Error("failed to decode JSON file", slog.String("path", resultFilePath), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to decode JSON file"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"result": result})
 }
 
 func (h *HttpEndpoints) runActionOnPreviousResponsesForParticipant(c *gin.Context) {
