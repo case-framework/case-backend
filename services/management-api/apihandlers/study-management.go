@@ -21,6 +21,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	studyDB "github.com/case-framework/case-backend/pkg/db/study"
+	studyService "github.com/case-framework/case-backend/pkg/study"
 	surveydefinition "github.com/case-framework/case-backend/pkg/study/exporter/survey-definition"
 	surveyresponses "github.com/case-framework/case-backend/pkg/study/exporter/survey-responses"
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
@@ -1564,8 +1565,40 @@ func (h *HttpEndpoints) deleteStudyRuleVersion(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) runActionOnParticipant(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	studyKey := c.Param("studyKey")
+	participantID := c.Param("participantID")
+
+	var req struct {
+		Rules []studyTypes.Expression `json:"rules"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	slog.Info("running study action on participant", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("participantID", participantID))
+
+	result, err := studyService.OnRunStudyAction(studyService.RunStudyActionReq{
+		InstanceID:           token.InstanceID,
+		StudyKey:             studyKey,
+		OnlyForParticipantID: participantID,
+		Rules:                req.Rules,
+		OnProgressFn:         nil,
+	})
+
+	if err != nil {
+		slog.Error("failed to run study action", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"participantCount": result.ParticipantCount,
+		"duration":         result.Duration,
+		"ruleResults":      result.ParticipantStateChangedPerRule,
+	})
 }
 
 func (h *HttpEndpoints) runActionOnParticipants(c *gin.Context) {
