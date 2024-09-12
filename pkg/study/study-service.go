@@ -572,6 +572,153 @@ func OnRunStudyAction(req RunStudyActionReq) (*RunStudyActionResult, error) {
 	return result, nil
 }
 
+func OnRunStudyActionForPreviousResponses(req RunStudyActionReq, surveyKeys []string, from int64, to int64) (*RunStudyActionResult, error) {
+	if req.InstanceID == "" || req.StudyKey == "" {
+		return nil, errors.New("instanceID and studyKey are required")
+	}
+
+	filter := bson.M{}
+
+	if req.OnlyForParticipantID != "" {
+		filter = bson.M{
+			"participantID": req.OnlyForParticipantID,
+		}
+	}
+
+	study, err := studyDBService.GetStudy(req.InstanceID, req.StudyKey)
+	if err != nil {
+		return nil, err
+	}
+
+	count, err := studyDBService.GetParticipantCount(req.InstanceID, req.StudyKey, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &RunStudyActionResult{
+		ParticipantCount:               0,
+		ParticipantStateChangedPerRule: make([]int64, len(req.Rules)),
+		Duration:                       0,
+	}
+	start := time.Now().Unix()
+
+	if req.OnProgressFn != nil {
+		req.OnProgressFn(count, 0)
+	}
+
+	err = studyDBService.FindAndExecuteOnParticipantsStates(
+		context.Background(),
+		req.InstanceID,
+		req.StudyKey,
+		filter,
+		nil,
+		false,
+		func(dbService *studydb.StudyDBService, p studyTypes.Participant, instanceID, studyKey string, args ...interface{}) error {
+			result.ParticipantCount += 1
+
+			if req.OnProgressFn != nil {
+				req.OnProgressFn(count, result.ParticipantCount)
+			}
+
+			confidentialID, err := ComputeConfidentialIDForParticipant(study, p.ParticipantID)
+			if err != nil {
+				slog.Error("Error computing confidential ID", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", p.ParticipantID), slog.String("error", err.Error()))
+				return err
+			}
+
+			participantData := studyengine.ActionData{
+				PState:          p,
+				ReportsToCreate: map[string]studyTypes.Report{},
+			}
+
+			responseFilter := bson.M{
+				"participantID": p.ParticipantID,
+			}
+			if from > 0 && to > 0 {
+				responseFilter["arrivedAt"] = bson.M{"$and": []bson.M{
+					{"$gt": from},
+					{"$lt": to},
+				}}
+			} else if from > 0 {
+				responseFilter["arrivedAt"] = bson.M{"$gt": from}
+			} else if to > 0 {
+				responseFilter["arrivedAt"] = bson.M{"$lt": to}
+			}
+
+			if len(surveyKeys) > 0 {
+				responseFilter["key"] = bson.M{"$in": surveyKeys}
+			}
+
+			sort := bson.M{
+				"arrivedAt": 1,
+			}
+
+			err = studyDBService.FindAndExecuteOnResponses(
+				context.Background(),
+				instanceID,
+				studyKey,
+				responseFilter,
+				sort,
+				false,
+				func(dbService *studydb.StudyDBService, r studyTypes.SurveyResponse, instanceID, studyKey string, args ...interface{}) error {
+					anyChange := false
+					for i, rule := range req.Rules {
+						event := studyengine.StudyEvent{
+							InstanceID:                            instanceID,
+							StudyKey:                              studyKey,
+							Type:                                  studyengine.STUDY_EVENT_TYPE_SUBMIT,
+							ParticipantIDForConfidentialResponses: confidentialID,
+							Response:                              r,
+						}
+
+						newState, err := studyengine.ActionEval(rule, participantData, event)
+						if err != nil {
+							slog.Error("Error evaluating study rule", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", p.ParticipantID), slog.String("rule", rule.Name), slog.String("error", err.Error()))
+							return err
+						}
+
+						if !reflect.DeepEqual(newState.PState, participantData.PState) {
+							result.ParticipantStateChangedPerRule[i] += 1
+							anyChange = true
+						}
+						participantData = newState
+
+					}
+
+					for key, report := range participantData.ReportsToCreate {
+						report.Timestamp = r.SubmittedAt
+						participantData.ReportsToCreate[key] = report
+					}
+					saveReports(instanceID, studyKey, participantData.ReportsToCreate, r.ID.Hex())
+					participantData.ReportsToCreate = map[string]types.Report{} //clean up ReportsToCreate
+
+					if anyChange {
+						_, err = studyDBService.SaveParticipantState(instanceID, studyKey, participantData.PState)
+						if err != nil {
+							slog.Error("Error saving participant state", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", p.ParticipantID), slog.String("error", err.Error()))
+							return err
+						}
+					}
+					return nil
+				},
+			)
+			if err != nil {
+				slog.Error("Error executing study action on previous responses", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+				return err
+			}
+
+			return nil
+		},
+	)
+	if err != nil {
+		slog.Error("Error executing study action", slog.String("instanceID", req.InstanceID), slog.String("studyKey", req.StudyKey), slog.String("error", err.Error()))
+	}
+
+	result.Duration = time.Now().Unix() - start
+
+	return result, nil
+}
+
 // Run study timer event for participants
 func OnStudyTimer(instanceID string, study *studyTypes.Study) {
 	if study == nil {
