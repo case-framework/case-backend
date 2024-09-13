@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"strings"
@@ -8,13 +9,22 @@ import (
 
 	"github.com/case-framework/case-backend/pkg/apihelpers"
 	"github.com/case-framework/case-backend/pkg/db"
+	"github.com/case-framework/case-backend/pkg/study"
+	"github.com/case-framework/case-backend/pkg/study/studyengine"
 	"github.com/case-framework/case-backend/pkg/utils"
+	"gopkg.in/yaml.v2"
 
 	"github.com/gin-gonic/gin"
+
+	muDB "github.com/case-framework/case-backend/pkg/db/management-user"
+	messagingDB "github.com/case-framework/case-backend/pkg/db/messaging"
+	studyDB "github.com/case-framework/case-backend/pkg/db/study"
 )
 
 // Environment variables
 const (
+	ENV_CONFIG_FILE_PATH = "CONFIG_FILE_PATH"
+
 	ENV_GIN_DEBUG_MODE             = "GIN_DEBUG_MODE"
 	ENV_MANAGEMENT_API_LISTEN_PORT = "MANAGEMENT_API_LISTEN_PORT"
 	ENV_CORS_ALLOW_ORIGINS         = "CORS_ALLOW_ORIGINS"
@@ -72,6 +82,12 @@ const (
 	ENV_FILESTORE_PATH = "FILESTORE_PATH"
 )
 
+var (
+	studyDBService     *studyDB.StudyDBService
+	muDBService        *muDB.ManagementUserDBService
+	messagingDBService *messagingDB.MessagingDBService
+)
+
 type Config struct {
 	// Gin configs
 	GinDebugMode bool     `json:"gin_debug_mode"`
@@ -92,7 +108,12 @@ type Config struct {
 	MessagingDBConfig      db.DBConfig `json:"messaging_db_config"`
 	StudyDBConfig          db.DBConfig `json:"study_db_config"`
 
-	StudyGlobalSecret string `json:"study_global_secret"`
+	// Study module config
+	StudyConfigs struct {
+		GlobalSecret string `json:"global_secret" yaml:"global_secret"`
+
+		ExternalServices []studyengine.ExternalService `json:"external_services" yaml:"external_services"`
+	} `json:"study_configs" yaml:"study_configs"`
 
 	FilestorePath string `json:"filestore_path"`
 }
@@ -112,6 +133,39 @@ func init() {
 	if !conf.GinDebugMode {
 		gin.SetMode(gin.ReleaseMode)
 	}
+
+	initDBs()
+
+	initStudyService()
+}
+
+func initDBs() {
+	var err error
+	muDBService, err = muDB.NewManagementUserDBService(conf.ManagementUserDBConfig)
+	if err != nil {
+		slog.Error("Error connecting to Management User DB", slog.String("error", err.Error()))
+		panic(err)
+	}
+
+	messagingDBService, err = messagingDB.NewMessagingDBService(conf.MessagingDBConfig)
+	if err != nil {
+		slog.Error("Error connecting to Messaging DB", slog.String("error", err.Error()))
+		panic(err)
+	}
+
+	studyDBService, err = studyDB.NewStudyDBService(conf.StudyDBConfig)
+	if err != nil {
+		slog.Error("Error connecting to Study DB", slog.String("error", err.Error()))
+		panic(err)
+	}
+}
+
+func initStudyService() {
+	study.Init(
+		studyDBService,
+		conf.StudyConfigs.GlobalSecret,
+		conf.StudyConfigs.ExternalServices,
+	)
 }
 
 func getAndCheckFilestorePath() string {
@@ -131,6 +185,20 @@ func getAndCheckFilestorePath() string {
 
 func initConfig() Config {
 	conf := Config{}
+
+	// Read config from file
+	yamlFile, err := os.ReadFile(os.Getenv(ENV_CONFIG_FILE_PATH))
+	if err != nil {
+		fmt.Println("Error reading config file: " + err.Error())
+		conf = Config{}
+	}
+
+	err = yaml.UnmarshalStrict(yamlFile, &conf)
+	if err != nil {
+		fmt.Println("Error reading config file: " + err.Error())
+		conf = Config{}
+	}
+
 	conf.GinDebugMode = os.Getenv(ENV_GIN_DEBUG_MODE) == "true"
 	conf.Port = os.Getenv(ENV_MANAGEMENT_API_LISTEN_PORT)
 	conf.AllowOrigins = strings.Split(os.Getenv(ENV_CORS_ALLOW_ORIGINS), ",")
@@ -140,7 +208,6 @@ func initConfig() Config {
 	// JWT configs
 	conf.ManagementUserJWTSignKey = os.Getenv(ENV_MANAGEMENT_USER_JWT_SIGN_KEY)
 	expInVal := os.Getenv(ENV_MANAGEMENT_USER_JWT_EXPIRES_IN)
-	var err error
 	conf.ManagementUserJWTExpiresIn, err = utils.ParseDurationString(expInVal)
 	if err != nil {
 		slog.Error("error during initConfig", slog.String("error", err.Error()), ENV_MANAGEMENT_USER_JWT_EXPIRES_IN, expInVal)
@@ -165,8 +232,8 @@ func initConfig() Config {
 	conf.StudyDBConfig = readStudyDBConfig()
 
 	// Study global secret
-	conf.StudyGlobalSecret = os.Getenv(ENV_STUDY_GLOBAL_SECRET)
-	if conf.StudyGlobalSecret == "" {
+	conf.StudyConfigs.GlobalSecret = os.Getenv(ENV_STUDY_GLOBAL_SECRET)
+	if conf.StudyConfigs.GlobalSecret == "" {
 		slog.Error("Study global secret not set - configure STUDY_GLOBAL_SECRET env variable.")
 		panic("Study global secret not set")
 	}

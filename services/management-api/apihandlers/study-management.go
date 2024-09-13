@@ -21,6 +21,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	studyDB "github.com/case-framework/case-backend/pkg/db/study"
+	studyService "github.com/case-framework/case-backend/pkg/study"
 	surveydefinition "github.com/case-framework/case-backend/pkg/study/exporter/survey-definition"
 	surveyresponses "github.com/case-framework/case-backend/pkg/study/exporter/survey-responses"
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
@@ -1564,34 +1565,391 @@ func (h *HttpEndpoints) deleteStudyRuleVersion(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) runActionOnParticipant(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	studyKey := c.Param("studyKey")
+	participantID := c.Param("participantID")
+
+	var req struct {
+		Rules []studyTypes.Expression `json:"rules"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	slog.Info("running study action on participant", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("participantID", participantID))
+
+	result, err := studyService.OnRunStudyAction(studyService.RunStudyActionReq{
+		InstanceID:           token.InstanceID,
+		StudyKey:             studyKey,
+		OnlyForParticipantID: participantID,
+		Rules:                req.Rules,
+		OnProgressFn:         nil,
+	})
+
+	if err != nil {
+		slog.Error("failed to run study action", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"participantCount": result.ParticipantCount,
+		"duration":         result.Duration,
+		"ruleResults":      result.ParticipantStateChangedPerRule,
+	})
+}
+
+func (h *HttpEndpoints) taskFailed(
+	instanceID string,
+	taskID string,
+	errMsg string,
+) {
+	err := h.studyDBConn.UpdateTaskCompleted(
+		instanceID,
+		taskID,
+		studyTypes.TASK_STATUS_COMPLETED,
+		0,
+		errMsg,
+		"",
+	)
+	if err != nil {
+		slog.Error("failed to update task status on faied task", slog.String("error", err.Error()))
+		return
+	}
+}
+
+func (h *HttpEndpoints) onActionTaskCompleted(
+	taskID string,
+	results *studyService.RunStudyActionResult,
+	err error,
+	instanceID string,
+	relativeFolderName string,
+) {
+	if err != nil {
+		slog.Error("failed to run study actions", slog.String("error", err.Error()))
+		h.taskFailed(instanceID, taskID, err.Error())
+		return
+	}
+
+	// create file write
+	relativeFilepath := filepath.Join(relativeFolderName, "results_"+taskID+".json")
+	exportFilePath := filepath.Join(h.filestorePath, relativeFilepath)
+	file, err := os.Create(exportFilePath)
+	if err != nil {
+		slog.Error("failed to create action run results file", slog.String("error", err.Error()))
+		h.taskFailed(instanceID, taskID, err.Error())
+		return
+	}
+	defer file.Close()
+
+	// write to json
+	err = json.NewEncoder(file).Encode(results)
+	if err != nil {
+		slog.Error("failed to write to action run results file", slog.String("error", err.Error()))
+		h.taskFailed(instanceID, taskID, err.Error())
+		return
+	}
+
+	err = h.studyDBConn.UpdateTaskCompleted(
+		instanceID,
+		taskID,
+		studyTypes.TASK_STATUS_COMPLETED,
+		int(results.ParticipantCount),
+		"",
+		relativeFilepath,
+	)
+	if err != nil {
+		slog.Error("failed to update task status", slog.String("error", err.Error()))
+		return
+	}
 }
 
 func (h *HttpEndpoints) runActionOnParticipants(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	studyKey := c.Param("studyKey")
+
+	var req struct {
+		Rules []studyTypes.Expression `json:"rules"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	slog.Info("running study action on participants", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	relativeFolderName := filepath.Join(token.InstanceID, "actionRuns")
+	exportFolder := filepath.Join(h.filestorePath, relativeFolderName)
+	if err := os.MkdirAll(exportFolder, os.ModePerm); err != nil {
+		slog.Error("failed to create actionRuns folder", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create actionRuns folder"})
+		return
+	}
+
+	task, err := h.studyDBConn.CreateTask(
+		token.InstanceID,
+		token.Subject,
+		10000000000000, // just a large number, should be updated in next step
+		studyTypes.TASK_FILE_TYPE_JSON,
+	)
+	if err != nil {
+		slog.Error("failed to create task", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create task"})
+		return
+	}
+
+	go func() {
+		first := true
+
+		results, err := studyService.OnRunStudyAction(studyService.RunStudyActionReq{
+			InstanceID: token.InstanceID,
+			StudyKey:   studyKey,
+			Rules:      req.Rules,
+			OnProgressFn: func(totalCount int64, processedCount int64) {
+				if first {
+					err = h.studyDBConn.UpdateTaskTotalCount(
+						token.InstanceID,
+						task.ID.Hex(),
+						int(totalCount),
+					)
+					if err != nil {
+						slog.Error("failed to update task total count", slog.String("error", err.Error()))
+						return
+					}
+					first = false
+				}
+
+				err := h.studyDBConn.UpdateTaskProgress(
+					token.InstanceID,
+					task.ID.Hex(),
+					int(processedCount),
+				)
+				if err != nil {
+					slog.Error("failed to update task progress", slog.String("error", err.Error()))
+					// not a big issue, so let's try next time
+					return
+				}
+			},
+		})
+		if err != nil {
+			slog.Error("running study actions resulted in error", slog.String("error", err.Error()))
+			return
+		}
+
+		h.onActionTaskCompleted(task.ID.Hex(), results, err, token.InstanceID, relativeFolderName)
+
+	}()
+
+	c.JSON(http.StatusOK, gin.H{"task": task})
 }
 
 func (h *HttpEndpoints) getStudyActionTaskStatus(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	taskID := c.Param("taskID")
+
+	slog.Info("getting study action task status", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("taskID", taskID))
+
+	task, err := h.studyDBConn.GetTaskByID(token.InstanceID, taskID)
+	if err != nil {
+		slog.Error("failed to get export task status", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get export task status"})
+		return
+	}
+
+	if task.CreatedBy != token.Subject && !token.IsAdmin {
+		slog.Warn("user is not allowed to get task status", slog.String("userID", token.Subject), slog.String("taskID", taskID))
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"task": task})
 }
 
 func (h *HttpEndpoints) getStudyActionTaskResult(c *gin.Context) {
-	// TODO: implement
-	// TODO: cleanup after successfully retrieving results
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	taskID := c.Param("taskID")
+
+	slog.Info("getting export task result", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("taskID", taskID))
+
+	task, err := h.studyDBConn.GetTaskByID(token.InstanceID, taskID)
+	if err != nil {
+		slog.Error("failed to get export task result", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get export task result"})
+		return
+	}
+
+	if task.CreatedBy != token.Subject && !token.IsAdmin {
+		slog.Warn("user is not allowed to get task result", slog.String("userID", token.Subject), slog.String("taskID", taskID))
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+
+	if task.Status != studyTypes.TASK_STATUS_COMPLETED {
+		slog.Error("task is not completed", slog.String("taskID", taskID), slog.String("status", task.Status))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "task is not completed"})
+		return
+	}
+
+	resultFilePath := filepath.Join(h.filestorePath, task.ResultFile)
+
+	// file exists?
+	if _, err := os.Stat(resultFilePath); os.IsNotExist(err) {
+		slog.Error("file does not exist", slog.String("path", resultFilePath))
+		c.JSON(http.StatusNotFound, gin.H{"error": "file does not exist"})
+		return
+	}
+
+	// read JSON file and send back
+	file, err := os.Open(resultFilePath)
+	if err != nil {
+		slog.Error("failed to open file", slog.String("path", resultFilePath), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to open file"})
+		return
+	}
+	defer file.Close()
+
+	var result map[string]interface{}
+	err = json.NewDecoder(file).Decode(&result)
+	if err != nil {
+		slog.Error("failed to decode JSON file", slog.String("path", resultFilePath), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to decode JSON file"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"result": result})
 }
 
 func (h *HttpEndpoints) runActionOnPreviousResponsesForParticipant(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	studyKey := c.Param("studyKey")
+	participantID := c.Param("participantID")
+
+	var req struct {
+		SurveyKeys []string                `json:"surveyKeys"`
+		From       int64                   `json:"from"`
+		To         int64                   `json:"to"`
+		Rules      []studyTypes.Expression `json:"rules"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	slog.Info("running study action on previous responses for participant", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("participantID", participantID))
+
+	result, err := studyService.OnRunStudyActionForPreviousResponses(studyService.RunStudyActionReq{
+		InstanceID:           token.InstanceID,
+		StudyKey:             studyKey,
+		OnlyForParticipantID: participantID,
+		Rules:                req.Rules,
+		OnProgressFn:         nil,
+	}, req.SurveyKeys, req.From, req.To)
+
+	if err != nil {
+		slog.Error("failed to run study action", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"participantCount": result.ParticipantCount,
+		"duration":         result.Duration,
+		"ruleResults":      result.ParticipantStateChangedPerRule,
+	})
 }
 
 func (h *HttpEndpoints) runActionOnPreviousResponsesForParticipants(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	studyKey := c.Param("studyKey")
+
+	var req struct {
+		Rules      []studyTypes.Expression `json:"rules"`
+		SurveyKeys []string                `json:"surveyKeys"`
+		From       int64                   `json:"from"`
+		To         int64                   `json:"to"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	slog.Info("running study action on participants", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	relativeFolderName := filepath.Join(token.InstanceID, "actionRuns")
+	exportFolder := filepath.Join(h.filestorePath, relativeFolderName)
+	if err := os.MkdirAll(exportFolder, os.ModePerm); err != nil {
+		slog.Error("failed to create actionRuns folder", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create actionRuns folder"})
+		return
+	}
+
+	task, err := h.studyDBConn.CreateTask(
+		token.InstanceID,
+		token.Subject,
+		10000000000000, // just a large number, should be updated in next step
+		studyTypes.TASK_FILE_TYPE_JSON,
+	)
+	if err != nil {
+		slog.Error("failed to create task", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create task"})
+		return
+	}
+
+	go func() {
+		first := true
+
+		results, err := studyService.OnRunStudyActionForPreviousResponses(
+			studyService.RunStudyActionReq{
+				InstanceID: token.InstanceID,
+				StudyKey:   studyKey,
+				Rules:      req.Rules,
+				OnProgressFn: func(totalCount int64, processedCount int64) {
+					if first {
+						err = h.studyDBConn.UpdateTaskTotalCount(
+							token.InstanceID,
+							task.ID.Hex(),
+							int(totalCount),
+						)
+						if err != nil {
+							slog.Error("failed to update task total count", slog.String("error", err.Error()))
+							return
+						}
+						first = false
+					}
+
+					err := h.studyDBConn.UpdateTaskProgress(
+						token.InstanceID,
+						task.ID.Hex(),
+						int(processedCount),
+					)
+					if err != nil {
+						slog.Error("failed to update task progress", slog.String("error", err.Error()))
+						// not a big issue, so let's try next time
+						return
+					}
+				},
+			},
+			req.SurveyKeys,
+			req.From,
+			req.To,
+		)
+		if err != nil {
+			slog.Error("running study actions resulted in error", slog.String("error", err.Error()))
+			return
+		}
+
+		h.onActionTaskCompleted(task.ID.Hex(), results, err, token.InstanceID, relativeFolderName)
+
+	}()
+
+	c.JSON(http.StatusOK, gin.H{"task": task})
 }
 
 func (h *HttpEndpoints) getSurveyInfo(c *gin.Context) {
