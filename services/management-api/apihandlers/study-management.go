@@ -1656,7 +1656,7 @@ func (h *HttpEndpoints) onActionTaskCompleted(
 		instanceID,
 		taskID,
 		studyTypes.TASK_STATUS_COMPLETED,
-		0,
+		int(results.ParticipantCount),
 		"",
 		relativeFilepath,
 	)

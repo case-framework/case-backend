@@ -70,8 +70,8 @@ func (dbService *StudyDBService) UpdateTaskTotalCount(instanceID string, taskID 
 	}
 	update := bson.M{
 		"$set": bson.M{
-			"totalCount": totalCount,
-			"updatedAt":  time.Now(),
+			"targetCount": totalCount,
+			"updatedAt":   time.Now(),
 		},
 	}
 	_, err = dbService.collectionTaskQueue(instanceID).UpdateOne(ctx, filter, update)
