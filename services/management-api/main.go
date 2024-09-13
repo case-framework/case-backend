@@ -6,9 +6,6 @@ import (
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/apihelpers"
-	muDB "github.com/case-framework/case-backend/pkg/db/management-user"
-	"github.com/case-framework/case-backend/pkg/db/messaging"
-	studyDB "github.com/case-framework/case-backend/pkg/db/study"
 	"github.com/case-framework/case-backend/services/management-api/apihandlers"
 
 	"github.com/gin-contrib/cors"
@@ -18,23 +15,6 @@ import (
 var conf Config
 
 func main() {
-	// Connect to DBs
-	muDBService, err := muDB.NewManagementUserDBService(conf.ManagementUserDBConfig)
-	if err != nil {
-		slog.Error("Error connecting to Management User DB", slog.String("error", err.Error()))
-		return
-	}
-	messagingDBService, err := messaging.NewMessagingDBService(conf.MessagingDBConfig)
-	if err != nil {
-		slog.Error("Error connecting to Messaging DB", slog.String("error", err.Error()))
-		return
-	}
-
-	studyDBService, err := studyDB.NewStudyDBService(conf.StudyDBConfig)
-	if err != nil {
-		slog.Error("Error connecting to Study DB", slog.String("error", err.Error()))
-		return
-	}
 
 	// Start webserver
 	router := gin.Default()
@@ -59,7 +39,7 @@ func main() {
 		messagingDBService,
 		studyDBService,
 		conf.AllowedInstanceIDs,
-		conf.StudyGlobalSecret,
+		conf.StudyConfigs.GlobalSecret,
 		conf.FilestorePath,
 	)
 	v1APIHandlers.AddManagementAuthAPI(v1Root)

@@ -463,6 +463,10 @@ type RunStudyActionResult struct {
 }
 
 func OnRunStudyAction(req RunStudyActionReq) (*RunStudyActionResult, error) {
+	if studyDBService == nil {
+		return nil, errors.New("studyDBService is not initialized")
+	}
+
 	if req.InstanceID == "" || req.StudyKey == "" {
 		return nil, errors.New("instanceID and studyKey are required")
 	}
