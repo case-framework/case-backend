@@ -6,6 +6,7 @@ const (
 )
 
 const (
+	RESOURCE_TYPE_USERS     = "users"
 	RESOURCE_TYPE_STUDY     = "study"
 	RESOURCE_TYPE_MESSAGING = "messaging"
 )
@@ -44,6 +45,8 @@ const (
 	ACTION_GET_PARTICIPANT_STATES     = "get-participant-states"
 	ACTION_GET_REPORTS                = "get-reports"
 	ACTION_DELETE_REPORTS             = "delete-reports"
+
+	ACTION_DELETE_USERS = "delete-users"
 
 	ACTION_ALL = "*"
 )
