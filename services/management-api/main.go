@@ -38,6 +38,8 @@ func main() {
 		muDBService,
 		messagingDBService,
 		studyDBService,
+		participantUserDBService,
+		globalInfosDBService,
 		conf.AllowedInstanceIDs,
 		conf.StudyConfigs.GlobalSecret,
 		conf.FilestorePath,

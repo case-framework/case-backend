@@ -10,6 +10,7 @@ import (
 	pc "github.com/case-framework/case-backend/pkg/permission-checker"
 	umUtils "github.com/case-framework/case-backend/pkg/user-management/utils"
 
+	studyService "github.com/case-framework/case-backend/pkg/study"
 	"github.com/gin-gonic/gin"
 )
 
@@ -241,12 +242,31 @@ func (h *HttpEndpoints) requestParticipantUserDeletion(c *gin.Context) {
 
 	slog.Info("requesting participant user deletion", slog.String("instanceID", token.InstanceID), slog.String("by", token.Subject), slog.String("email", req.Email))
 
-	// TODO: check if user exists
+	user, err := h.participantUserDB.GetUserByAccountID(token.InstanceID, req.Email)
+	if err != nil {
+		slog.Error("user not found", slog.String("instanceID", token.InstanceID), slog.String("email", req.Email), slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user could not be deleted"})
+		return
+	}
 
-	// TODO: check if req contains a valid email address
-	// TODO: trigger deletion of the participant user properly, as if this user would delete himself
+	for _, profile := range user.Profiles {
+		studyService.OnProfileDeleted(token.InstanceID, profile.ID.Hex(), nil)
+	}
 
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	// delete all temp tokens
+	err = h.globalInfosDBConn.DeleteAllTempTokenForUser(token.InstanceID, user.ID.Hex(), "")
+	if err != nil {
+		slog.Error("failed to delete temp tokens", slog.String("error", err.Error()))
+	}
+
+	err = h.participantUserDB.DeleteUser(token.InstanceID, user.ID.Hex())
+	if err != nil {
+		slog.Error("cannot delete user", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot delete user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "user deleted"})
 
 }
 

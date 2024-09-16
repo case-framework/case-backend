@@ -7,8 +7,10 @@ import (
 	"os"
 	"time"
 
+	globalinfosDB "github.com/case-framework/case-backend/pkg/db/global-infos"
 	muDB "github.com/case-framework/case-backend/pkg/db/management-user"
 	messagingDB "github.com/case-framework/case-backend/pkg/db/messaging"
+	userDB "github.com/case-framework/case-backend/pkg/db/participant-user"
 	studyDB "github.com/case-framework/case-backend/pkg/db/study"
 	"github.com/gin-gonic/gin"
 )
@@ -35,6 +37,8 @@ type HttpEndpoints struct {
 	muDBConn           *muDB.ManagementUserDBService
 	messagingDBConn    *messagingDB.MessagingDBService
 	studyDBConn        *studyDB.StudyDBService
+	participantUserDB  *userDB.ParticipantUserDBService
+	globalInfosDBConn  *globalinfosDB.GlobalInfosDBService
 	tokenSignKey       string
 	tokenExpiresIn     time.Duration
 	allowedInstanceIDs []string
@@ -48,6 +52,8 @@ func NewHTTPHandler(
 	muDBConn *muDB.ManagementUserDBService,
 	messagingDBConn *messagingDB.MessagingDBService,
 	studyDBConn *studyDB.StudyDBService,
+	participantUserDB *userDB.ParticipantUserDBService,
+	globalInfosDBConn *globalinfosDB.GlobalInfosDBService,
 	allowedInstanceIDs []string,
 	globalStudySecret string,
 	filestorePath string,
@@ -57,6 +63,8 @@ func NewHTTPHandler(
 		muDBConn:           muDBConn,
 		messagingDBConn:    messagingDBConn,
 		studyDBConn:        studyDBConn,
+		participantUserDB:  participantUserDB,
+		globalInfosDBConn:  globalInfosDBConn,
 		allowedInstanceIDs: allowedInstanceIDs,
 		globalStudySecret:  globalStudySecret,
 		tokenExpiresIn:     tokenExpiresIn,
