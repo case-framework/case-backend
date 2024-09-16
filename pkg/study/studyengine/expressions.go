@@ -654,8 +654,16 @@ func (ctx EvalContext) getLastSubmissionDate(exp studyTypes.Expression, withInco
 	if withIncomingParticipantState {
 		pState = ctx.Event.MergeWithParticipant
 	}
-	if len(exp.Data) != 1 {
-		return val, errors.New("unexpected numbers of arguments")
+	if len(exp.Data) < 1 {
+		// if no arguments are provided, return the last submission date of the participant
+		maxTs := int64(0)
+		for _, lastTs := range pState.LastSubmissions {
+			if lastTs > maxTs {
+				maxTs = lastTs
+			}
+		}
+
+		return float64(maxTs), nil
 	}
 
 	arg1, err := ctx.expressionArgResolver(exp.Data[0])
