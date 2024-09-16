@@ -1709,12 +1709,41 @@ func TestEvalGetLastSubmissionDate(t *testing.T) {
 		if ret.(float64) != float64(last_submission) {
 			t.Errorf("unexpected value: %f", ret)
 		}
+	})
 
-		// wrong survey key
-		exp = studyTypes.Expression{Name: "getLastSubmissionDate", Data: []studyTypes.ExpressionArg{
+	t.Run("with no arguments", func(t *testing.T) {
+		exp := studyTypes.Expression{Name: "getLastSubmissionDate"}
+		lastTs := time.Now().Unix() - 10
+		EvalContext := EvalContext{
+			ParticipantState: studyTypes.Participant{StudyStatus: studyTypes.PARTICIPANT_STUDY_STATUS_ACTIVE,
+				LastSubmissions: map[string]int64{
+					"test":  lastTs,
+					"test2": lastTs - 10,
+				},
+			},
+		}
+		ret, err := ExpressionEval(exp, EvalContext)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err.Error())
+			return
+		}
+		if ret.(float64) != float64(lastTs) {
+			t.Errorf("unexpected value: %f", ret)
+		}
+	})
+
+	t.Run("with wrong survey key", func(t *testing.T) {
+		exp := studyTypes.Expression{Name: "getLastSubmissionDate", Data: []studyTypes.ExpressionArg{
 			{DType: "str", Str: "wrong"},
 		}}
-		ret, err = ExpressionEval(exp, EvalContext)
+		EvalContext := EvalContext{
+			ParticipantState: studyTypes.Participant{StudyStatus: studyTypes.PARTICIPANT_STUDY_STATUS_ACTIVE,
+				LastSubmissions: map[string]int64{
+					"test": time.Now().Unix() - 10,
+				},
+			},
+		}
+		ret, err := ExpressionEval(exp, EvalContext)
 		if err != nil {
 			t.Errorf("unexpected error: %s", err.Error())
 			return
