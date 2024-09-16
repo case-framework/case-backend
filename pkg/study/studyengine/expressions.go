@@ -72,6 +72,8 @@ func ExpressionEval(expression studyTypes.Expression, evalCtx EvalContext) (val 
 		val, err = evalCtx.hasParticipantFlagKey(expression, false)
 	case "getParticipantFlagValue":
 		val, err = evalCtx.getParticipantFlagValue(expression, false)
+	case "getLastSubmissionDate":
+		val, err = evalCtx.getLastSubmissionDate(expression, false)
 	case "lastSubmissionDateOlderThan":
 		val, err = evalCtx.lastSubmissionDateOlderThan(expression, false)
 	case "hasMessageTypeAssigned":
@@ -95,6 +97,8 @@ func ExpressionEval(expression studyTypes.Expression, evalCtx EvalContext) (val 
 		val, err = evalCtx.hasParticipantFlagKey(expression, true)
 	case "incomingState:getParticipantFlagValue":
 		val, err = evalCtx.getParticipantFlagValue(expression, true)
+	case "incomingState:getLastSubmissionDate":
+		val, err = evalCtx.getLastSubmissionDate(expression, true)
 	case "incomingState:lastSubmissionDateOlderThan":
 		val, err = evalCtx.lastSubmissionDateOlderThan(expression, true)
 	case "incomingState:hasMessageTypeAssigned":
@@ -643,6 +647,29 @@ func (ctx EvalContext) hasParticipantFlag(exp studyTypes.Expression, withIncomin
 		return false, nil
 	}
 	return true, nil
+}
+
+func (ctx EvalContext) getLastSubmissionDate(exp studyTypes.Expression, withIncomingParticipantState bool) (val float64, err error) {
+	pState := ctx.ParticipantState
+	if withIncomingParticipantState {
+		pState = ctx.Event.MergeWithParticipant
+	}
+	if len(exp.Data) != 1 {
+		return val, errors.New("unexpected numbers of arguments")
+	}
+
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	surveyKey := arg1.(string)
+
+	lastSubmissionDate, ok := pState.LastSubmissions[surveyKey]
+	if !ok {
+		return 0, nil
+	}
+
+	return float64(lastSubmissionDate), nil
 }
 
 func (ctx EvalContext) lastSubmissionDateOlderThan(exp studyTypes.Expression, withIncomingParticipantState bool) (val bool, err error) {
