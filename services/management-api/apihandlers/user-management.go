@@ -8,7 +8,9 @@ import (
 	mUserDB "github.com/case-framework/case-backend/pkg/db/management-user"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	pc "github.com/case-framework/case-backend/pkg/permission-checker"
+	umUtils "github.com/case-framework/case-backend/pkg/user-management/utils"
 
+	studyService "github.com/case-framework/case-backend/pkg/study"
 	"github.com/gin-gonic/gin"
 )
 
@@ -31,6 +33,20 @@ func (h *HttpEndpoints) AddUserManagementAPI(rg *gin.RouterGroup) {
 		managementUsersGroup.POST("/:userID/permissions", mw.RequirePayload(), h.createManagementUserPermission)
 		managementUsersGroup.DELETE("/:userID/permissions/:permissionID", h.deleteManagementUserPermission)
 		managementUsersGroup.PUT("/:userID/permissions/:permissionID/limiter", mw.RequirePayload(), h.updateManagementUserPermissionLimiter)
+	}
+
+	participantUsersGroup := umGroup.Group("/participant-users")
+	participantUsersGroup.Use(mw.IsAdminUser())
+	{
+		participantUsersGroup.POST("/request-deletion", mw.RequirePayload(), h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType: pc.RESOURCE_TYPE_USERS,
+				ResourceKeys: []string{pc.RESOURCE_KEY_STUDY_ALL},
+				Action:       pc.ACTION_DELETE_USERS,
+			},
+			nil,
+			h.requestParticipantUserDeletion,
+		))
 	}
 
 	serviceAccountsGroup := umGroup.Group("/service-accounts")
@@ -204,6 +220,54 @@ func (h *HttpEndpoints) updateManagementUserPermissionLimiter(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "permission limiter updated"})
+}
+
+func (h *HttpEndpoints) requestParticipantUserDeletion(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if !umUtils.CheckEmailFormat(req.Email) {
+		slog.Error("invalid email format", slog.String("email", req.Email))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid email format"})
+		return
+	}
+
+	slog.Info("requesting participant user deletion", slog.String("instanceID", token.InstanceID), slog.String("by", token.Subject), slog.String("email", req.Email))
+
+	user, err := h.participantUserDB.GetUserByAccountID(token.InstanceID, req.Email)
+	if err != nil {
+		slog.Error("user not found", slog.String("instanceID", token.InstanceID), slog.String("email", req.Email), slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user could not be deleted"})
+		return
+	}
+
+	for _, profile := range user.Profiles {
+		studyService.OnProfileDeleted(token.InstanceID, profile.ID.Hex(), nil)
+	}
+
+	// delete all temp tokens
+	err = h.globalInfosDBConn.DeleteAllTempTokenForUser(token.InstanceID, user.ID.Hex(), "")
+	if err != nil {
+		slog.Error("failed to delete temp tokens", slog.String("error", err.Error()))
+	}
+
+	err = h.participantUserDB.DeleteUser(token.InstanceID, user.ID.Hex())
+	if err != nil {
+		slog.Error("cannot delete user", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot delete user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "user deleted"})
+
 }
 
 func (h *HttpEndpoints) getAllServiceAccounts(c *gin.Context) {

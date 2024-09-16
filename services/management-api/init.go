@@ -16,8 +16,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	globalinfosDB "github.com/case-framework/case-backend/pkg/db/global-infos"
 	muDB "github.com/case-framework/case-backend/pkg/db/management-user"
 	messagingDB "github.com/case-framework/case-backend/pkg/db/messaging"
+	userDB "github.com/case-framework/case-backend/pkg/db/participant-user"
 	studyDB "github.com/case-framework/case-backend/pkg/db/study"
 )
 
@@ -48,6 +50,12 @@ const (
 	ENV_MANAGEMENT_USER_DB_IDLE_CONN_TIMEOUT     = "MANAGEMENT_USER_DB_IDLE_CONN_TIMEOUT"
 	ENV_MANAGEMENT_USER_DB_USE_NO_CURSOR_TIMEOUT = "MANAGEMENT_USER_DB_USE_NO_CURSOR_TIMEOUT"
 	ENV_MANAGEMENT_USER_DB_MAX_POOL_SIZE         = "MANAGEMENT_USER_DB_MAX_POOL_SIZE"
+
+	ENV_PARTICIPANT_USER_DB_USERNAME = "PARTICIPANT_USER_DB_USERNAME"
+	ENV_PARTICIPANT_USER_DB_PASSWORD = "PARTICIPANT_USER_DB_PASSWORD"
+
+	ENV_GLOBAL_INFOS_DB_USERNAME = "GLOBAL_INFOS_DB_USERNAME"
+	ENV_GLOBAL_INFOS_DB_PASSWORD = "GLOBAL_INFOS_DB_PASSWORD"
 
 	ENV_MESSAGING_DB_CONNECTION_STR        = "MESSAGING_DB_CONNECTION_STR"
 	ENV_MESSAGING_DB_USERNAME              = "MESSAGING_DB_USERNAME"
@@ -83,9 +91,11 @@ const (
 )
 
 var (
-	studyDBService     *studyDB.StudyDBService
-	muDBService        *muDB.ManagementUserDBService
-	messagingDBService *messagingDB.MessagingDBService
+	studyDBService           *studyDB.StudyDBService
+	muDBService              *muDB.ManagementUserDBService
+	messagingDBService       *messagingDB.MessagingDBService
+	participantUserDBService *userDB.ParticipantUserDBService
+	globalInfosDBService     *globalinfosDB.GlobalInfosDBService
 )
 
 type Config struct {
@@ -108,10 +118,15 @@ type Config struct {
 	MessagingDBConfig      db.DBConfig `json:"messaging_db_config"`
 	StudyDBConfig          db.DBConfig `json:"study_db_config"`
 
+	// DB configs
+	DBConfigs struct {
+		ParticipantUserDB db.DBConfigYaml `json:"participant_user_db" yaml:"participant_user_db"`
+		GlobalInfosDB     db.DBConfigYaml `json:"global_infos_db" yaml:"global_infos_db"`
+	} `json:"db_configs" yaml:"db_configs"`
+
 	// Study module config
 	StudyConfigs struct {
-		GlobalSecret string `json:"global_secret" yaml:"global_secret"`
-
+		GlobalSecret     string                        `json:"global_secret" yaml:"global_secret"`
 		ExternalServices []studyengine.ExternalService `json:"external_services" yaml:"external_services"`
 	} `json:"study_configs" yaml:"study_configs"`
 
@@ -133,6 +148,9 @@ func init() {
 	if !conf.GinDebugMode {
 		gin.SetMode(gin.ReleaseMode)
 	}
+
+	// Override secrets from environment variables
+	secretsOverride()
 
 	initDBs()
 
@@ -157,6 +175,18 @@ func initDBs() {
 	if err != nil {
 		slog.Error("Error connecting to Study DB", slog.String("error", err.Error()))
 		panic(err)
+	}
+
+	participantUserDBService, err = userDB.NewParticipantUserDBService(db.DBConfigFromYamlObj(conf.DBConfigs.ParticipantUserDB, conf.AllowedInstanceIDs))
+	if err != nil {
+		slog.Error("Error connecting to Participant User DB", slog.String("error", err.Error()))
+		return
+	}
+
+	globalInfosDBService, err = globalinfosDB.NewGlobalInfosDBService(db.DBConfigFromYamlObj(conf.DBConfigs.GlobalInfosDB, conf.AllowedInstanceIDs))
+	if err != nil {
+		slog.Error("Error connecting to Global Infos DB", slog.String("error", err.Error()))
+		return
 	}
 }
 
@@ -293,4 +323,24 @@ func readStudyDBConfig() db.DBConfig {
 		ENV_STUDY_DB_NAME_PREFIX,
 		readInstanceIDs(),
 	)
+}
+
+func secretsOverride() {
+	// Override secrets from environment variables
+
+	if dbUsername := os.Getenv(ENV_PARTICIPANT_USER_DB_USERNAME); dbUsername != "" {
+		conf.DBConfigs.ParticipantUserDB.Username = dbUsername
+	}
+
+	if dbPassword := os.Getenv(ENV_PARTICIPANT_USER_DB_PASSWORD); dbPassword != "" {
+		conf.DBConfigs.ParticipantUserDB.Password = dbPassword
+	}
+
+	if dbUsername := os.Getenv(ENV_GLOBAL_INFOS_DB_USERNAME); dbUsername != "" {
+		conf.DBConfigs.GlobalInfosDB.Username = dbUsername
+	}
+
+	if dbPassword := os.Getenv(ENV_GLOBAL_INFOS_DB_PASSWORD); dbPassword != "" {
+		conf.DBConfigs.GlobalInfosDB.Password = dbPassword
+	}
 }
