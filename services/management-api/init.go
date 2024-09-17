@@ -41,41 +41,16 @@ const (
 
 	ENV_INSTANCE_IDS = "INSTANCE_IDS"
 
-	ENV_MANAGEMENT_USER_DB_CONNECTION_STR        = "MANAGEMENT_USER_DB_CONNECTION_STR"
-	ENV_MANAGEMENT_USER_DB_USERNAME              = "MANAGEMENT_USER_DB_USERNAME"
-	ENV_MANAGEMENT_USER_DB_PASSWORD              = "MANAGEMENT_USER_DB_PASSWORD"
-	ENV_MANAGEMENT_USER_DB_CONNECTION_PREFIX     = "MANAGEMENT_USER_DB_CONNECTION_PREFIX"
-	ENV_MANAGEMENT_USER_DB_NAME_PREFIX           = "MANAGEMENT_USER_DB_NAME_PREFIX"
-	ENV_MANAGEMENT_USER_DB_TIMEOUT               = "MANAGEMENT_USER_DB_TIMEOUT"
-	ENV_MANAGEMENT_USER_DB_IDLE_CONN_TIMEOUT     = "MANAGEMENT_USER_DB_IDLE_CONN_TIMEOUT"
-	ENV_MANAGEMENT_USER_DB_USE_NO_CURSOR_TIMEOUT = "MANAGEMENT_USER_DB_USE_NO_CURSOR_TIMEOUT"
-	ENV_MANAGEMENT_USER_DB_MAX_POOL_SIZE         = "MANAGEMENT_USER_DB_MAX_POOL_SIZE"
-
+	ENV_MANAGEMENT_USER_DB_USERNAME  = "MANAGEMENT_USER_DB_USERNAME"
+	ENV_MANAGEMENT_USER_DB_PASSWORD  = "MANAGEMENT_USER_DB_PASSWORD"
 	ENV_PARTICIPANT_USER_DB_USERNAME = "PARTICIPANT_USER_DB_USERNAME"
 	ENV_PARTICIPANT_USER_DB_PASSWORD = "PARTICIPANT_USER_DB_PASSWORD"
-
-	ENV_GLOBAL_INFOS_DB_USERNAME = "GLOBAL_INFOS_DB_USERNAME"
-	ENV_GLOBAL_INFOS_DB_PASSWORD = "GLOBAL_INFOS_DB_PASSWORD"
-
-	ENV_MESSAGING_DB_CONNECTION_STR        = "MESSAGING_DB_CONNECTION_STR"
-	ENV_MESSAGING_DB_USERNAME              = "MESSAGING_DB_USERNAME"
-	ENV_MESSAGING_DB_PASSWORD              = "MESSAGING_DB_PASSWORD"
-	ENV_MESSAGING_DB_CONNECTION_PREFIX     = "MESSAGING_DB_CONNECTION_PREFIX"
-	ENV_MESSAGING_DB_NAME_PREFIX           = "MESSAGING_DB_NAME_PREFIX"
-	ENV_MESSAGING_DB_TIMEOUT               = "MESSAGING_DB_TIMEOUT"
-	ENV_MESSAGING_DB_IDLE_CONN_TIMEOUT     = "MESSAGING_DB_IDLE_CONN_TIMEOUT"
-	ENV_MESSAGING_DB_USE_NO_CURSOR_TIMEOUT = "MESSAGING_DB_USE_NO_CURSOR_TIMEOUT"
-	ENV_MESSAGING_DB_MAX_POOL_SIZE         = "MESSAGING_DB_MAX_POOL_SIZE"
-
-	ENV_STUDY_DB_CONNECTION_STR        = "STUDY_DB_CONNECTION_STR"
-	ENV_STUDY_DB_USERNAME              = "STUDY_DB_USERNAME"
-	ENV_STUDY_DB_PASSWORD              = "STUDY_DB_PASSWORD"
-	ENV_STUDY_DB_CONNECTION_PREFIX     = "STUDY_DB_CONNECTION_PREFIX"
-	ENV_STUDY_DB_NAME_PREFIX           = "STUDY_DB_NAME_PREFIX"
-	ENV_STUDY_DB_TIMEOUT               = "STUDY_DB_TIMEOUT"
-	ENV_STUDY_DB_IDLE_CONN_TIMEOUT     = "STUDY_DB_IDLE_CONN_TIMEOUT"
-	ENV_STUDY_DB_USE_NO_CURSOR_TIMEOUT = "STUDY_DB_USE_NO_CURSOR_TIMEOUT"
-	ENV_STUDY_DB_MAX_POOL_SIZE         = "STUDY_DB_MAX_POOL_SIZE"
+	ENV_GLOBAL_INFOS_DB_USERNAME     = "GLOBAL_INFOS_DB_USERNAME"
+	ENV_GLOBAL_INFOS_DB_PASSWORD     = "GLOBAL_INFOS_DB_PASSWORD"
+	ENV_MESSAGING_DB_USERNAME        = "MESSAGING_DB_USERNAME"
+	ENV_MESSAGING_DB_PASSWORD        = "MESSAGING_DB_PASSWORD"
+	ENV_STUDY_DB_USERNAME            = "STUDY_DB_USERNAME"
+	ENV_STUDY_DB_PASSWORD            = "STUDY_DB_PASSWORD"
 
 	ENV_STUDY_GLOBAL_SECRET = "STUDY_GLOBAL_SECRET"
 
@@ -114,14 +89,13 @@ type Config struct {
 	UseMTLS          bool                        `json:"use_mtls"`
 	CertificatePaths apihelpers.CertificatePaths `json:"certificate_paths"`
 
-	ManagementUserDBConfig db.DBConfig `json:"management_user_db_config"`
-	MessagingDBConfig      db.DBConfig `json:"messaging_db_config"`
-	StudyDBConfig          db.DBConfig `json:"study_db_config"`
-
 	// DB configs
 	DBConfigs struct {
 		ParticipantUserDB db.DBConfigYaml `json:"participant_user_db" yaml:"participant_user_db"`
+		ManagementUserDB  db.DBConfigYaml `json:"management_user_db" yaml:"management_user_db"`
 		GlobalInfosDB     db.DBConfigYaml `json:"global_infos_db" yaml:"global_infos_db"`
+		MessagingDB       db.DBConfigYaml `json:"messaging_db" yaml:"messaging_db"`
+		StudyDB           db.DBConfigYaml `json:"study_db" yaml:"study_db"`
 	} `json:"db_configs" yaml:"db_configs"`
 
 	// Study module config
@@ -159,19 +133,19 @@ func init() {
 
 func initDBs() {
 	var err error
-	muDBService, err = muDB.NewManagementUserDBService(conf.ManagementUserDBConfig)
+	muDBService, err = muDB.NewManagementUserDBService(db.DBConfigFromYamlObj(conf.DBConfigs.ManagementUserDB, conf.AllowedInstanceIDs))
 	if err != nil {
 		slog.Error("Error connecting to Management User DB", slog.String("error", err.Error()))
 		panic(err)
 	}
 
-	messagingDBService, err = messagingDB.NewMessagingDBService(conf.MessagingDBConfig)
+	messagingDBService, err = messagingDB.NewMessagingDBService(db.DBConfigFromYamlObj(conf.DBConfigs.MessagingDB, conf.AllowedInstanceIDs))
 	if err != nil {
 		slog.Error("Error connecting to Messaging DB", slog.String("error", err.Error()))
 		panic(err)
 	}
 
-	studyDBService, err = studyDB.NewStudyDBService(conf.StudyDBConfig)
+	studyDBService, err = studyDB.NewStudyDBService(db.DBConfigFromYamlObj(conf.DBConfigs.StudyDB, conf.AllowedInstanceIDs))
 	if err != nil {
 		slog.Error("Error connecting to Study DB", slog.String("error", err.Error()))
 		panic(err)
@@ -252,15 +226,6 @@ func initConfig() Config {
 		CACertPath:     os.Getenv(ENV_MUTUAL_TLS_CA_CERT),
 	}
 
-	// Management user db configs
-	conf.ManagementUserDBConfig = readManagementUserDBConfig()
-
-	// Messaging db configs
-	conf.MessagingDBConfig = readMessagingDBConfig()
-
-	// Study db configs
-	conf.StudyDBConfig = readStudyDBConfig()
-
 	// Study global secret
 	conf.StudyConfigs.GlobalSecret = os.Getenv(ENV_STUDY_GLOBAL_SECRET)
 	if conf.StudyConfigs.GlobalSecret == "" {
@@ -277,56 +242,15 @@ func readInstanceIDs() []string {
 	return strings.Split(os.Getenv(ENV_INSTANCE_IDS), ",")
 }
 
-func readManagementUserDBConfig() db.DBConfig {
-	return db.ReadDBConfigFromEnv(
-		"management user DB",
-		ENV_MANAGEMENT_USER_DB_CONNECTION_STR,
-		ENV_MANAGEMENT_USER_DB_USERNAME,
-		ENV_MANAGEMENT_USER_DB_PASSWORD,
-		ENV_MANAGEMENT_USER_DB_CONNECTION_PREFIX,
-		ENV_MANAGEMENT_USER_DB_TIMEOUT,
-		ENV_MANAGEMENT_USER_DB_IDLE_CONN_TIMEOUT,
-		ENV_MANAGEMENT_USER_DB_MAX_POOL_SIZE,
-		ENV_MANAGEMENT_USER_DB_USE_NO_CURSOR_TIMEOUT,
-		ENV_MANAGEMENT_USER_DB_NAME_PREFIX,
-		readInstanceIDs(),
-	)
-}
-
-func readMessagingDBConfig() db.DBConfig {
-	return db.ReadDBConfigFromEnv(
-		"messaging DB",
-		ENV_MESSAGING_DB_CONNECTION_STR,
-		ENV_MESSAGING_DB_USERNAME,
-		ENV_MESSAGING_DB_PASSWORD,
-		ENV_MESSAGING_DB_CONNECTION_PREFIX,
-		ENV_MESSAGING_DB_TIMEOUT,
-		ENV_MESSAGING_DB_IDLE_CONN_TIMEOUT,
-		ENV_MESSAGING_DB_MAX_POOL_SIZE,
-		ENV_MESSAGING_DB_USE_NO_CURSOR_TIMEOUT,
-		ENV_MESSAGING_DB_NAME_PREFIX,
-		readInstanceIDs(),
-	)
-}
-
-func readStudyDBConfig() db.DBConfig {
-	return db.ReadDBConfigFromEnv(
-		"study DB",
-		ENV_STUDY_DB_CONNECTION_STR,
-		ENV_STUDY_DB_USERNAME,
-		ENV_STUDY_DB_PASSWORD,
-		ENV_STUDY_DB_CONNECTION_PREFIX,
-		ENV_STUDY_DB_TIMEOUT,
-		ENV_STUDY_DB_IDLE_CONN_TIMEOUT,
-		ENV_STUDY_DB_MAX_POOL_SIZE,
-		ENV_STUDY_DB_USE_NO_CURSOR_TIMEOUT,
-		ENV_STUDY_DB_NAME_PREFIX,
-		readInstanceIDs(),
-	)
-}
-
 func secretsOverride() {
 	// Override secrets from environment variables
+	if dbUsername := os.Getenv(ENV_MANAGEMENT_USER_DB_USERNAME); dbUsername != "" {
+		conf.DBConfigs.ManagementUserDB.Username = dbUsername
+	}
+
+	if dbPassword := os.Getenv(ENV_MANAGEMENT_USER_DB_PASSWORD); dbPassword != "" {
+		conf.DBConfigs.ManagementUserDB.Password = dbPassword
+	}
 
 	if dbUsername := os.Getenv(ENV_PARTICIPANT_USER_DB_USERNAME); dbUsername != "" {
 		conf.DBConfigs.ParticipantUserDB.Username = dbUsername
@@ -343,4 +267,21 @@ func secretsOverride() {
 	if dbPassword := os.Getenv(ENV_GLOBAL_INFOS_DB_PASSWORD); dbPassword != "" {
 		conf.DBConfigs.GlobalInfosDB.Password = dbPassword
 	}
+
+	if dbUsername := os.Getenv(ENV_MESSAGING_DB_USERNAME); dbUsername != "" {
+		conf.DBConfigs.MessagingDB.Username = dbUsername
+	}
+
+	if dbPassword := os.Getenv(ENV_MESSAGING_DB_PASSWORD); dbPassword != "" {
+		conf.DBConfigs.MessagingDB.Password = dbPassword
+	}
+
+	if dbUsername := os.Getenv(ENV_STUDY_DB_USERNAME); dbUsername != "" {
+		conf.DBConfigs.StudyDB.Username = dbUsername
+	}
+
+	if dbPassword := os.Getenv(ENV_STUDY_DB_PASSWORD); dbPassword != "" {
+		conf.DBConfigs.StudyDB.Password = dbPassword
+	}
+
 }
