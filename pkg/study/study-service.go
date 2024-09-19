@@ -745,11 +745,18 @@ func OnStudyTimer(instanceID string, study *studyTypes.Study) {
 		return
 	}
 
+	filter := bson.M{
+		"studyStatus": bson.M{"$nin": []string{
+			studyTypes.PARTICIPANT_STUDY_STATUS_ACCOUNT_DELETED,
+			studyTypes.PARTICIPANT_STUDY_STATUS_TEMPORARY,
+		}},
+	}
+
 	err = studyDBService.FindAndExecuteOnParticipantsStates(
 		context.Background(),
 		instanceID,
 		study.Key,
-		bson.M{"studyStatus": bson.M{"$ne": studyTypes.PARTICIPANT_STUDY_STATUS_TEMPORARY}},
+		filter,
 		nil,
 		false,
 		func(dbService *studydb.StudyDBService, p studyTypes.Participant, instanceID string, studyKey string, args ...interface{}) error {
