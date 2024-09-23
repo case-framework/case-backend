@@ -58,6 +58,11 @@ func OnEnterStudy(instanceID string, studyKey string, profileID string) (result 
 	if err == nil {
 		// participant exists
 		slog.Debug("Participant exists", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID))
+
+		if pState.StudyStatus == studyTypes.PARTICIPANT_STUDY_STATUS_ACTIVE {
+			slog.Debug("Participant is already active, do not run study rules", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID))
+			return pState.AssignedSurveys, nil
+		}
 		pState.StudyStatus = studyTypes.PARTICIPANT_STUDY_STATUS_ACTIVE
 		isNewParticipant = false
 	}
