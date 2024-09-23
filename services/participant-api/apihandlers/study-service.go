@@ -266,8 +266,8 @@ func (h *HttpEndpoints) customStudyEvent(c *gin.Context) {
 
 	result, err := studyService.OnCustomStudyEvent(token.InstanceID, studyKey, req.ProfileID, req.EventKey, req.Payload)
 	if err != nil {
-		slog.Error("error entering study", slog.String("error", err.Error()))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "error entering study"})
+		slog.Error("error firing custom study event", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error firing custom study event"})
 		return
 	}
 
