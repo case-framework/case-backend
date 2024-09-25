@@ -55,7 +55,10 @@ func (dbService *StudyDBService) CreateIndexForResponsesCollection(instanceID st
 func (dbService *StudyDBService) AddSurveyResponse(instanceID string, studyKey string, response studyTypes.SurveyResponse) (string, error) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
-	response.ArrivedAt = time.Now().Unix()
+
+	if response.ArrivedAt == 0 {
+		response.ArrivedAt = time.Now().Unix()
+	}
 	res, err := dbService.collectionResponses(instanceID, studyKey).InsertOne(ctx, response)
 	id := res.InsertedID.(primitive.ObjectID)
 	return id.Hex(), err
