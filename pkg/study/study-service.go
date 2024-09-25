@@ -639,11 +639,6 @@ func OnRunStudyActionForPreviousResponses(req RunStudyActionReq, surveyKeys []st
 				return err
 			}
 
-			participantData := studyengine.ActionData{
-				PState:          p,
-				ReportsToCreate: map[string]studyTypes.Report{},
-			}
-
 			responseFilter := bson.M{
 				"participantID": p.ParticipantID,
 			}
@@ -674,8 +669,18 @@ func OnRunStudyActionForPreviousResponses(req RunStudyActionReq, surveyKeys []st
 				sort,
 				false,
 				func(dbService *studydb.StudyDBService, r studyTypes.SurveyResponse, instanceID, studyKey string, args ...interface{}) error {
-					anyChange := false
-					for i, rule := range req.Rules {
+					freshPState, err := dbService.GetParticipantByID(instanceID, studyKey, p.ParticipantID)
+					if err != nil {
+						slog.Error("Error getting participant state", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", p.ParticipantID), slog.String("error", err.Error()))
+						return err
+					}
+
+					participantData := studyengine.ActionData{
+						PState:          freshPState,
+						ReportsToCreate: map[string]studyTypes.Report{},
+					}
+
+					for _, rule := range req.Rules {
 						event := studyengine.StudyEvent{
 							InstanceID:                            instanceID,
 							StudyKey:                              studyKey,
@@ -689,11 +694,6 @@ func OnRunStudyActionForPreviousResponses(req RunStudyActionReq, surveyKeys []st
 							slog.Error("Error evaluating study rule", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", p.ParticipantID), slog.String("rule", rule.Name), slog.String("error", err.Error()))
 							return err
 						}
-
-						if !reflect.DeepEqual(newState.PState, participantData.PState) {
-							result.ParticipantStateChangedPerRule[i] += 1
-							anyChange = true
-						}
 						participantData = newState
 
 					}
@@ -703,15 +703,13 @@ func OnRunStudyActionForPreviousResponses(req RunStudyActionReq, surveyKeys []st
 						participantData.ReportsToCreate[key] = report
 					}
 					saveReports(instanceID, studyKey, participantData.ReportsToCreate, r.ID.Hex())
-					participantData.ReportsToCreate = map[string]types.Report{} //clean up ReportsToCreate
 
-					if anyChange {
-						_, err = studyDBService.SaveParticipantState(instanceID, studyKey, participantData.PState)
-						if err != nil {
-							slog.Error("Error saving participant state", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", p.ParticipantID), slog.String("error", err.Error()))
-							return err
-						}
+					_, err = studyDBService.SaveParticipantState(instanceID, studyKey, participantData.PState)
+					if err != nil {
+						slog.Error("Error saving participant state", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", p.ParticipantID), slog.String("error", err.Error()))
+						return err
 					}
+
 					return nil
 				},
 			)
