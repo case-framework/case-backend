@@ -88,7 +88,11 @@ func updateLastSubmissionForSurvey(oldState ActionData, event StudyEvent) (newSt
 	if newState.PState.LastSubmissions == nil {
 		newState.PState.LastSubmissions = map[string]int64{}
 	}
-	newState.PState.LastSubmissions[event.Response.Key] = time.Now().Unix()
+
+	if event.Response.ArrivedAt == 0 {
+		event.Response.ArrivedAt = time.Now().Unix()
+	}
+	newState.PState.LastSubmissions[event.Response.Key] = event.Response.ArrivedAt
 	return
 }
 

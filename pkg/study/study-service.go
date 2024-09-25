@@ -324,6 +324,8 @@ func OnMergeTempParticipant(instanceID string, studyKey string, profileID string
 }
 
 func OnSubmitResponse(instanceID string, studyKey string, profileID string, response studyTypes.SurveyResponse) (result []studyTypes.AssignedSurvey, err error) {
+	response.ArrivedAt = time.Now().Unix()
+
 	study, err := getStudyIfActive(instanceID, studyKey)
 	if err != nil {
 		slog.Error("error getting study", slog.String("error", err.Error()))
@@ -387,6 +389,8 @@ func OnSubmitResponse(instanceID string, studyKey string, profileID string, resp
 }
 
 func OnSubmitResponseForTempParticipant(instanceID string, studyKey string, participantID string, response studyTypes.SurveyResponse) (result []studyTypes.AssignedSurvey, err error) {
+	response.ArrivedAt = time.Now().Unix()
+
 	study, err := getStudyIfActive(instanceID, studyKey)
 	if err != nil {
 		slog.Error("error getting study", slog.String("error", err.Error()))
@@ -860,6 +864,9 @@ func OnLeaveStudy(instanceID string, studyKey string, profileID string) (result 
 }
 
 func OnProfileDeleted(instanceID, profileID string, exitSurveyResp *studyTypes.SurveyResponse) {
+	if exitSurveyResp != nil {
+		exitSurveyResp.ArrivedAt = time.Now().Unix()
+	}
 	studies, err := studyDBService.GetStudies(instanceID, "", false)
 	if err != nil {
 		slog.Error("Error getting studies by status", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
