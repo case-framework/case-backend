@@ -62,7 +62,7 @@ func NewManagementUserDBService(configs db.DBConfig) (*ManagementUserDBService, 
 
 	if configs.RunIndexCreation {
 		if err := muDBSc.ensureIndexes(); err != nil {
-			slog.Error("Error ensuring indexes for management user DB: ", err)
+			slog.Error("Error ensuring indexes for management user DB", slog.String("error", err.Error()))
 		}
 	}
 
@@ -100,7 +100,7 @@ func (dbService *ManagementUserDBService) ensureIndexes() error {
 			},
 		)
 		if err != nil {
-			slog.Error("Error creating unique index for sub in userDB.management_users: ", err)
+			slog.Error("Error creating unique index for sub in userDB.management_users", slog.String("error", err.Error()))
 		}
 
 		// create index for permissions
@@ -117,7 +117,7 @@ func (dbService *ManagementUserDBService) ensureIndexes() error {
 			},
 		)
 		if err != nil {
-			slog.Error("Error creating index for permissions in userDB.permissions: ", err)
+			slog.Error("Error creating index for permissions in userDB.permissions", slog.String("error", err.Error()))
 		}
 
 		// create index for sessions
@@ -129,7 +129,7 @@ func (dbService *ManagementUserDBService) ensureIndexes() error {
 			},
 		)
 		if err != nil {
-			slog.Error("Error creating index for createdAt in userDB.sessions: ", err)
+			slog.Error("Error creating index for createdAt in userDB.sessions", slog.String("error", err.Error()))
 		}
 	}
 
