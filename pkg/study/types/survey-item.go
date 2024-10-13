@@ -25,6 +25,7 @@ type SurveyItem struct {
 	Components       *ItemComponent `bson:"components,omitempty" json:"components,omitempty"`
 	Validations      []Validation   `bson:"validations,omitempty" json:"validations,omitempty"`
 	ConfidentialMode string         `bson:"confidentialMode,omitempty" json:"confidentialMode,omitempty"`
+	MapToKey         string         `bson:"mapToKey,omitempty" json:"mapToKey,omitempty"` // map to this key for confidential mode
 }
 
 type Validation struct {

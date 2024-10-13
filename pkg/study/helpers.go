@@ -85,8 +85,13 @@ func saveResponses(instanceID string, studyKey string, response studyTypes.Surve
 	// Save confidential data:
 	if len(confidentialResponses) > 0 {
 		for _, confItem := range confidentialResponses {
+			itemKey := confItem.Key
+			if len(confItem.MapToKey) > 0 {
+				itemKey = confItem.MapToKey
+				confItem.Key = itemKey
+			}
 			rItem := studyTypes.SurveyResponse{
-				Key:           confItem.Key,
+				Key:           itemKey,
 				ParticipantID: confidentialID,
 				Responses:     []studyTypes.SurveyItemResponse{confItem},
 			}

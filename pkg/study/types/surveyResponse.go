@@ -24,6 +24,7 @@ type SurveyItemResponse struct {
 	// for single items:
 	Response         *ResponseItem `bson:"response,omitempty" json:"response,omitempty"`
 	ConfidentialMode string        `bson:"confidentialMode,omitempty" json:"confidentialMode,omitempty"`
+	MapToKey         string        `bson:"mapToKey,omitempty" json:"mapToKey,omitempty"` // map to this key for confidential mode
 }
 
 type ResponseMeta struct {
