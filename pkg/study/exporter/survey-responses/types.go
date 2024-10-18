@@ -5,6 +5,7 @@ type ParsedResponse struct {
 	ParticipantID string
 	OpenedAt      int64
 	SubmittedAt   int64
+	ArrivedAt     int64
 	Version       string
 	Context       map[string]string // e.g. Language, or engine version
 	Responses     map[string]interface{}
