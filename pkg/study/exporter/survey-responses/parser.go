@@ -56,6 +56,7 @@ func (rp *ResponseParser) initColumnNames(extraContextColumns *[]string) error {
 		"version",
 		"opened",
 		"submitted",
+		"arrived",
 	}
 
 	ctxCols := defaultCtxColNames
@@ -95,6 +96,7 @@ func (rp *ResponseParser) ParseResponse(
 		Version:       rawResp.VersionID,
 		OpenedAt:      rawResp.OpenedAt,
 		SubmittedAt:   rawResp.SubmittedAt,
+		ArrivedAt:     rawResp.ArrivedAt,
 		Context:       rawResp.Context,
 		Responses:     map[string]interface{}{},
 		Meta: ResponseMeta{
@@ -105,7 +107,7 @@ func (rp *ResponseParser) ParseResponse(
 		},
 	}
 
-	currentVersion, err := findSurveyVersion(rawResp.VersionID, rawResp.SubmittedAt, rp.surveyVersions)
+	currentVersion, err := findSurveyVersion(rawResp.VersionID, rawResp.ArrivedAt, rp.surveyVersions)
 	if err != nil {
 		return parsedResponse, err
 	}
@@ -258,6 +260,7 @@ func (rp ResponseParser) initWithFixedColumnsWithValues(
 		rp.columns.FixedColumns[2]: parsedResponse.Version,
 		rp.columns.FixedColumns[3]: parsedResponse.OpenedAt,
 		rp.columns.FixedColumns[4]: parsedResponse.SubmittedAt,
+		rp.columns.FixedColumns[5]: parsedResponse.ArrivedAt,
 	}
 }
 
