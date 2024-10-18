@@ -335,7 +335,7 @@ func (h *HttpEndpoints) signupWithEmail(c *gin.Context) {
 	}
 
 	// return tokens and user
-	slog.Info("login successful", slog.String("subject", newUser.ID.Hex()), slog.String("instanceID", req.InstanceID))
+	slog.Info("signup successful", slog.String("subject", newUser.ID.Hex()), slog.String("instanceID", req.InstanceID))
 
 	newUser.Account.Password = ""
 	newUser.Account.VerificationCode = userTypes.VerificationCode{}
@@ -623,6 +623,8 @@ func (h *HttpEndpoints) refreshToken(c *gin.Context) {
 
 	user.Account.Password = ""
 	user.Account.VerificationCode = userTypes.VerificationCode{}
+
+	slog.Info("token refreshed", slog.String("subject", user.ID.Hex()), slog.String("instanceID", token.InstanceID))
 
 	c.JSON(http.StatusOK, gin.H{
 		"token": gin.H{

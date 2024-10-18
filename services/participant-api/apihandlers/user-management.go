@@ -90,6 +90,8 @@ func (h *HttpEndpoints) addNewProfileHandl(c *gin.Context) {
 		return
 	}
 
+	slog.Info("profile added", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("profileId", profile.ID.Hex()))
+
 	c.JSON(http.StatusOK, gin.H{"profile": profile})
 }
 
@@ -122,6 +124,8 @@ func (h *HttpEndpoints) updateProfileHandl(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot update user"})
 		return
 	}
+
+	slog.Info("profile updated", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("profileId", profile.ID.Hex()))
 
 	c.JSON(http.StatusOK, gin.H{"profile": profile})
 }
@@ -158,6 +162,8 @@ func (h *HttpEndpoints) removeProfileHandl(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot update user"})
 		return
 	}
+
+	slog.Info("profile removed", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("profileId", req.ProfileID))
 
 	studyService.OnProfileDeleted(token.InstanceID, req.ProfileID, req.ExitSurveyResponse)
 
@@ -227,7 +233,7 @@ func (h *HttpEndpoints) changePasswordHandl(c *gin.Context) {
 		true,
 	)
 
-	slog.Info("password changed successful", slog.String("userID", user.ID.Hex()), slog.String("instanceID", token.InstanceID))
+	slog.Info("password change successful", slog.String("userID", user.ID.Hex()), slog.String("instanceID", token.InstanceID))
 
 	if err := h.globalInfosDBConn.DeleteAllTempTokenForUser(token.InstanceID, user.ID.Hex(), userTypes.TOKEN_PURPOSE_PASSWORD_RESET); err != nil {
 		slog.Error("failed to delete temp tokens", slog.String("error", err.Error()))
@@ -365,6 +371,8 @@ func (h *HttpEndpoints) changeAccountEmailHandl(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot update user"})
 		return
 	}
+
+	slog.Info("changing account email", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("email", req.Email))
 
 	c.JSON(http.StatusOK, gin.H{"message": "account email changed"})
 }
@@ -674,7 +682,7 @@ func (h *HttpEndpoints) deleteUser(c *gin.Context) {
 		return
 	}
 
-	slog.Info("user deleted successful", slog.String("userID", user.ID.Hex()), slog.String("instanceID", token.InstanceID))
+	slog.Info("user deleted successfully", slog.String("userID", user.ID.Hex()), slog.String("instanceID", token.InstanceID))
 
 	c.JSON(http.StatusOK, gin.H{"message": "user deleted"})
 }
