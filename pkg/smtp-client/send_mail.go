@@ -64,7 +64,7 @@ func (sc *SmtpClients) SendMail(
 		if errReconnect != nil {
 			slog.Error("cannot reconnect pool", slog.String("error", errReconnect.Error()), slog.String("server", sc.servers.Servers[index].Host))
 		} else {
-			slog.Error("reconnected to pool", slog.String("server", sc.servers.Servers[index].Host))
+			slog.Info("reconnected to pool", slog.String("server", sc.servers.Servers[index].Host))
 			sc.connectionPool[index] = pool
 		}
 	}
