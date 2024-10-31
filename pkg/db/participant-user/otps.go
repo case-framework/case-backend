@@ -1,6 +1,7 @@
 package participantuser
 
 import (
+	"errors"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -38,18 +39,39 @@ func (dbService *ParticipantUserDBService) CreateIndexForOTPs(instanceID string)
 	return err
 }
 
-func (dbService *ParticipantUserDBService) CreateOTP(instanceID string, userID string, code string, t userTypes.OTPType) error {
+func (dbService *ParticipantUserDBService) CreateOTP(instanceID string, userID string, code string, t userTypes.OTPType, maxOTPCount int64) error {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	otp := userTypes.OTP{
-		UserID:    userID,
-		Code:      code,
-		Type:      t,
-		CreatedAt: time.Now(),
+	session, err := dbService.collectionOTPs(instanceID).Database().Client().StartSession()
+	if err != nil {
+		return err
 	}
-	_, err := dbService.collectionOTPs(instanceID).InsertOne(ctx, otp)
-	return err
+	defer session.EndSession(ctx)
+
+	createOTPIfLimitNotReached := func(sessCtx mongo.SessionContext) error {
+
+		filter := bson.M{"userID": userID}
+		count, err := dbService.collectionOTPs(instanceID).CountDocuments(sessCtx, filter)
+		if err != nil {
+			return err
+		}
+
+		if count >= maxOTPCount {
+			return errors.New("too many OTP requests")
+		}
+
+		otp := userTypes.OTP{
+			UserID:    userID,
+			Code:      code,
+			Type:      t,
+			CreatedAt: time.Now(),
+		}
+		_, err = dbService.collectionOTPs(instanceID).InsertOne(sessCtx, otp)
+		return err
+	}
+
+	return mongo.WithSession(ctx, session, createOTPIfLimitNotReached)
 }
 
 func (dbService *ParticipantUserDBService) FindOTP(instanceID string, userID string, code string) (userTypes.OTP, error) {

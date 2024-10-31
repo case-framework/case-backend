@@ -67,7 +67,7 @@ func SendOTPByEmail(
 	}
 
 	// save OTP
-	err = pUserDBService.CreateOTP(instanceID, userID, code, userTypes.EmailOTP)
+	err = pUserDBService.CreateOTP(instanceID, userID, code, userTypes.EmailOTP, MAX_OTP_ATTEMPTS)
 	if err != nil {
 		return err
 	}
@@ -128,7 +128,7 @@ func SendOTPBySMS(instanceID, userID string) error {
 	}
 
 	// save OTP
-	err = pUserDBService.CreateOTP(instanceID, userID, code, userTypes.SMSOTP)
+	err = pUserDBService.CreateOTP(instanceID, userID, code, userTypes.SMSOTP, MAX_OTP_ATTEMPTS)
 	if err != nil {
 		return err
 	}

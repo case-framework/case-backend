@@ -524,7 +524,7 @@ func (h *HttpEndpoints) requestPhoneNumberVerificationHandl(c *gin.Context) {
 	}
 
 	// save OTP
-	err = h.userDBConn.CreateOTP(token.InstanceID, token.Subject, code, userTypes.SMSOTP)
+	err = h.userDBConn.CreateOTP(token.InstanceID, token.Subject, code, userTypes.SMSOTP, MAX_PHONE_NUMBER_VERIFICATION_REQUEST_PER_24H)
 	if err != nil {
 		slog.Error("failed to save OTP", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save OTP"})
