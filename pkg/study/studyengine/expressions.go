@@ -376,7 +376,7 @@ func (ctx EvalContext) checkConditionForOldResponses(exp studyTypes.Expression) 
 }
 
 func (ctx EvalContext) hasEventPayload() (val bool, err error) {
-	return ctx.Event.Payload != nil && len(ctx.Event.Payload) > 0, nil
+	return len(ctx.Event.Payload) > 0, nil
 }
 
 func (ctx EvalContext) getEventPayloadValueAsStr(exp studyTypes.Expression) (val string, err error) {

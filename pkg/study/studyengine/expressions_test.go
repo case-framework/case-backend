@@ -140,6 +140,56 @@ func TestEvalHasStudyStatus(t *testing.T) {
 	})
 }
 
+func TestEvalHasEventPayload(t *testing.T) {
+	evalHasEventPayload := func(payload map[string]interface{}) (interface{}, error) {
+		exp := studyTypes.Expression{Name: "hasEventPayload"}
+		evalContext := EvalContext{
+			Event: StudyEvent{
+				Payload: payload,
+			},
+		}
+		return ExpressionEval(exp, evalContext)
+	}
+
+	t.Run("Should return true if event payload is present", func(t *testing.T) {
+
+		payload := map[string]interface{}{
+			"test": "test",
+		}
+
+		ret, err := evalHasEventPayload(payload)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err.Error())
+			return
+		}
+		if !ret.(bool) {
+			t.Errorf("unexpected value: %b", ret)
+		}
+	})
+	t.Run("Should return false if event payload is not present", func(t *testing.T) {
+		payload := map[string]interface{}{}
+		ret, err := evalHasEventPayload(payload)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err.Error())
+			return
+		}
+		if ret.(bool) {
+			t.Errorf("unexpected value: %b", ret)
+		}
+	})
+
+	t.Run("Should return false if event payload is not present", func(t *testing.T) {
+		ret, err := evalHasEventPayload(nil)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err.Error())
+			return
+		}
+		if ret.(bool) {
+			t.Errorf("unexpected value: %b", ret)
+		}
+	})
+}
+
 type MockStudyDBService struct {
 	Responses []studyTypes.SurveyResponse
 }
