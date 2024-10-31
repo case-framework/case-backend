@@ -831,6 +831,7 @@ func (h *HttpEndpoints) requestOTP(c *gin.Context) {
 		)
 		if err != nil {
 			slog.Error("failed to send OTP by email", slog.String("error", err.Error()))
+			randomWait(2, 5)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
 		}
@@ -841,6 +842,7 @@ func (h *HttpEndpoints) requestOTP(c *gin.Context) {
 		)
 		if err != nil {
 			slog.Error("failed to send OTP by SMS", slog.String("error", err.Error()))
+			randomWait(2, 5)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
 		}
