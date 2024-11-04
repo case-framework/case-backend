@@ -4,9 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
+
+// Now function control the current time used by the expressions.
+var Now func() time.Time = time.Now
 
 // Method to find survey item response in the array of responses
 func findSurveyItemResponse(responses []studyTypes.SurveyItemResponse, key string) (responseOfInterest *studyTypes.SurveyItemResponse, err error) {
