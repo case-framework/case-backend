@@ -9,6 +9,12 @@ import (
 )
 
 func TestActions(t *testing.T) {
+	// Override Now function for testing
+	originalNow := Now
+	defer func() { Now = originalNow }()
+	Now = func() time.Time {
+		return time.Unix(1609459200, 0) // Fixed time for testing: 2021-01-01 00:00:00 UTC
+	}
 
 	actionData := ActionData{
 		PState: studyTypes.Participant{
@@ -522,6 +528,12 @@ func TestActions(t *testing.T) {
 }
 
 func TestReportActions(t *testing.T) {
+	// Override Now function for testing
+	originalNow := Now
+	defer func() { Now = originalNow }()
+	Now = func() time.Time {
+		return time.Unix(1609459200, 0) // Fixed time for testing: 2021-01-01 00:00:00 UTC
+	}
 
 	actionData := ActionData{
 		PState: studyTypes.Participant{
