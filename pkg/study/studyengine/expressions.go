@@ -122,6 +122,11 @@ func ExpressionEval(expression studyTypes.Expression, evalCtx EvalContext) (val 
 		val, err = evalCtx.or(expression)
 	case "not":
 		val, err = evalCtx.not(expression)
+	// Math functions
+	case "sum":
+		val, err = evalCtx.sum(expression)
+	case "neg":
+		val, err = evalCtx.neg(expression)
 	// Other
 	case "timestampWithOffset":
 		val, err = evalCtx.timestampWithOffset(expression)
@@ -376,7 +381,7 @@ func (ctx EvalContext) checkConditionForOldResponses(exp studyTypes.Expression) 
 }
 
 func (ctx EvalContext) hasEventPayload() (val bool, err error) {
-	return ctx.Event.Payload != nil && len(ctx.Event.Payload) > 0, nil
+	return len(ctx.Event.Payload) > 0, nil
 }
 
 func (ctx EvalContext) getEventPayloadValueAsStr(exp studyTypes.Expression) (val string, err error) {
@@ -1345,6 +1350,45 @@ func (ctx EvalContext) not(exp studyTypes.Expression) (val bool, err error) {
 		}
 		return false, nil
 	}
+	return
+}
+
+func (ctx EvalContext) sum(exp studyTypes.Expression) (t float64, err error) {
+	for idx, dataExp := range exp.Data {
+		arg, err := ctx.expressionArgResolver(dataExp)
+		if err != nil {
+			slog.Error("unexpected error during expression eval", slog.Int("index", idx), slog.String("expression", exp.Name), slog.String("error", err.Error()))
+			continue
+		}
+		switch v := arg.(type) {
+		case bool:
+			if v {
+				t = t + 1
+			}
+		case float64:
+			t = t + v
+		default:
+			slog.Error("unexpected type during expression eval", slog.Int("index", idx), slog.String("expression", exp.Name), slog.String("type", reflect.TypeOf(arg).String()))
+		}
+
+	}
+	return
+}
+
+func (ctx EvalContext) neg(exp studyTypes.Expression) (val float64, err error) {
+	if len(exp.Data) != 1 {
+		return val, errors.New("should have one argument")
+	}
+
+	arg, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	if reflect.TypeOf(arg).Kind() != reflect.Float64 {
+		return val, errors.New("argument 1 should be resolved as type number (float64)")
+	}
+	v := arg.(float64)
+	val = -1 * v
 	return
 }
 

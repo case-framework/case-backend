@@ -1,6 +1,7 @@
 package studyengine
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -135,6 +136,56 @@ func TestEvalHasStudyStatus(t *testing.T) {
 			return
 		}
 		if !ret.(bool) {
+			t.Errorf("unexpected value: %b", ret)
+		}
+	})
+}
+
+func TestEvalHasEventPayload(t *testing.T) {
+	evalHasEventPayload := func(payload map[string]interface{}) (interface{}, error) {
+		exp := studyTypes.Expression{Name: "hasEventPayload"}
+		evalContext := EvalContext{
+			Event: StudyEvent{
+				Payload: payload,
+			},
+		}
+		return ExpressionEval(exp, evalContext)
+	}
+
+	t.Run("Should return true if event payload is present", func(t *testing.T) {
+
+		payload := map[string]interface{}{
+			"test": "test",
+		}
+
+		ret, err := evalHasEventPayload(payload)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err.Error())
+			return
+		}
+		if !ret.(bool) {
+			t.Errorf("unexpected value: %b", ret)
+		}
+	})
+	t.Run("Should return false if event payload is not present", func(t *testing.T) {
+		payload := map[string]interface{}{}
+		ret, err := evalHasEventPayload(payload)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err.Error())
+			return
+		}
+		if ret.(bool) {
+			t.Errorf("unexpected value: %b", ret)
+		}
+	})
+
+	t.Run("Should return false if event payload is not present", func(t *testing.T) {
+		ret, err := evalHasEventPayload(nil)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err.Error())
+			return
+		}
+		if ret.(bool) {
 			t.Errorf("unexpected value: %b", ret)
 		}
 	})
@@ -2480,6 +2531,78 @@ func TestEvalNOT(t *testing.T) {
 			t.Errorf("unexpected value: %b", ret)
 		}
 	})
+}
+
+func TestEvalSum(t *testing.T) {
+
+	testAdd := func(expected float64, label string, values ...studyTypes.ExpressionArg) {
+
+		t.Run(fmt.Sprintf("Sum %s", label), func(t *testing.T) {
+			exp := studyTypes.Expression{Name: "sum", Data: values}
+			EvalContext := EvalContext{}
+			ret, err := ExpressionEval(exp, EvalContext)
+			if err != nil {
+				t.Errorf("unexpected error: %s", err.Error())
+				return
+			}
+			resTS := ret.(float64)
+			if resTS != expected {
+				t.Errorf("unexpected value: %f - expected ca. %f", ret, expected)
+			}
+		})
+	}
+
+	argNum := func(v float64) studyTypes.ExpressionArg {
+		return studyTypes.ExpressionArg{DType: "num", Num: v}
+	}
+
+	argBool := func(v bool) studyTypes.ExpressionArg {
+		var vN float64
+		if v {
+			vN = 1
+		} else {
+			vN = 0
+		}
+		return studyTypes.ExpressionArg{
+			DType: "exp",
+			Exp:   &studyTypes.Expression{Name: "or", Data: []studyTypes.ExpressionArg{argNum(vN), argNum(vN)}},
+		}
+	}
+
+	testAdd(1, "0 + 1", argNum(0), argNum(1))
+	testAdd(2, "1 + 1", argNum(1), argNum(1))
+	testAdd(1, "-1 + 2", argNum(-1), argNum(2))
+	testAdd(3, "1+1+1", argNum(1), argNum(1), argNum(1))
+	testAdd(2, "true + true", argBool(true), argBool(true))
+	testAdd(0, "false + false", argBool(false), argBool(false))
+	testAdd(1, "true + false", argBool(true), argBool(false))
+	testAdd(1, "false + true", argBool(false), argBool(true))
+
+}
+
+func TestEvalNeg(t *testing.T) {
+
+	testNeg := func(v1 float64, expected float64) {
+		t.Run(fmt.Sprintf("Negate %f", v1), func(t *testing.T) {
+			exp := studyTypes.Expression{Name: "neg", Data: []studyTypes.ExpressionArg{
+				{DType: "num", Num: v1},
+			}}
+			EvalContext := EvalContext{}
+			ret, err := ExpressionEval(exp, EvalContext)
+			if err != nil {
+				t.Errorf("unexpected error: %s", err.Error())
+				return
+			}
+			resTS := ret.(float64)
+			if resTS != expected {
+				t.Errorf("unexpected value: %f - expected ca. %f", ret, expected)
+			}
+		})
+	}
+
+	testNeg(0, 0)
+	testNeg(1, -1)
+	testNeg(-1, 1)
 }
 
 func TestEvalTimestampWithOffset(t *testing.T) {
