@@ -90,7 +90,7 @@ func updateLastSubmissionForSurvey(oldState ActionData, event StudyEvent) (newSt
 	}
 
 	if event.Response.ArrivedAt == 0 {
-		event.Response.ArrivedAt = time.Now().Unix()
+		event.Response.ArrivedAt = Now().Unix()
 	}
 	newState.PState.LastSubmissions[event.Response.Key] = event.Response.ArrivedAt
 	return
@@ -590,7 +590,7 @@ func initReport(action studyTypes.Expression, oldState ActionData, event StudyEv
 	newState.ReportsToCreate[reportKey] = studyTypes.Report{
 		Key:           reportKey,
 		ParticipantID: oldState.PState.ParticipantID,
-		Timestamp:     time.Now().Truncate(time.Minute).Unix(),
+		Timestamp:     Now().Truncate(time.Minute).Unix(),
 	}
 	return
 }
@@ -622,7 +622,7 @@ func updateReportData(action studyTypes.Expression, oldState ActionData, event S
 		report = studyTypes.Report{
 			Key:           reportKey,
 			ParticipantID: oldState.PState.ParticipantID,
-			Timestamp:     time.Now().Truncate(time.Minute).Unix(),
+			Timestamp:     Now().Truncate(time.Minute).Unix(),
 		}
 	}
 
