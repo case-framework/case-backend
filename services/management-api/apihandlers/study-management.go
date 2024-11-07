@@ -512,7 +512,7 @@ func (h *HttpEndpoints) addStudyDataExporterEndpoints(rg *gin.RouterGroup) {
 		))
 
 		// start export generation for responses
-		responsesGroup.GET("/", h.useAuthorisedHandler(
+		responsesGroup.POST("/", h.useAuthorisedHandler(
 			RequiredPermission{
 				ResourceType:        pc.RESOURCE_TYPE_STUDY,
 				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
@@ -563,7 +563,7 @@ func (h *HttpEndpoints) addStudyDataExporterEndpoints(rg *gin.RouterGroup) {
 		))
 
 		// start export generation for participants
-		participantsGroup.GET("/", h.useAuthorisedHandler(
+		participantsGroup.POST("/", h.useAuthorisedHandler(
 			RequiredPermission{
 				ResourceType:        pc.RESOURCE_TYPE_STUDY,
 				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
@@ -614,7 +614,7 @@ func (h *HttpEndpoints) addStudyDataExporterEndpoints(rg *gin.RouterGroup) {
 		))
 
 		// start export generation for reports
-		reportsGroup.GET("/", h.useAuthorisedHandler(
+		reportsGroup.POST("/", h.useAuthorisedHandler(
 			RequiredPermission{
 				ResourceType:        pc.RESOURCE_TYPE_STUDY,
 				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
@@ -2620,7 +2620,7 @@ func parseSlots(respItem *studyTypes.ResponseItem, slotKey string) map[string]st
 		currentSlotKey = slotKey + respItem.Key
 	}
 
-	if respItem.Items == nil || len(respItem.Items) == 0 {
+	if len(respItem.Items) == 0 {
 		parsedResp[currentSlotKey] = respItem.Value
 		return parsedResp
 	}
