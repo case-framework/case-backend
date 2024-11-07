@@ -9,6 +9,8 @@ import (
 	mUserDB "github.com/case-framework/case-backend/pkg/db/management-user"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	"github.com/gin-gonic/gin"
+
+	pc "github.com/case-framework/case-backend/pkg/permission-checker"
 )
 
 func (h *HttpEndpoints) AddManagementAuthAPI(rg *gin.RouterGroup) {
@@ -28,6 +30,11 @@ func (h *HttpEndpoints) AddManagementAuthAPI(rg *gin.RouterGroup) {
 		mw.IsInstanceIDInJWTAllowed(h.allowedInstanceIDs),
 		h.getRenewToken,
 	)
+
+	auth.GET("/permissions",
+		mw.GetAndValidateManagementUserJWT(h.tokenSignKey),
+		mw.IsInstanceIDInJWTAllowed(h.allowedInstanceIDs),
+		h.getMyPermissions)
 }
 
 // SignInRequest is the request body for the signin-with-idp endpoint
@@ -220,4 +227,22 @@ func (h *HttpEndpoints) getRenewToken(c *gin.Context) {
 	slog.Info("got renew token", slog.String("userID", token.Subject), slog.String("instanceID", token.InstanceID))
 
 	c.JSON(http.StatusOK, gin.H{"renewToken": existingSession.RenewToken})
+}
+
+func (h *HttpEndpoints) getMyPermissions(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	userID := token.Subject
+
+	slog.Info("getting user permissions", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+
+	permissions, err := h.muDBConn.GetPermissionBySubject(token.InstanceID, userID, pc.SUBJECT_TYPE_MANAGEMENT_USER)
+	if err != nil {
+		slog.Error("error retrieving user permissions", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting user permissions"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"isAdmin":     token.IsAdmin,
+		"permissions": permissions})
 }
