@@ -2,12 +2,10 @@ package main
 
 import (
 	"log/slog"
-	"time"
 
 	"github.com/case-framework/case-backend/pkg/apihelpers"
 	"github.com/case-framework/case-backend/services/smtp-bridge/apihandlers"
 
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
 	sc "github.com/case-framework/case-backend/pkg/smtp-client"
@@ -18,15 +16,6 @@ var conf config
 func main() {
 	// Start webserver
 	router := gin.Default()
-	router.Use(cors.New(cors.Config{
-		// AllowAllOrigins: true,
-		AllowOrigins:     conf.GinConfig.AllowOrigins,
-		AllowMethods:     []string{"POST", "GET", "PUT", "DELETE"},
-		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type", "Content-Length"},
-		ExposeHeaders:    []string{"Authorization", "Content-Type", "Content-Length"},
-		AllowCredentials: true,
-		MaxAge:           12 * time.Hour,
-	}))
 
 	smtpClients, err := sc.NewSmtpClients(conf.SMTPServerConfig.LowPrio)
 	if err != nil {
