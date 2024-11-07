@@ -27,6 +27,10 @@ import (
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
+const (
+	MIN_STUDY_SECRET_KEY_LENGTH = 5
+)
+
 func (h *HttpEndpoints) AddStudyManagementAPI(rg *gin.RouterGroup) {
 	studiesGroup := rg.Group("/studies")
 
@@ -856,6 +860,12 @@ func (h *HttpEndpoints) createStudy(c *gin.Context) {
 	if !utils.IsURLSafe(req.StudyKey) {
 		slog.Error("study key is not URL safe", slog.String("studyKey", req.StudyKey))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "study key is not URL safe"})
+		return
+	}
+
+	if len(req.SecretKey) < MIN_STUDY_SECRET_KEY_LENGTH {
+		slog.Error("secret key is too short", slog.String("studyKey", req.StudyKey), slog.Int("length", len(req.SecretKey)))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "secret key is too short"})
 		return
 	}
 
