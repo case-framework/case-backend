@@ -31,6 +31,7 @@ type config struct {
 	} `json:"db_configs" yaml:"db_configs"`
 
 	ResponseExports struct {
+		ExportPath    string `json:"export_path" yaml:"export_path"`
 		RetentionDays int    `json:"retention_days" yaml:"retention_days"`
 		ExportFormat  string `json:"export_format" yaml:"export_format"`
 		Separator     string `json:"separator" yaml:"separator"`
@@ -83,6 +84,22 @@ func init() {
 		err := fmt.Errorf("retention days must be greater than 0")
 		slog.Error("Error reading config", slog.String("error", err.Error()))
 		panic(err)
+	}
+
+	if conf.ResponseExports.ExportPath == "" {
+		err := fmt.Errorf("export path must be set to define where to store the export files")
+		slog.Error("Error reading config", slog.String("error", err.Error()))
+		panic(err)
+	}
+
+	if _, err := os.Stat(conf.ResponseExports.ExportPath); os.IsNotExist(err) {
+		// create folder
+		err = os.MkdirAll(conf.ResponseExports.ExportPath, os.ModePerm)
+		if err != nil {
+			slog.Error("Error creating export path", slog.String("error", err.Error()))
+			panic(err)
+		}
+		slog.Info("Created export path", slog.String("path", conf.ResponseExports.ExportPath))
 	}
 }
 
