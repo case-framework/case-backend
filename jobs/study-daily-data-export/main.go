@@ -5,9 +5,15 @@ import (
 	"log/slog"
 	"os"
 	"path"
+	"path/filepath"
+	"strings"
 	"time"
 
+	studyDB "github.com/case-framework/case-backend/pkg/db/study"
+	surveydefinition "github.com/case-framework/case-backend/pkg/study/exporter/survey-definition"
+	surveyresponses "github.com/case-framework/case-backend/pkg/study/exporter/survey-responses"
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 func main() {
@@ -38,35 +44,179 @@ func runResponseExportsForSource(instanceID string, studyKey string, surveyKeys 
 		slog.Info("Created export path", slog.String("path", exportFolderPathForSource))
 	}
 
-	slog.Debug(exportFolderPathForSource)
-
-	// TODO: remove old files (keep only the last retention_days, but at least yesterday and today)
+	// remove old files (keep only the last retention_days, but at least yesterday and today)
+	if err := cleanUpForSource(exportFolderPathForSource); err != nil {
+		slog.Error("Error cleaning up old files", slog.String("error", err.Error()))
+	}
 
 	for _, surveyKey := range surveyKeys {
-		// TODO: fetch survey infos
-		_, err := getSurveyInfo(instanceID, studyKey, surveyKey)
+		parser, err := initResponseParser(instanceID, studyKey, surveyKey)
 		if err != nil {
 			continue
 		}
-		// TODO: init response parser
 
-		for i := 0; i < conf.ResponseExports.RetentionDays; i++ {
-			// TODO: generate day string (yesterday - 1 - i)
-
-			// TODO: check if file exists
-			// TODO: if not, create file (with content)
+		if conf.ResponseExports.OverrideOld {
+			for i := 0; i < conf.ResponseExports.RetentionDays-1; i++ {
+				targetDate := time.Now().Add(
+					time.Duration(-(conf.ResponseExports.RetentionDays - i)) * time.Hour * 24,
+				)
+				generateExportForSurveyForTargetDate(instanceID, studyKey, surveyKey, targetDate, exportFolderPathForSource, parser)
+			}
 		}
 
-		// TODO: override / recreate yesterday file
-		// TODO: override / recreate today file
+		// yesterday
+		targetDate := time.Now().Add(
+			time.Duration(-1 * time.Hour * 24),
+		)
+		generateExportForSurveyForTargetDate(instanceID, studyKey, surveyKey, targetDate, exportFolderPathForSource, parser)
+
+		// today
+		targetDate = time.Now()
+		generateExportForSurveyForTargetDate(instanceID, studyKey, surveyKey, targetDate, exportFolderPathForSource, parser)
 	}
 }
 
-func getSurveyInfo(instanceID string, studyKey string, surveyKey string) (surveyInfos []*studyTypes.Survey, err error) {
-	surveyInfos, err = studyDBService.GetSurveyVersions(instanceID, studyKey, surveyKey)
+func initResponseParser(instanceID string, studyKey string, surveyKey string) (parser *surveyresponses.ResponseParser, err error) {
+	surveyVersions, err := surveydefinition.PrepareSurveyInfosFromDB(
+		studyDBService,
+		instanceID,
+		studyKey,
+		surveyKey,
+		&surveydefinition.ExtractOptions{
+			UseLabelLang: "",
+			IncludeItems: nil,
+			ExcludeItems: nil,
+		},
+	)
 	if err != nil {
-		slog.Error("Error getting survey versions", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey), slog.String("error", err.Error()))
+		slog.Error("failed to get survey versions", slog.String("error", err.Error()))
+		return
+	}
+	extraCols := conf.ResponseExports.Sources[0].ExtraCtxCols
+	parser, err = surveyresponses.NewResponseParser(
+		surveyKey,
+		surveyVersions,
+		conf.ResponseExports.ShortKeys,
+		nil,
+		conf.ResponseExports.Separator,
+		&extraCols,
+	)
+	if err != nil {
+		slog.Error("failed to create response parser", slog.String("error", err.Error()))
 		return
 	}
 	return
+}
+
+func generateExportForSurveyForTargetDate(instanceID string, studyKey string, surveyKey string, targetDate time.Time, exportPath string, parser *surveyresponses.ResponseParser) {
+	fileName := responseFileName(targetDate, surveyKey, conf.ResponseExports.ExportFormat)
+	responseFilePath := filepath.Join(exportPath, fileName)
+
+	if fileExists(responseFilePath) {
+		slog.Debug("File already exists, overriding", slog.String("path", responseFilePath))
+	}
+
+	filter := bson.M{
+		"key": surveyKey,
+		"$and": bson.A{
+			bson.M{"arrivedAt": bson.M{"$lte": endOfDay(targetDate).Unix()}},
+			bson.M{"arrivedAt": bson.M{"$gte": startOfDay(targetDate).Unix()}},
+		},
+	}
+	// count responses for target date and survey key --> if 0, skip
+	count, err := studyDBService.GetResponsesCount(instanceID, studyKey, filter)
+	if err != nil {
+		slog.Error("Error getting responses count", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey), slog.String("error", err.Error()))
+		return
+	}
+	if count == 0 {
+		slog.Debug("No responses for target date and survey key, skipping", slog.String("targetDate", targetDate.Format("2006-01-02")), slog.String("surveyKey", surveyKey))
+		return
+	}
+
+	file, err := os.Create(responseFilePath)
+	if err != nil {
+		slog.Error("failed to create export file", slog.String("error", err.Error()))
+		return
+	}
+
+	defer file.Close()
+
+	exporter, err := surveyresponses.NewResponseExporter(
+		parser,
+		file,
+		conf.ResponseExports.ExportFormat,
+	)
+	if err != nil {
+		slog.Error("failed to create response exporter", slog.String("error", err.Error()))
+		return
+	}
+
+	err = studyDBService.FindAndExecuteOnResponses(
+		context.Background(),
+		instanceID,
+		studyKey,
+		filter,
+		bson.M{"arrivedAt": 1},
+		false,
+		func(dbService *studyDB.StudyDBService, r studyTypes.SurveyResponse, instanceID, studyKey string, args ...interface{}) error {
+			err := exporter.WriteResponse(&r)
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+		nil,
+	)
+	if err != nil {
+		slog.Error("Error generating response export", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey), slog.String("error", err.Error()))
+		return
+	}
+
+	err = exporter.Finish()
+	if err != nil {
+		slog.Error("failed to finish export", slog.String("error", err.Error()))
+		return
+	}
+	slog.Info("Generated response export", slog.String("path", responseFilePath))
+}
+
+func cleanUpForSource(sourceDir string) error {
+	cutoffDate := time.Now().Add(
+		time.Duration(-(conf.ResponseExports.RetentionDays + 1)) * time.Hour * 24,
+	)
+
+	return filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		// Parse date from filename (assuming format YYYY-MM-DD##responses##..##..)
+		basename := filepath.Base(path)
+		parts := strings.Split(basename, "##")
+		if len(parts) < 1 {
+			return nil
+		}
+		datePart := parts[0]
+		if len(datePart) < 10 {
+			return nil
+		}
+
+		fileDate, err := time.Parse("2006-01-02", datePart)
+		if err != nil {
+			return nil
+		}
+
+		if fileDate.Before(cutoffDate) {
+			if err := os.Remove(path); err != nil {
+				slog.Error("Failed to remove old file", slog.String("path", path), slog.String("error", err.Error()))
+			}
+		}
+
+		return nil
+	})
 }

@@ -33,13 +33,15 @@ type config struct {
 	ResponseExports struct {
 		ExportPath    string `json:"export_path" yaml:"export_path"`
 		RetentionDays int    `json:"retention_days" yaml:"retention_days"`
+		OverrideOld   bool   `json:"override_old" yaml:"override_old"`
 		ExportFormat  string `json:"export_format" yaml:"export_format"`
 		Separator     string `json:"separator" yaml:"separator"`
 		ShortKeys     bool   `json:"short_keys" yaml:"short_keys"`
 		Sources       []struct {
-			InstanceID string   `json:"instance_id" yaml:"instance_id"`
-			StudyKey   string   `json:"study_key" yaml:"study_key"`
-			SurveyKeys []string `json:"survey_keys" yaml:"survey_keys"`
+			InstanceID   string   `json:"instance_id" yaml:"instance_id"`
+			StudyKey     string   `json:"study_key" yaml:"study_key"`
+			SurveyKeys   []string `json:"survey_keys" yaml:"survey_keys"`
+			ExtraCtxCols []string `json:"extra_context_columns" yaml:"extra_context_columns"`
 		} `json:"sources" yaml:"sources"`
 	} `json:"response_exports" yaml:"response_exports"`
 }
