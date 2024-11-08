@@ -34,16 +34,17 @@ func HealthCheckHandle(c *gin.Context) {
 }
 
 type HttpEndpoints struct {
-	muDBConn           *muDB.ManagementUserDBService
-	messagingDBConn    *messagingDB.MessagingDBService
-	studyDBConn        *studyDB.StudyDBService
-	participantUserDB  *userDB.ParticipantUserDBService
-	globalInfosDBConn  *globalinfosDB.GlobalInfosDBService
-	tokenSignKey       string
-	tokenExpiresIn     time.Duration
-	allowedInstanceIDs []string
-	globalStudySecret  string
-	filestorePath      string
+	muDBConn            *muDB.ManagementUserDBService
+	messagingDBConn     *messagingDB.MessagingDBService
+	studyDBConn         *studyDB.StudyDBService
+	participantUserDB   *userDB.ParticipantUserDBService
+	globalInfosDBConn   *globalinfosDB.GlobalInfosDBService
+	tokenSignKey        string
+	tokenExpiresIn      time.Duration
+	allowedInstanceIDs  []string
+	globalStudySecret   string
+	filestorePath       string
+	dailyFileExportPath string
 }
 
 func NewHTTPHandler(
@@ -57,17 +58,19 @@ func NewHTTPHandler(
 	allowedInstanceIDs []string,
 	globalStudySecret string,
 	filestorePath string,
+	dailyFileExportPath string,
 ) *HttpEndpoints {
 	return &HttpEndpoints{
-		tokenSignKey:       tokenSignKey,
-		muDBConn:           muDBConn,
-		messagingDBConn:    messagingDBConn,
-		studyDBConn:        studyDBConn,
-		participantUserDB:  participantUserDB,
-		globalInfosDBConn:  globalInfosDBConn,
-		allowedInstanceIDs: allowedInstanceIDs,
-		globalStudySecret:  globalStudySecret,
-		tokenExpiresIn:     tokenExpiresIn,
-		filestorePath:      filestorePath,
+		tokenSignKey:        tokenSignKey,
+		muDBConn:            muDBConn,
+		messagingDBConn:     messagingDBConn,
+		studyDBConn:         studyDBConn,
+		participantUserDB:   participantUserDB,
+		globalInfosDBConn:   globalInfosDBConn,
+		allowedInstanceIDs:  allowedInstanceIDs,
+		globalStudySecret:   globalStudySecret,
+		tokenExpiresIn:      tokenExpiresIn,
+		filestorePath:       filestorePath,
+		dailyFileExportPath: dailyFileExportPath,
 	}
 }

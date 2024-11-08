@@ -104,7 +104,8 @@ type Config struct {
 		ExternalServices []studyengine.ExternalService `json:"external_services" yaml:"external_services"`
 	} `json:"study_configs" yaml:"study_configs"`
 
-	FilestorePath string `json:"filestore_path"`
+	FilestorePath       string `json:"filestore_path" yaml:"filestore_path"`
+	DailyFileExportPath string `json:"daily_file_export_path" yaml:"daily_file_export_path"`
 }
 
 func init() {

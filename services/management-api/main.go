@@ -43,6 +43,7 @@ func main() {
 		conf.AllowedInstanceIDs,
 		conf.StudyConfigs.GlobalSecret,
 		conf.FilestorePath,
+		conf.DailyFileExportPath,
 	)
 	v1APIHandlers.AddManagementAuthAPI(v1Root)
 	v1APIHandlers.AddUserManagementAPI(v1Root)

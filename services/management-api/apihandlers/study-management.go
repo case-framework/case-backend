@@ -2,6 +2,7 @@ package apihandlers
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -541,6 +542,28 @@ func (h *HttpEndpoints) addStudyDataExporterEndpoints(rg *gin.RouterGroup) {
 			},
 			nil,
 			h.getExportTaskResult,
+		))
+
+		responsesGroup.GET("/daily-exports", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_RESPONSES,
+			},
+			nil,
+			h.getDailyExports,
+		))
+
+		responsesGroup.GET("/daily-exports/:exportID", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_RESPONSES,
+			},
+			nil,
+			h.getDailyExport,
 		))
 	}
 
@@ -2760,6 +2783,93 @@ func (h *HttpEndpoints) getExportTaskResult(c *gin.Context) {
 	c.Header("Content-Disposition", "attachment; filename="+filenameToSave)
 	c.Header("Content-Type", task.FileType)
 	c.File(resultFilePath)
+}
+
+func (h *HttpEndpoints) getDailyExports(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	slog.Info("getting daily exports", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	if h.dailyFileExportPath == "" {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "daily file export path not set"})
+		return
+	}
+
+	targetFolderPath := filepath.Join(h.dailyFileExportPath, token.InstanceID, studyKey)
+
+	dailyExports := []string{}
+	// collect all files
+
+	err := filepath.Walk(targetFolderPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		// Parse date from filename (assuming format YYYY-MM-DD##responses##..##..)
+		basename := filepath.Base(path)
+		parts := strings.Split(basename, "##")
+		if len(parts) < 2 {
+			return nil
+		}
+		if parts[1] != "responses" {
+			return nil
+		}
+		dailyExports = append(dailyExports, basename)
+		return nil
+	})
+	if err != nil {
+		slog.Error("unexpected error when reading daily file exports", slog.String("error", err.Error()))
+	}
+
+	c.JSON(http.StatusOK, gin.H{"dailyExports": dailyExports})
+}
+
+func (h *HttpEndpoints) getDailyExport(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	exportID := c.Param("exportID")
+	studyKey := c.Param("studyKey")
+
+	if h.dailyFileExportPath == "" {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "daily file export path not set"})
+		return
+	}
+
+	decoded, err := base64.URLEncoding.DecodeString(exportID)
+	if err != nil {
+		slog.Error("error decoding exportID", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "error decoding exportID"})
+	}
+	filename := string(decoded)
+
+	slog.Info("downloading daily export file", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("fileName", filename))
+
+	resultFilePath := filepath.Join(h.dailyFileExportPath, token.InstanceID, studyKey, filename)
+
+	// file exists?
+	if _, err := os.Stat(resultFilePath); os.IsNotExist(err) {
+		slog.Error("file does not exist", slog.String("path", resultFilePath))
+		c.JSON(http.StatusNotFound, gin.H{"error": "file does not exist"})
+		return
+	}
+
+	// Return file from file system
+	ext := filepath.Ext(resultFilePath)
+	contentType := "application/json"
+	if ext == ".csv" {
+		contentType = "text/csv"
+	}
+
+	c.Header("Content-Disposition", "attachment; filename="+filename)
+	c.Header("Content-Type", contentType)
+	c.File(resultFilePath)
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
 
 func (h *HttpEndpoints) getStudyResponses(c *gin.Context) {
