@@ -3,6 +3,7 @@ package apihandlers
 import (
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/case-framework/case-backend/pkg/apihelpers"
@@ -51,6 +52,7 @@ func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
 		// TODO: get reports reports/studyKey - query for profileIDs, report key, page, limit, filter
 
 		participantInfoGroup.GET("/responses", h.getStudyResponsesForProfile)
+		participantInfoGroup.GET("/submission-history", h.getSubmissionHistory)
 
 	}
 
@@ -658,4 +660,42 @@ func (h *HttpEndpoints) getStudyResponsesForProfile(c *gin.Context) {
 		"responses":  responses,
 		"pagination": paginationInfo,
 	})
+}
+
+func (h *HttpEndpoints) getSubmissionHistory(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	pids := c.DefaultQuery("pids", "")
+	profileIDs := strings.Split(pids, ",")
+	if len(profileIDs) < 1 {
+		slog.Error("missing required fields", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing required fields"})
+		return
+	}
+	limit := c.DefaultQuery("limit", "100")
+	limitInt, err := strconv.Atoi(limit)
+	if err != nil {
+		slog.Error("failed to parse limit", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to parse limit"})
+		return
+	}
+
+	if !h.checkAllProfilesBelongsToUser(token.InstanceID, token.Subject, profileIDs) {
+		slog.Warn("at least one profile did not belong to the user", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "at least one profile did not belong to the user"})
+		return
+	}
+
+	slog.Info("getting submission history", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	submissionHistory, err := studyService.GetSubmissionHistory(token.InstanceID, studyKey, profileIDs, int64(limitInt))
+	if err != nil {
+		slog.Error("failed to get submission history", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get submission history"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"submissionHistory": submissionHistory})
 }
