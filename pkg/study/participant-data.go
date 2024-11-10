@@ -533,12 +533,18 @@ func GetSubmissionHistory(instanceID string, studyKey string, profileIDs []strin
 		if !found {
 			surveyDef, err := studyDBService.GetSurveyVersion(instanceID, studyKey, subEntry.SurveyKey, subEntry.VersionID)
 			if err != nil {
-				slog.Error("error getting survey definition version", slog.String("error", err.Error()), slog.String("surveyKey", subEntry.SurveyKey), slog.String("versionID", subEntry.VersionID))
-				surveyDef, err = studyDBService.GetCurrentSurveyVersion(instanceID, studyKey, subEntry.SurveyKey)
+				slog.Error("error getting survey definition with specific version", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("surveyKey", subEntry.SurveyKey), slog.String("versionID", subEntry.VersionID))
+
+				allVersions, err := studyDBService.GetSurveyVersions(instanceID, studyKey, subEntry.SurveyKey)
 				if err != nil {
-					slog.Error("error getting current survey definition as fallback", slog.String("error", err.Error()), slog.String("surveyKey", subEntry.SurveyKey))
+					slog.Error("error getting survey definition with all versions", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("surveyKey", subEntry.SurveyKey))
 					continue
 				}
+				if len(allVersions) < 1 {
+					slog.Error("no survey definition found", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("surveyKey", subEntry.SurveyKey))
+					continue
+				}
+				surveyDef = allVersions[len(allVersions)-1]
 			}
 			surveyInfo := SurveyInfo{
 				SurveyKey:       subEntry.SurveyKey,
