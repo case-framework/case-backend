@@ -124,6 +124,55 @@ func (dbService *StudyDBService) GetResponsesCount(instanceID string, studyKey s
 	return dbService.collectionResponses(instanceID, studyKey).CountDocuments(ctx, filter)
 }
 
+type ResponseInfo struct {
+	ID            primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	Key           string             `bson:"key" json:"key"`
+	ParticipantID string             `bson:"participantID" json:"participantId"`
+	VersionID     string             `bson:"versionID" json:"versionId"`
+	ArrivedAt     int64              `bson:"arrivedAt" json:"arrivedAt"`
+}
+
+func (dbService *StudyDBService) GetResponseInfos(instanceID string, studyKey string, filter bson.M, page int64, limit int64) (responseInfos []ResponseInfo, paginationInfo *PaginationInfos, err error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	count, err := dbService.GetResponsesCount(instanceID, studyKey, filter)
+	if err != nil {
+		return responseInfos, nil, err
+	}
+
+	paginationInfo = prepPaginationInfos(
+		count,
+		page,
+		limit,
+	)
+
+	skip := (paginationInfo.CurrentPage - 1) * paginationInfo.PageSize
+
+	opts := options.Find()
+	opts.SetSort(sortBySubmittedAt)
+	opts.SetSkip(skip)
+	opts.SetLimit(paginationInfo.PageSize)
+
+	projection := bson.D{
+		primitive.E{Key: "_id", Value: 1},
+		primitive.E{Key: "key", Value: 1},
+		primitive.E{Key: "participantID", Value: 1},
+		primitive.E{Key: "versionID", Value: 1},
+		primitive.E{Key: "arrivedAt", Value: 1},
+	}
+	opts.SetProjection(projection)
+
+	cursor, err := dbService.collectionResponses(instanceID, studyKey).Find(ctx, filter, opts)
+	if err != nil {
+		return responseInfos, nil, err
+	}
+	defer cursor.Close(ctx)
+
+	err = cursor.All(ctx, &responseInfos)
+	return responseInfos, paginationInfo, err
+}
+
 // execute on responses by query
 func (dbService *StudyDBService) FindAndExecuteOnResponses(
 	ctx context.Context,

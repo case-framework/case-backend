@@ -29,11 +29,24 @@ type SurveyInfo struct {
 	Name            []studyTypes.LocalisedObject `json:"name"`
 	Description     []studyTypes.LocalisedObject `json:"description"`
 	TypicalDuration []studyTypes.LocalisedObject `json:"typicalDuration"`
+	VersionID       string                       `json:"versionID"`
 }
 
 type AssignedSurveysWithInfos struct {
 	Surveys     []studyTypes.AssignedSurvey `json:"surveys"`
 	SurveyInfos []*SurveyInfo               `json:"surveyInfos"`
+}
+
+type SubmissionEntry struct {
+	ProfileID string `json:"profileID"`
+	Timestamp int64  `json:"timestamp"`
+	SurveyKey string `json:"surveyKey"`
+	VersionID string `json:"versionID"`
+}
+
+type SubmissionHistory struct {
+	Submissions []SubmissionEntry `json:"submissions"`
+	SurveyInfos []*SurveyInfo     `json:"surveyInfos"`
 }
 
 func GetAssignedSurveys(instanceID string, studyKey string, profileIDs []string) (surveysWithInfos AssignedSurveysWithInfos, err error) {
@@ -458,4 +471,93 @@ func resolvePrefillRules(instanceID string, studyKey string, participantID strin
 		}
 	}
 	return prefills, nil
+}
+
+func GetSubmissionHistory(instanceID string, studyKey string, profileIDs []string, limit int64) (submissionHistory SubmissionHistory, err error) {
+	study, err := getStudyIfActive(instanceID, studyKey)
+	if err != nil {
+		slog.Error("error getting study", slog.String("error", err.Error()))
+		return
+	}
+
+	submissionHistory = SubmissionHistory{
+		Submissions: []SubmissionEntry{},
+		SurveyInfos: []*SurveyInfo{},
+	}
+
+	for _, profileID := range profileIDs {
+		participantID, _, err := ComputeParticipantIDs(study, profileID)
+		if err != nil {
+			slog.Error("Error computing participant IDs", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+			continue
+		}
+
+		pState, err := studyDBService.GetParticipantByID(instanceID, studyKey, participantID)
+		if err != nil {
+			slog.Debug("Error getting participant state", slog.String("error", err.Error()))
+			continue
+		}
+
+		if pState.StudyStatus != studyTypes.PARTICIPANT_STUDY_STATUS_ACTIVE {
+			slog.Error("Participant is not active", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID))
+			continue
+		}
+
+		// fetch submissions
+		responseInfos, _, err := studyDBService.GetResponseInfos(instanceID, studyKey, bson.M{"participantID": participantID}, 1, limit)
+		if err != nil {
+			slog.Error("Error getting response infos", slog.String("error", err.Error()))
+			continue
+		}
+
+		for _, responseInfo := range responseInfos {
+			submissionHistory.Submissions = append(submissionHistory.Submissions, SubmissionEntry{
+				ProfileID: profileID,
+				Timestamp: responseInfo.ArrivedAt,
+				SurveyKey: responseInfo.Key,
+				VersionID: responseInfo.VersionID,
+			})
+		}
+	}
+
+	for _, subEntry := range submissionHistory.Submissions {
+		// is not in the survey info list yet
+		found := false
+		for _, surveyInfo := range submissionHistory.SurveyInfos {
+			if surveyInfo.SurveyKey == subEntry.SurveyKey {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			surveyDef, err := studyDBService.GetSurveyVersion(instanceID, studyKey, subEntry.SurveyKey, subEntry.VersionID)
+			if err != nil {
+				slog.Error("error getting survey definition with specific version", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("surveyKey", subEntry.SurveyKey), slog.String("versionID", subEntry.VersionID))
+
+				allVersions, err := studyDBService.GetSurveyVersions(instanceID, studyKey, subEntry.SurveyKey)
+				if err != nil {
+					slog.Error("error getting survey definition with all versions", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("surveyKey", subEntry.SurveyKey))
+					continue
+				}
+				if len(allVersions) < 1 {
+					slog.Error("no survey definition found", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("surveyKey", subEntry.SurveyKey))
+					continue
+				}
+				surveyDef = allVersions[len(allVersions)-1]
+			}
+			surveyInfo := SurveyInfo{
+				SurveyKey:       subEntry.SurveyKey,
+				StudyKey:        studyKey,
+				Name:            surveyDef.Props.Name,
+				Description:     surveyDef.Props.Description,
+				TypicalDuration: surveyDef.Props.TypicalDuration,
+				VersionID:       subEntry.VersionID,
+			}
+			submissionHistory.SurveyInfos = append(submissionHistory.SurveyInfos, &surveyInfo)
+		}
+	}
+
+	err = nil
+	return
 }
