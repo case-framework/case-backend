@@ -29,7 +29,7 @@ import (
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/apihelpers"
-	"github.com/case-framework/case-backend/services/smtp-emulator/apihandlers"
+	"github.com/case-framework/case-backend/services/smtp-bridge-emulator/apihandlers"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -59,7 +59,7 @@ func main() {
 	apiModule.AddRoutes(root)
 
 	if conf.GinConfig.DebugMode {
-		apihelpers.WriteRoutesToFile(router, "smtp-bridge-api-routes.txt")
+		apihelpers.WriteRoutesToFile(router, "smtp-bridge-emulator-api-routes.txt")
 	}
 
 	slog.Info("Starting SMTP Bridge emulator API on port " + conf.GinConfig.Port)
