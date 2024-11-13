@@ -1,4 +1,4 @@
-package main
+package apihandlers
 
 import (
 	"errors"
@@ -9,12 +9,22 @@ import (
 	"strconv"
 	"time"
 
+	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
+
 	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 
 	"regexp"
 
 	"github.com/gin-gonic/gin"
 )
+
+func (h *HttpEndpoints) AddRoutes(rg *gin.RouterGroup) {
+	auth := rg.Group("/")
+
+	auth.POST("/send-email",
+		mw.HasValidAPIKey(h.apiKeys),
+		h.sendEmail)
+}
 
 type SendEmailReq struct {
 	To              []string                        `json:"to"`
@@ -99,7 +109,7 @@ func getHTMLFilename(filePath string) string {
 	return fileName
 }
 
-func sendEmail(c *gin.Context) {
+func (h *HttpEndpoints) sendEmail(c *gin.Context) {
 	var req SendEmailReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		slog.Error("failed to bind request", slog.String("error", err.Error()))
@@ -114,9 +124,11 @@ func sendEmail(c *gin.Context) {
 	}
 
 	if err := saveEmailAsHtml(req); err != nil {
+		slog.Error("Email could not be saved into HTML file(s)", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Email could not be saved into HTML file(s)"})
 		return
 	}
 
+	slog.Info("Email has been saved into HTML file(s)")
 	c.JSON(http.StatusOK, gin.H{"message": "Email has been saved into HTML file(s)"})
 }
