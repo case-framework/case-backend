@@ -14,9 +14,7 @@ type HttpEndpoints struct {
 	apiKeys []string
 }
 
-func NewHTTPHandler(
-	apiKeys []string,
-) *HttpEndpoints {
+func NewHTTPHandler(apiKeys []string) *HttpEndpoints {
 	return &HttpEndpoints{
 		apiKeys: apiKeys,
 	}
