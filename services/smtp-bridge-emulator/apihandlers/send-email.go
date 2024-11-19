@@ -92,9 +92,10 @@ func saveEmailAsEML(email SendEmailReq, emailsDir string) error {
 // constructs the email headers as a map from SendEmailReq
 func composeHeaders(email SendEmailReq) map[string]string {
 	headers := map[string]string{
-		"To":      strings.Join(email.To, ", "),
-		"Subject": email.Subject,
-		"Date":    time.Now().Format(time.RFC1123Z),
+		"To":           strings.Join(email.To, ", "),
+		"Subject":      email.Subject,
+		"Date":         time.Now().Format(time.RFC1123Z),
+		"MIME-Version": "1.0",
 	}
 
 	// Priority header
@@ -114,6 +115,9 @@ func composeHeaders(email SendEmailReq) map[string]string {
 			headers["Reply-To"] = strings.Join(email.HeaderOverrides.ReplyTo, ", ")
 		}
 	}
+
+	headers["Content-Type"] = "text/html" + "; charset=UTF-8"
+	headers["Content-Transfer-Encoding"] = "quoted-printable"
 
 	return headers
 }
