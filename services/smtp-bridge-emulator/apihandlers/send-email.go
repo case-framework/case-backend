@@ -19,7 +19,6 @@ import (
 
 const (
 	EML_FILE_EXTENSION = ".eml"
-	EMAILS_DIR         = "emails"
 )
 
 type SendEmailReq struct {
@@ -39,8 +38,9 @@ func (h *HttpEndpoints) AddRoutes(rg *gin.RouterGroup) {
 }
 
 // creates a directory for recipient to store emails (.eml) and handles errors.
-func createRecipientsDirectory(recipient string) error {
-	recipientDIR := filepath.Join(EMAILS_DIR, recipient)
+func createRecipientsDirectory(emailsDir string, recipient string) error {
+
+	recipientDIR := filepath.Join(emailsDir, recipient)
 	if err := os.MkdirAll(recipientDIR, os.ModePerm); err != nil {
 		slog.Error("Error creating directory: "+recipientDIR, slog.String("error", err.Error()))
 		return err
@@ -49,14 +49,14 @@ func createRecipientsDirectory(recipient string) error {
 }
 
 // saves an email to a .eml file inside recipients directory
-func saveEmailAsEML(email SendEmailReq) error {
+func saveEmailAsEML(email SendEmailReq, emailsDir string) error {
 	for _, recipient := range email.To {
 
-		if err := createRecipientsDirectory(recipient); err != nil {
+		if err := createRecipientsDirectory(emailsDir, recipient); err != nil {
 			return err
 		}
 		// Generate a unique EML file path
-		emlFilePath, err := getUniqueEMLFilePath(recipient)
+		emlFilePath, err := getUniqueEMLFilePath(emailsDir, recipient)
 		if err != nil {
 			slog.Error("Error generating EML file path", slog.String("FilePath", emlFilePath), slog.String("error", err.Error()))
 			return err
@@ -135,9 +135,9 @@ func writeHeadersToFile(file *os.File, headers map[string]string) error {
 }
 
 // returns a unique file path for the EML file i.e. timestamp.eml, and appending a counter if needed.
-func getUniqueEMLFilePath(recipientFolder string) (string, error) {
+func getUniqueEMLFilePath(emailsDir string, recipientFolder string) (string, error) {
 	baseFileName := getEMLFilename()
-	emlFilePath := filepath.Join(EMAILS_DIR, recipientFolder, baseFileName)
+	emlFilePath := filepath.Join(emailsDir, recipientFolder, baseFileName)
 	counter := 1
 
 	// Check if the file already exists, and append a counter if necessary
@@ -149,7 +149,7 @@ func getUniqueEMLFilePath(recipientFolder string) (string, error) {
 		ext := filepath.Ext(emlFilePath)
 		baseNameWithoutExt := baseName[:len(baseName)-len(ext)]
 
-		emlFilePath = filepath.Join(EMAILS_DIR, recipientFolder, baseNameWithoutExt+"_"+strconv.Itoa(counter)+EML_FILE_EXTENSION)
+		emlFilePath = filepath.Join(emailsDir, recipientFolder, baseNameWithoutExt+"_"+strconv.Itoa(counter)+EML_FILE_EXTENSION)
 		counter++
 	}
 
@@ -177,7 +177,7 @@ func (h *HttpEndpoints) sendEmail(c *gin.Context) {
 		return
 	}
 
-	if err := saveEmailAsEML(req); err != nil {
+	if err := saveEmailAsEML(req, h.emailsDir); err != nil {
 		slog.Error("Email could not be saved as EML file", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Email could not be saved as EML file"})
 		return

@@ -11,11 +11,13 @@ func HealthCheckHandle(c *gin.Context) {
 }
 
 type HttpEndpoints struct {
-	apiKeys []string
+	apiKeys   []string
+	emailsDir string
 }
 
-func NewHTTPHandler(apiKeys []string) *HttpEndpoints {
+func NewHTTPHandler(apiKeys []string, emailsDir string) *HttpEndpoints {
 	return &HttpEndpoints{
-		apiKeys: apiKeys,
+		apiKeys:   apiKeys,
+		emailsDir: emailsDir,
 	}
 }

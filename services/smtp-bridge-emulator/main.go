@@ -29,7 +29,8 @@ func main() {
 	// Add handlers
 	router.GET("/", apihandlers.HealthCheckHandle)
 	root := router.Group("/")
-	apiModule := apihandlers.NewHTTPHandler(conf.ApiKeys)
+
+	apiModule := apihandlers.NewHTTPHandler(conf.ApiKeys, conf.EmailsDir)
 
 	apiModule.AddRoutes(root)
 

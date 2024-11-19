@@ -28,6 +28,7 @@ type config struct {
 		HighPrio smtp_client.SmtpServerList `json:"high_prio" yaml:"high_prio"`
 		LowPrio  smtp_client.SmtpServerList `json:"low_prio" yaml:"low_prio"`
 	} `json:"smtp_server_config" yaml:"smtp_server_config"`
+	EmailsDir string `yaml:"emails_dir"`
 }
 
 func init() {
@@ -44,5 +45,9 @@ func init() {
 
 	if len(conf.ApiKeys) == 0 {
 		panic("No API keys provided for SMTP Bridge API.")
+	}
+
+	if conf.EmailsDir == "" {
+		panic("Emails directory to store emails not provided for SMTP Bridge Emulator API.")
 	}
 }
