@@ -10,4 +10,3 @@ serviceInfos.json
 test/jobs
 blocked_passwordlist.txt
 management-api.yaml
-emails
