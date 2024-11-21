@@ -128,6 +128,12 @@ func (dbService *ManagementUserDBService) DeleteServiceUser(instanceID string, i
 		return err
 	}
 
+	err = dbService.DeletePermissionsBySubject(instanceID, id, "service-account")
+	if err != nil {
+		slog.Error("Error deleting service user permissions", slog.String("error", err.Error()))
+		return err
+	}
+
 	_, err = dbService.collectionServiceUsers(instanceID).DeleteOne(ctx, bson.M{"_id": _id})
 	if err != nil {
 		slog.Error("Error deleting service user", slog.String("error", err.Error()))
@@ -204,6 +210,12 @@ func (dbService *ManagementUserDBService) GetServiceUserAPIKey(instanceID string
 	err := dbService.collectionServiceUserAPIKeys(instanceID).FindOne(ctx, bson.M{"key": apiKey}).Decode(&sApiKey)
 	if err != nil {
 		slog.Error("Error getting service user API key", slog.String("error", err.Error()))
+		return nil, err
+	}
+
+	err = dbService.UpdateServiceUserAPIKeyLastUsedAt(instanceID, apiKey)
+	if err != nil {
+		slog.Error("Error updating service user API key last used at", slog.String("error", err.Error()))
 		return nil, err
 	}
 

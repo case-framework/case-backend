@@ -35,8 +35,7 @@ const (
 func (h *HttpEndpoints) AddStudyManagementAPI(rg *gin.RouterGroup) {
 	studiesGroup := rg.Group("/studies")
 
-	studiesGroup.Use(mw.GetAndValidateManagementUserJWT(h.tokenSignKey))
-	studiesGroup.Use(mw.IsInstanceIDInJWTAllowed(h.allowedInstanceIDs))
+	studiesGroup.Use(mw.ManagementAuthMiddleware(h.tokenSignKey, h.allowedInstanceIDs, h.muDBConn))
 	{
 		studiesGroup.GET("/", h.getAllStudies)
 		studiesGroup.POST("/", mw.RequirePayload(), h.useAuthorisedHandler(

@@ -16,8 +16,7 @@ import (
 
 func (h *HttpEndpoints) AddUserManagementAPI(rg *gin.RouterGroup) {
 	umGroup := rg.Group("/user-management")
-	umGroup.Use(mw.GetAndValidateManagementUserJWT(h.tokenSignKey))
-	umGroup.Use(mw.IsInstanceIDInJWTAllowed(h.allowedInstanceIDs))
+	umGroup.Use(mw.ManagementAuthMiddleware(h.tokenSignKey, h.allowedInstanceIDs, h.muDBConn))
 
 	// all management users can see other users (though not all details if not admin)
 	{
