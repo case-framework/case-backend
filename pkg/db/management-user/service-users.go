@@ -75,8 +75,13 @@ func (dbService *ManagementUserDBService) GetServiceUserByID(instanceID string, 
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
+	_id, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, err
+	}
+
 	var serviceUser ServiceUser
-	err := dbService.collectionServiceUsers(instanceID).FindOne(ctx, bson.M{"_id": id}).Decode(&serviceUser)
+	err = dbService.collectionServiceUsers(instanceID).FindOne(ctx, bson.M{"_id": _id}).Decode(&serviceUser)
 	if err != nil {
 		slog.Error("Error getting service user by ID", slog.String("error", err.Error()))
 		return nil, err
