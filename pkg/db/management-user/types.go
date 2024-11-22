@@ -41,3 +41,19 @@ type Session struct {
 	RenewToken string             `json:"renewToken,omitempty" bson:"renewToken,omitempty"`
 	CreatedAt  time.Time          `json:"createdAt,omitempty" bson:"createdAt,omitempty"`
 }
+
+type ServiceUser struct {
+	ID          primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
+	Label       string             `json:"label,omitempty" bson:"label,omitempty"`
+	Description string             `json:"description,omitempty" bson:"description,omitempty"`
+	CreatedAt   time.Time          `json:"createdAt,omitempty" bson:"createdAt,omitempty"`
+}
+
+type ServiceUserAPIKey struct {
+	ID            primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
+	ServiceUserID string             `json:"serviceUserId,omitempty" bson:"serviceUserId,omitempty"`
+	Key           string             `json:"key,omitempty" bson:"key,omitempty"`
+	ExpiresAt     *time.Time         `json:"expiresAt,omitempty" bson:"expiresAt,omitempty"`
+	CreatedAt     time.Time          `json:"createdAt,omitempty" bson:"createdAt,omitempty"`
+	LastUsedAt    time.Time          `json:"lastUsedAt,omitempty" bson:"lastUsedAt,omitempty"`
+}

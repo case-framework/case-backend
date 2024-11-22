@@ -13,9 +13,11 @@ import (
 
 // collection names
 const (
-	COLLECTION_NAME_MANAGEMENT_USERS = "management_users"
-	COLLECTION_NAME_PERMISSIONS      = "permissions"
-	COLLECTION_NAME_SESSIONS         = "management_user_sessions"
+	COLLECTION_NAME_MANAGEMENT_USERS      = "management_users"
+	COLLECTION_NAME_PERMISSIONS           = "permissions"
+	COLLECTION_NAME_SESSIONS              = "management_user_sessions"
+	COLLECTION_NAME_SERVICE_USERS         = "service_users"
+	COLLECTION_NAME_SERVICE_USER_API_KEYS = "service_user_api_keys"
 )
 
 const (
@@ -131,6 +133,8 @@ func (dbService *ManagementUserDBService) ensureIndexes() error {
 		if err != nil {
 			slog.Error("Error creating index for createdAt in userDB.sessions", slog.String("error", err.Error()))
 		}
+
+		dbService.createIndexForServiceUserAPIKeys(instanceID)
 	}
 
 	return nil

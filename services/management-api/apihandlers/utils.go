@@ -46,12 +46,17 @@ func (h *HttpEndpoints) useAuthorisedHandler(
 			rks = append(rks, newRks...)
 		}
 
+		userType := pc.SUBJECT_TYPE_MANAGEMENT_USER
+		if token.IsServiceUser {
+			userType = pc.SUBJECT_TYPE_SERVICE_ACCOUNT
+		}
+
 		hasPermission := pc.IsAuthorized(
 			h.muDBConn,
 			token.IsAdmin,
 			token.InstanceID,
 			token.Subject,
-			pc.SUBJECT_TYPE_MANAGEMENT_USER,
+			userType,
 			requiredPermission.ResourceType,
 			rks,
 			requiredPermission.Action,

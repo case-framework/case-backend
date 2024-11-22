@@ -18,8 +18,7 @@ import (
 func (h *HttpEndpoints) AddMessagingServiceAPI(rg *gin.RouterGroup) {
 	messagingGroup := rg.Group("/messaging")
 
-	messagingGroup.Use(mw.GetAndValidateManagementUserJWT(h.tokenSignKey))
-	messagingGroup.Use(mw.IsInstanceIDInJWTAllowed(h.allowedInstanceIDs))
+	messagingGroup.Use(mw.ManagementAuthMiddleware(h.tokenSignKey, h.allowedInstanceIDs, h.muDBConn))
 
 	emailTemplatesGroup := messagingGroup.Group("/email-templates")
 

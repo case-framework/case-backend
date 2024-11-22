@@ -3,11 +3,13 @@ package apihandlers
 import (
 	"log/slog"
 	"net/http"
+	"time"
 
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
 	mUserDB "github.com/case-framework/case-backend/pkg/db/management-user"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	pc "github.com/case-framework/case-backend/pkg/permission-checker"
+	"github.com/case-framework/case-backend/pkg/user-management/utils"
 	umUtils "github.com/case-framework/case-backend/pkg/user-management/utils"
 
 	studyService "github.com/case-framework/case-backend/pkg/study"
@@ -16,8 +18,7 @@ import (
 
 func (h *HttpEndpoints) AddUserManagementAPI(rg *gin.RouterGroup) {
 	umGroup := rg.Group("/user-management")
-	umGroup.Use(mw.GetAndValidateManagementUserJWT(h.tokenSignKey))
-	umGroup.Use(mw.IsInstanceIDInJWTAllowed(h.allowedInstanceIDs))
+	umGroup.Use(mw.ManagementAuthMiddleware(h.tokenSignKey, h.allowedInstanceIDs, h.muDBConn))
 
 	// all management users can see other users (though not all details if not admin)
 	{
@@ -56,6 +57,9 @@ func (h *HttpEndpoints) AddUserManagementAPI(rg *gin.RouterGroup) {
 		serviceAccountsGroup.POST("/", mw.RequirePayload(), h.createServiceAccount)
 		serviceAccountsGroup.GET("/:serviceAccountID", h.getServiceAccount)
 		serviceAccountsGroup.PUT("/:serviceAccountID", mw.RequirePayload(), h.updateServiceAccount)
+		serviceAccountsGroup.GET("/:serviceAccountID/api-keys", h.getServiceAccountAPIKeys)
+		serviceAccountsGroup.POST("/:serviceAccountID/api-keys", mw.RequirePayload(), h.createServiceAccountAPIKey)
+		serviceAccountsGroup.DELETE("/:serviceAccountID/api-keys/:apiKeyID", h.deleteServiceAccountAPIKey)
 		serviceAccountsGroup.DELETE("/:serviceAccountID", h.deleteServiceAccount)
 		serviceAccountsGroup.GET("/:serviceAccountID/permissions", h.getServiceAccountPermissions)
 		serviceAccountsGroup.POST("/:serviceAccountID/permissions", mw.RequirePayload(), h.createServiceAccountPermission)
@@ -159,6 +163,13 @@ func (h *HttpEndpoints) createManagementUserPermission(c *gin.Context) {
 	}
 
 	slog.Info("creating user permission", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("requestedUserID", userID))
+
+	_, err := h.muDBConn.GetUserByID(token.InstanceID, userID)
+	if err != nil {
+		slog.Error("user not found", slog.String("userID", userID), slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user not found"})
+		return
+	}
 
 	newPerm.SubjectType = pc.SUBJECT_TYPE_MANAGEMENT_USER
 	newPerm.SubjectID = userID
@@ -271,46 +282,272 @@ func (h *HttpEndpoints) requestParticipantUserDeletion(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getAllServiceAccounts(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	slog.Info("getting all service accounts", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+
+	serviceUser, err := h.muDBConn.GetServiceUsers(token.InstanceID)
+	if err != nil {
+		slog.Error("error retrieving service accounts", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting service accounts"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"serviceAccounts": serviceUser})
+}
+
+type ServiceUserProps struct {
+	Label       string `json:"label"`
+	Description string `json:"description"`
 }
 
 func (h *HttpEndpoints) createServiceAccount(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	var req ServiceUserProps
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	slog.Info("creating a new service account", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("label", req.Label))
+
+	nu, err := h.muDBConn.CreateServiceUser(token.InstanceID, req.Label, req.Description)
+	if err != nil {
+		slog.Error("error creating service account", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error creating service account"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"serviceAccount": nu})
 }
 
 func (h *HttpEndpoints) getServiceAccount(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	serviceAccountID := c.Param("serviceAccountID")
+
+	slog.Info("getting service account", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("requestedServiceAccountID", serviceAccountID))
+
+	serviceUser, err := h.muDBConn.GetServiceUserByID(token.InstanceID, serviceAccountID)
+	if err != nil {
+		slog.Error("error retrieving service account", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting service account"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"serviceAccount": serviceUser})
 }
 
 func (h *HttpEndpoints) updateServiceAccount(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	serviceAccountID := c.Param("serviceAccountID")
+	var req ServiceUserProps
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	slog.Info("updating service account", slog.String("serviceAccountID", serviceAccountID))
+
+	if err := h.muDBConn.UpdateServiceUser(token.InstanceID, serviceAccountID, req.Label, req.Description); err != nil {
+		slog.Error("failed to update service account", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+func (h *HttpEndpoints) getServiceAccountAPIKeys(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	serviceAccountID := c.Param("serviceAccountID")
+
+	slog.Info("getting API keys for service account", slog.String("serviceAccountID", serviceAccountID), slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+
+	apiKeys, err := h.muDBConn.GetServiceUserAPIKeys(token.InstanceID, serviceAccountID)
+	if err != nil {
+		slog.Error("failed to get api keys for service account", slog.String("error", err.Error()), slog.String("instanceID", token.InstanceID), slog.String("serviceAccountID", serviceAccountID))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get API keys"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"apiKeys": apiKeys,
+	})
+}
+
+type ServiceAccountAPIKeyRequest struct {
+	ExpiresAt int64 `json:"expiresAt,omitempty"`
+}
+
+func (h *HttpEndpoints) createServiceAccountAPIKey(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	serviceAccountID := c.Param("serviceAccountID")
+
+	var req ServiceAccountAPIKeyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	slog.Info("creating service account API key", slog.String("serviceAccountID", serviceAccountID), slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+
+	_, err := h.muDBConn.GetServiceUserByID(token.InstanceID, serviceAccountID)
+	if err != nil {
+		slog.Error("service account not found", slog.String("serviceAccountID", serviceAccountID), slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "service account not found"})
+		return
+	}
+
+	var expiresAt *time.Time
+	if req.ExpiresAt > 0 {
+		eat := time.Unix(req.ExpiresAt, 0)
+		expiresAt = &eat
+	}
+
+	newApiKey, err := utils.GenerateUniqueTokenString()
+	if err != nil {
+		slog.Error("failed to generate unique token string", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.muDBConn.CreateServiceUserAPIKey(token.InstanceID, serviceAccountID, newApiKey, expiresAt); err != nil {
+		slog.Error("failed to create service account API key", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+func (h *HttpEndpoints) deleteServiceAccountAPIKey(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	serviceAccountID := c.Param("serviceAccountID")
+	apiKeyID := c.Param("apiKeyID")
+
+	slog.Info("deleting service account API key", slog.String("serviceAccountID", serviceAccountID), slog.String("apiKeyID", apiKeyID), slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+
+	if err := h.muDBConn.DeleteServiceUserAPIKey(token.InstanceID, apiKeyID); err != nil {
+		slog.Error("failed to delete service account API key", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
 func (h *HttpEndpoints) deleteServiceAccount(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	serviceAccountID := c.Param("serviceAccountID")
+
+	slog.Info("deleting service account", slog.String("serviceAccountID", serviceAccountID), slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+
+	if err := h.muDBConn.DeleteServiceUser(token.InstanceID, serviceAccountID); err != nil {
+		slog.Error("failed to delete service account", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
 func (h *HttpEndpoints) getServiceAccountPermissions(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	serviceAccountID := c.Param("serviceAccountID")
+
+	slog.Info("getting user permissions", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("serviceAccountID", serviceAccountID))
+
+	permissions, err := h.muDBConn.GetPermissionBySubject(token.InstanceID, serviceAccountID, pc.SUBJECT_TYPE_SERVICE_ACCOUNT)
+	if err != nil {
+		slog.Error("error retrieving sercice account permissions", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting service account permissions"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"permissions": permissions})
 }
 
 func (h *HttpEndpoints) createServiceAccountPermission(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	serviceAccountID := c.Param("serviceAccountID")
+
+	var newPerm mUserDB.Permission
+	if err := c.ShouldBindJSON(&newPerm); err != nil {
+		slog.Error("error binding permission", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "error parsing payload"})
+		return
+	}
+
+	slog.Info("creating service account permission", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("serviceAccountID", serviceAccountID))
+
+	_, err := h.muDBConn.GetServiceUserByID(token.InstanceID, serviceAccountID)
+	if err != nil {
+		slog.Error("service account not found", slog.String("serviceAccountID", serviceAccountID), slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "service account not found"})
+		return
+	}
+
+	newPerm.SubjectType = pc.SUBJECT_TYPE_SERVICE_ACCOUNT
+	newPerm.SubjectID = serviceAccountID
+
+	permission, err := h.muDBConn.CreatePermission(
+		token.InstanceID,
+		newPerm.SubjectID,
+		newPerm.SubjectType,
+		newPerm.ResourceType,
+		newPerm.ResourceKey,
+		newPerm.Action,
+		newPerm.Limiter,
+	)
+	if err != nil {
+		slog.Error("error creating service account permission", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error creating service account permission"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"permission": permission})
 }
 
 func (h *HttpEndpoints) deleteServiceAccountPermission(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	serviceAccountID := c.Param("serviceAccountID")
+
+	permissionID := c.Param("permissionID")
+
+	slog.Info("deleting service account permission", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("serviceAccountID", serviceAccountID), slog.String("permissionID", permissionID))
+
+	err := h.muDBConn.DeletePermission(token.InstanceID, permissionID)
+	if err != nil {
+		slog.Error("error deleting service account permission", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error deleting service account permission"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "permission deleted"})
 }
 
 func (h *HttpEndpoints) updateServiceAccountPermissionLimiter(c *gin.Context) {
-	// TODO: implement
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	serviceAccountID := c.Param("serviceAccountID")
+
+	permissionID := c.Param("permissionID")
+
+	var newLimiter mUserDB.Permission
+	if err := c.ShouldBindJSON(&newLimiter); err != nil {
+		slog.Error("error binding permission", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "error parsing payload"})
+		return
+	}
+
+	slog.Info("updating service account permission limiter", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("serviceAccountID", serviceAccountID), slog.String("permissionID", permissionID))
+
+	err := h.muDBConn.UpdatePermissionLimiter(token.InstanceID, permissionID, newLimiter.Limiter)
+	if err != nil {
+		slog.Error("error updating service account permission limiter", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error updating service account permission limiter"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "permission limiter updated"})
 }

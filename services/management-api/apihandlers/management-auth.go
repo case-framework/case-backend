@@ -20,20 +20,17 @@ func (h *HttpEndpoints) AddManagementAuthAPI(rg *gin.RouterGroup) {
 
 	auth.POST("/extend-session",
 		mw.RequirePayload(),
-		mw.GetAndValidateManagementUserJWT(h.tokenSignKey),
-		mw.IsInstanceIDInJWTAllowed(h.allowedInstanceIDs),
+		mw.ManagementAuthMiddleware(h.tokenSignKey, h.allowedInstanceIDs, h.muDBConn),
 		h.extendSession,
 	)
 
 	auth.GET("/renew-token/:sessionID",
-		mw.GetAndValidateManagementUserJWT(h.tokenSignKey),
-		mw.IsInstanceIDInJWTAllowed(h.allowedInstanceIDs),
+		mw.ManagementAuthMiddleware(h.tokenSignKey, h.allowedInstanceIDs, h.muDBConn),
 		h.getRenewToken,
 	)
 
 	auth.GET("/permissions",
-		mw.GetAndValidateManagementUserJWT(h.tokenSignKey),
-		mw.IsInstanceIDInJWTAllowed(h.allowedInstanceIDs),
+		mw.ManagementAuthMiddleware(h.tokenSignKey, h.allowedInstanceIDs, h.muDBConn),
 		h.getMyPermissions)
 }
 
