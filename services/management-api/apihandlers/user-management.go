@@ -387,9 +387,17 @@ func (h *HttpEndpoints) createServiceAccountAPIKey(c *gin.Context) {
 
 	slog.Info("creating service account API key", slog.String("serviceAccountID", serviceAccountID), slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
 
-	var expiresAt time.Time
+	_, err := h.muDBConn.GetServiceUserByID(token.InstanceID, serviceAccountID)
+	if err != nil {
+		slog.Error("service account not found", slog.String("serviceAccountID", serviceAccountID), slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "service account not found"})
+		return
+	}
+
+	var expiresAt *time.Time
 	if req.ExpiresAt > 0 {
-		expiresAt = time.Unix(req.ExpiresAt, 0)
+		eat := time.Unix(req.ExpiresAt, 0)
+		expiresAt = &eat
 	}
 
 	newApiKey, err := utils.GenerateUniqueTokenString()

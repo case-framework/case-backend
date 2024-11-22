@@ -53,7 +53,7 @@ type ServiceUserAPIKey struct {
 	ID            primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
 	ServiceUserID string             `json:"serviceUserId,omitempty" bson:"serviceUserId,omitempty"`
 	Key           string             `json:"key,omitempty" bson:"key,omitempty"`
-	ExpiresAt     time.Time          `json:"expiresAt,omitempty" bson:"expiresAt,omitempty"`
+	ExpiresAt     *time.Time         `json:"expiresAt,omitempty" bson:"expiresAt,omitempty"`
 	CreatedAt     time.Time          `json:"createdAt,omitempty" bson:"createdAt,omitempty"`
 	LastUsedAt    time.Time          `json:"lastUsedAt,omitempty" bson:"lastUsedAt,omitempty"`
 }

@@ -59,7 +59,7 @@ func validateServiceUser(c *gin.Context, allowedInstanceIds []string, muDB *mudb
 		return
 	}
 
-	if sApiKey.ExpiresAt.Before(time.Now()) {
+	if sApiKey.ExpiresAt != nil && sApiKey.ExpiresAt.Before(time.Now()) {
 		slog.Warn("Attempted to use expired api key", slog.String("apiKey", apiKey), slog.String("path", c.Request.URL.Path))
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "expired api key"})
 		c.Abort()
