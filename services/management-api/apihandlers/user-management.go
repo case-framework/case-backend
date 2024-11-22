@@ -164,6 +164,13 @@ func (h *HttpEndpoints) createManagementUserPermission(c *gin.Context) {
 
 	slog.Info("creating user permission", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("requestedUserID", userID))
 
+	_, err := h.muDBConn.GetUserByID(token.InstanceID, userID)
+	if err != nil {
+		slog.Error("user not found", slog.String("userID", userID), slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user not found"})
+		return
+	}
+
 	newPerm.SubjectType = pc.SUBJECT_TYPE_MANAGEMENT_USER
 	newPerm.SubjectID = userID
 
@@ -473,6 +480,13 @@ func (h *HttpEndpoints) createServiceAccountPermission(c *gin.Context) {
 	}
 
 	slog.Info("creating service account permission", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("serviceAccountID", serviceAccountID))
+
+	_, err := h.muDBConn.GetServiceUserByID(token.InstanceID, serviceAccountID)
+	if err != nil {
+		slog.Error("service account not found", slog.String("serviceAccountID", serviceAccountID), slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "service account not found"})
+		return
+	}
 
 	newPerm.SubjectType = pc.SUBJECT_TYPE_SERVICE_ACCOUNT
 	newPerm.SubjectID = serviceAccountID
