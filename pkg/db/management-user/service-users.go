@@ -171,7 +171,7 @@ func (dbService *ManagementUserDBService) UpdateServiceUser(instanceID string, i
 	return nil
 }
 
-func (dbService *ManagementUserDBService) CreateServiceUserAPIKey(instanceID string, serviceUserID string, apiKey string, expiresAt time.Time) error {
+func (dbService *ManagementUserDBService) CreateServiceUserAPIKey(instanceID string, serviceUserID string, apiKey string, expiresAt *time.Time) error {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
@@ -227,13 +227,17 @@ func (dbService *ManagementUserDBService) GetServiceUserAPIKey(instanceID string
 	return &sApiKey, nil
 }
 
-func (dbService *ManagementUserDBService) DeleteServiceUserAPIKey(instanceID string, apiKey string) error {
+func (dbService *ManagementUserDBService) DeleteServiceUserAPIKey(instanceID string, id string) error {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	filter := bson.M{"key": apiKey}
+	_id, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
 
-	_, err := dbService.collectionServiceUserAPIKeys(instanceID).DeleteOne(ctx, filter)
+	filter := bson.M{"_id": _id}
+	_, err = dbService.collectionServiceUserAPIKeys(instanceID).DeleteOne(ctx, filter)
 	if err != nil {
 		slog.Error("Error deleting service user API key", slog.String("error", err.Error()))
 		return err
@@ -248,7 +252,7 @@ func (dbService *ManagementUserDBService) GetServiceUserAPIKeys(instanceID strin
 
 	var sApiKeys []ServiceUserAPIKey
 
-	filter := bson.M{"serviceUserID": serviceUserID}
+	filter := bson.M{"serviceUserId": serviceUserID}
 	cursor, err := dbService.collectionServiceUserAPIKeys(instanceID).Find(ctx, filter)
 	if err != nil {
 		slog.Error("Error getting service user API keys", slog.String("error", err.Error()))
