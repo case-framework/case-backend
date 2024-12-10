@@ -533,6 +533,11 @@ func mapToResponseDef(rItem *studytypes.ItemComponent, lang string) []ResponseDe
 					ResponseType: QUESTION_TYPE_TEXT_INPUT,
 					Label:        "Postal Code",
 				})
+				responses = append(responses, ResponseDef{
+					ID:           rItem.Key + "." + "country",
+					ResponseType: QUESTION_TYPE_TEXT_INPUT,
+					Label:        "Country",
+				})
 			}
 		}
 		return responses
