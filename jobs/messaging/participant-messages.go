@@ -102,6 +102,11 @@ func handleParticipantMessages(wg *sync.WaitGroup) {
 							payload["loginToken"] = loginToken
 						}
 
+						// include participant flags into payload:
+						for k, v := range p.Flags {
+							payload["flags."+k] = v
+						}
+
 						subject, content, err := emailsending.GenerateEmailContent(template, user.Account.PreferredLanguage, payload)
 						if err != nil {
 							counters.IncreaseCounter(false)
