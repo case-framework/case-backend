@@ -83,7 +83,7 @@ type Config struct {
 	ManagementUserJWTSignKey   string        `json:"management_user_jwt_sign_key"`
 	ManagementUserJWTExpiresIn time.Duration `json:"management_user_jwt_expires_in"`
 
-	AllowedInstanceIDs []string `json:"allowed_instance_ids"`
+	AllowedInstanceIDs []string `json:"allowed_instance_ids" yaml:"allowed_instance_ids"`
 
 	// Mutual TLS configs
 	UseMTLS          bool                        `json:"use_mtls"`
@@ -235,12 +235,23 @@ func initConfig() Config {
 	}
 
 	// Allowed instance IDs
-	conf.AllowedInstanceIDs = readInstanceIDs()
+	envInstanceIDs := readInstanceIDs()
+	if len(envInstanceIDs) > 0 {
+		conf.AllowedInstanceIDs = envInstanceIDs
+	}
 	return conf
 }
 
 func readInstanceIDs() []string {
-	return strings.Split(os.Getenv(ENV_INSTANCE_IDS), ",")
+	instanceIDs := strings.Split(os.Getenv(ENV_INSTANCE_IDS), ",")
+	// filter out empty strings
+	var filteredInstanceIDs []string
+	for _, instanceID := range instanceIDs {
+		if instanceID != "" {
+			filteredInstanceIDs = append(filteredInstanceIDs, instanceID)
+		}
+	}
+	return filteredInstanceIDs
 }
 
 func secretsOverride() {
