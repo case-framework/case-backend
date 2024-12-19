@@ -13,3 +13,4 @@ management-api.yaml
 study-daily-data-export.yaml
 smtp-bridge-emulator.yaml
 run-smtp-bridge-emulator.sh
+build-info.yaml

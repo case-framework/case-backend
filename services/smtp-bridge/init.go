@@ -54,6 +54,7 @@ func init() {
 		conf.Logging.MaxAge,
 		conf.Logging.MaxBackups,
 		conf.Logging.CompressOldLogs,
+		conf.Logging.IncludeBuildInfo,
 	)
 
 	if !conf.GinConfig.DebugMode {
