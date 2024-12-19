@@ -54,14 +54,6 @@ const (
 
 	ENV_STUDY_GLOBAL_SECRET = "STUDY_GLOBAL_SECRET"
 
-	ENV_LOG_TO_FILE     = "LOG_TO_FILE"
-	ENV_LOG_FILENAME    = "LOG_FILENAME"
-	ENV_LOG_MAX_SIZE    = "LOG_MAX_SIZE"
-	ENV_LOG_MAX_AGE     = "LOG_MAX_AGE"
-	ENV_LOG_MAX_BACKUPS = "LOG_MAX_BACKUPS"
-	ENV_LOG_LEVEL       = "LOG_LEVEL"
-	ENV_LOG_INCLUDE_SRC = "LOG_INCLUDE_SRC"
-
 	ENV_FILESTORE_PATH = "FILESTORE_PATH"
 )
 
@@ -74,6 +66,9 @@ var (
 )
 
 type Config struct {
+	// Logging configs
+	Logging utils.LoggerConfig `json:"logging" yaml:"logging"`
+
 	// Gin configs
 	GinDebugMode bool     `json:"gin_debug_mode"`
 	AllowOrigins []string `json:"allow_origins"`
@@ -109,16 +104,6 @@ type Config struct {
 }
 
 func init() {
-	utils.ReadConfigFromEnvAndInitLogger(
-		ENV_LOG_LEVEL,
-		ENV_LOG_INCLUDE_SRC,
-		ENV_LOG_TO_FILE,
-		ENV_LOG_FILENAME,
-		ENV_LOG_MAX_SIZE,
-		ENV_LOG_MAX_AGE,
-		ENV_LOG_MAX_BACKUPS,
-	)
-
 	conf = initConfig()
 	if !conf.GinDebugMode {
 		gin.SetMode(gin.ReleaseMode)
@@ -203,6 +188,19 @@ func initConfig() Config {
 		fmt.Println("Error reading config file: " + err.Error())
 		conf = Config{}
 	}
+
+	// Init logger:
+	utils.InitLogger(
+		conf.Logging.LogLevel,
+		conf.Logging.IncludeSrc,
+		conf.Logging.LogToFile,
+		conf.Logging.Filename,
+		conf.Logging.MaxSize,
+		conf.Logging.MaxAge,
+		conf.Logging.MaxBackups,
+		conf.Logging.CompressOldLogs,
+		conf.Logging.IncludeBuildInfo,
+	)
 
 	conf.GinDebugMode = os.Getenv(ENV_GIN_DEBUG_MODE) == "true"
 	conf.Port = os.Getenv(ENV_MANAGEMENT_API_LISTEN_PORT)
