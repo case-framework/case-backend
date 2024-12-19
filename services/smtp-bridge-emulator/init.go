@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log/slog"
 	"os"
 
 	smtp_client "github.com/case-framework/case-backend/pkg/smtp-client"
@@ -35,6 +36,7 @@ func init() {
 	// Read config from file
 	yamlFile, err := os.ReadFile(os.Getenv(ENV_CONFIG_FILE_PATH))
 	if err != nil {
+		slog.Error("Environment variable 'CONFIG_FILE_PATH' is not set correctly")
 		panic(err)
 	}
 
@@ -42,6 +44,19 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+
+	// Init logger:
+	utils.InitLogger(
+		conf.Logging.LogLevel,
+		conf.Logging.IncludeSrc,
+		conf.Logging.LogToFile,
+		conf.Logging.Filename,
+		conf.Logging.MaxSize,
+		conf.Logging.MaxAge,
+		conf.Logging.MaxBackups,
+		conf.Logging.CompressOldLogs,
+		conf.Logging.IncludeBuildInfo,
+	)
 
 	if len(conf.ApiKeys) == 0 {
 		panic("No API keys provided for SMTP Bridge API.")
