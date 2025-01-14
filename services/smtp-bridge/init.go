@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"strings"
 
 	smtp_client "github.com/case-framework/case-backend/pkg/smtp-client"
 	"github.com/case-framework/case-backend/pkg/utils"
@@ -12,6 +13,9 @@ import (
 // Environment variables
 const (
 	ENV_CONFIG_FILE_PATH = "CONFIG_FILE_PATH"
+
+	// Variables to override "secrets" in the config file
+	ENV_API_KEYS = "API_KEYS"
 )
 
 type config struct {
@@ -61,8 +65,23 @@ func init() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
+	overrideFromEnv()
+
 	if len(conf.ApiKeys) == 0 {
 		panic("No API keys provided for SMTP Bridge API.")
 	}
 
+}
+
+func overrideFromEnv() {
+	// Override secrets from environment variables
+	if apiKeys := os.Getenv(ENV_API_KEYS); apiKeys != "" {
+		conf.ApiKeys = []string{}
+		for _, apiKey := range strings.Split(apiKeys, ",") {
+			key := strings.TrimSpace(apiKey)
+			if key != "" {
+				conf.ApiKeys = append(conf.ApiKeys, key)
+			}
+		}
+	}
 }
