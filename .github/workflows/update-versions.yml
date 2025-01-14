@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - '*@v*'  # Triggers on any tag matching the pattern
+  workflow_dispatch:  # Allows manual triggering
 
 jobs:
   update-readme:
