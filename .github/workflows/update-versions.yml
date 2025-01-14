@@ -7,7 +7,7 @@ on:
   workflow_dispatch:  # Allows manual triggering
 
 jobs:
-  update-readme:
+  update-versions:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -21,7 +21,7 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Update Update versions.md
+      - name: Update versions.md
         run: |
           cat > update_versions.py << 'EOL'
           import re
@@ -58,6 +58,7 @@ jobs:
               return versions, beta_versions
 
           def update_readme(versions, beta_versions):
+              base_url = f"https://github.com/case-framework/case-backend/releases/tag"
               try:
                   with open('versions.md', 'r') as f:
                       content = f.read()
@@ -77,14 +78,17 @@ jobs:
               for component in all_components:
                   # Add stable version
                   if component in versions:
-                      versions_content += f"- {component}: `v{versions[component]}`"
+                      version_tag = f"{component}@v{versions[component]}"
+                      versions_content += f"- {component}: [`v{versions[component]}`]({base_url}/{version_tag})"
                       # Add beta version if it exists and is newer
                       if component in beta_versions and version.parse(beta_versions[component]) > version.parse(versions[component]):
-                          versions_content += f" (beta: `v{beta_versions[component]}`)"
+                          beta_tag = f"{component}@v{beta_versions[component]}"
+                          versions_content += f" (beta: [`v{beta_versions[component]}`]({base_url}/{beta_tag}))"
                       versions_content += "\n"
                   # Only beta version exists
                   elif component in beta_versions:
-                      versions_content += f"- {component}: `v{beta_versions[component]}` (beta)\n"
+                      beta_tag = f"{component}@v{beta_versions[component]}"
+                      versions_content += f"- {component}: [`v{beta_versions[component]}`]({base_url}/{beta_tag}) (beta)\n"
 
               versions_content += '\n'
 
