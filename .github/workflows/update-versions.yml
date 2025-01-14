@@ -1,0 +1,113 @@
+name: Update versions.md
+
+on:
+  push:
+    tags:
+      - '*@v*'  # Triggers on any tag matching the pattern
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history and tags
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Update Update versions.md
+        run: |
+          cat > update_versions.py << 'EOL'
+          import re
+          import subprocess
+          from packaging import version
+
+          def get_latest_versions():
+              # Get all tags
+              result = subprocess.run(['git', 'tag'], capture_output=True, text=True)
+              tags = result.stdout.strip().split('\n')
+
+              # Parse versions for each component
+              versions = {}  # Store stable versions
+              beta_versions = {}  # Store beta versions
+
+              for tag in tags:
+                  match = re.match(r'(.+)@v(.+)', tag)
+                  if match:
+                      component, ver = match.groups()
+                      parsed_version = version.parse(ver)
+
+                      # Separate handling for pre-releases (beta versions)
+                      if parsed_version.is_prerelease:
+                          if component not in beta_versions or parsed_version > version.parse(beta_versions[component]):
+                              beta_versions[component] = ver
+                      else:
+                          if component not in versions or parsed_version > version.parse(versions[component]):
+                              versions[component] = ver
+                              # Remove beta version if stable version is newer
+                              if component in beta_versions:
+                                  if parsed_version > version.parse(beta_versions[component]):
+                                      del beta_versions[component]
+
+              return versions, beta_versions
+
+          def update_readme(versions, beta_versions):
+              try:
+                  with open('versions.md', 'r') as f:
+                      content = f.read()
+              except FileNotFoundError:
+                  content = '# Component Versions\n\n'
+
+              # Find or create versions section
+              versions_section = '## Latest Versions\n\n'
+              versions_pattern = r'## Latest Versions\n\n(?:.*\n)*?(?=\n##|\Z)'
+
+              # Format new versions section
+              versions_content = versions_section
+
+              # Sort all components (combine stable and beta)
+              all_components = sorted(set(list(versions.keys()) + list(beta_versions.keys())))
+
+              for component in all_components:
+                  # Add stable version
+                  if component in versions:
+                      versions_content += f"- {component}: `v{versions[component]}`"
+                      # Add beta version if it exists and is newer
+                      if component in beta_versions and version.parse(beta_versions[component]) > version.parse(versions[component]):
+                          versions_content += f" (beta: `v{beta_versions[component]}`)"
+                      versions_content += "\n"
+                  # Only beta version exists
+                  elif component in beta_versions:
+                      versions_content += f"- {component}: `v{beta_versions[component]}` (beta)\n"
+
+              versions_content += '\n'
+
+              # Update or append versions section
+              if re.search(versions_pattern, content):
+                  content = re.sub(versions_pattern, versions_content, content)
+              else:
+                  content += '\n' + versions_content
+
+              with open('versions.md', 'w') as f:
+                  f.write(content)
+
+          if __name__ == '__main__':
+              versions, beta_versions = get_latest_versions()
+              update_readme(versions, beta_versions)
+          EOL
+
+          pip install packaging
+          python update_versions.py
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add versions.md
+          git diff --quiet && git diff --staged --quiet || git commit -m "docs: Update component versions [skip ci]"
+          git push
