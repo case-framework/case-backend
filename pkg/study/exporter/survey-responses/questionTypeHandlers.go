@@ -305,15 +305,19 @@ func (h *MatrixHandler) ParseResponse(question sd.SurveyQuestion, response *stud
 			}
 		} else {
 			if rGroup != nil {
-				if len(rGroup.Items) != 1 {
-					slog.Debug("unexpected response group for question", slog.String("questionKey", question.ID))
-				} else {
-					selection := rGroup.Items[0]
-					value := selection.Key
-					if selection.Value != "" {
-						value = selection.Value
+				if rSlot.ResponseType == sd.QUESTION_TYPE_MATRIX_DROPDOWN || rSlot.ResponseType == sd.QUESTION_TYPE_MATRIX_RADIO_ROW {
+					if len(rGroup.Items) != 1 {
+						slog.Debug("unexpected response group for question", slog.String("questionKey", question.ID))
+					} else {
+						selection := rGroup.Items[0]
+						value := selection.Key
+						if selection.Value != "" {
+							value = selection.Value
+						}
+						responseCols[slotKey] = value
 					}
-					responseCols[slotKey] = value
+				} else {
+					responseCols[slotKey] = rGroup.Value
 				}
 			}
 		}
