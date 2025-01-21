@@ -210,26 +210,24 @@ func parseSimpleCloze(questionKey string, responseSlotDef sd.ResponseDef, respon
 		for _, item := range rGroup.Items {
 			valueKey := questionKey + questionOptionSep + item.Key
 
-			if _, hasKey := responseCols[valueKey]; hasKey {
-				dropdown := false
+			dropdown := false
 
-				// Check if dropdown
-				for _, option := range responseSlotDef.Options {
-					if option.ID == item.Key && option.OptionType == sd.OPTION_TYPE_DROPDOWN {
-						dropdown = true
-						break
-					}
+			// Check if dropdown
+			for _, option := range responseSlotDef.Options {
+				if option.ID == item.Key && option.OptionType == sd.OPTION_TYPE_DROPDOWN {
+					dropdown = true
+					break
 				}
+			}
 
-				if dropdown {
-					if len(item.Items) != 1 {
-						slog.Debug("multiple responses for dropdown in cloze", slog.String("questionKey", questionKey), slog.String("itemKey", item.Key))
-					} else {
-						responseCols[valueKey] = item.Items[0].Key
-					}
+			if dropdown {
+				if len(item.Items) != 1 {
+					slog.Debug("multiple responses for dropdown in cloze", slog.String("questionKey", questionKey), slog.String("itemKey", item.Key))
 				} else {
-					responseCols[valueKey] = item.Value
+					responseCols[valueKey] = item.Items[0].Key
 				}
+			} else {
+				responseCols[valueKey] = item.Value
 			}
 		}
 	}
@@ -248,26 +246,24 @@ func parseClozeList(questionKey string, responseSlotDefs []sd.ResponseDef, respo
 		for _, item := range rGroup.Items {
 			valueKey := questionKey + questionOptionSep + rSlot.ID + "." + item.Key
 
-			if _, hasKey := responseCols[valueKey]; hasKey {
-				dropdown := false
+			dropdown := false
 
-				// Check if dropdown
-				for _, option := range rSlot.Options {
-					if option.ID == item.Key && option.OptionType == sd.OPTION_TYPE_DROPDOWN {
-						dropdown = true
-						break
-					}
+			// Check if dropdown
+			for _, option := range rSlot.Options {
+				if option.ID == item.Key && option.OptionType == sd.OPTION_TYPE_DROPDOWN {
+					dropdown = true
+					break
 				}
+			}
 
-				if dropdown {
-					if len(item.Items) != 1 {
-						slog.Debug("multiple responses for dropdown in cloze", slog.String("questionKey", questionKey), slog.String("responseSlotID", rSlot.ID), slog.String("itemKey", item.Key))
-					} else {
-						responseCols[valueKey] = item.Items[0].Key
-					}
+			if dropdown {
+				if len(item.Items) != 1 {
+					slog.Debug("multiple responses for dropdown in cloze", slog.String("questionKey", questionKey), slog.String("responseSlotID", rSlot.ID), slog.String("itemKey", item.Key))
 				} else {
-					responseCols[valueKey] = item.Value
+					responseCols[valueKey] = item.Items[0].Key
 				}
+			} else {
+				responseCols[valueKey] = item.Value
 			}
 		}
 	}
