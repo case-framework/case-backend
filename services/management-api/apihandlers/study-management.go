@@ -315,6 +315,57 @@ func (h *HttpEndpoints) addStudyConfigEndpoints(rg *gin.RouterGroup) {
 			h.updateNotificationSubscriptions,
 		))
 	}
+
+	studyCodeListGroup := rg.Group("/study-code-list")
+	// get study code list keys
+	studyCodeListGroup.GET("/list-keys",
+		h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_READ_STUDY_CONFIG,
+			},
+			nil,
+			h.getStudyCodeListKeysHandler,
+		))
+
+	// get study codes for list key
+	studyCodeListGroup.GET("/codes",
+		h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_READ_STUDY_CONFIG,
+			},
+			nil,
+			h.getStudyCodeListEntriesHandler, // ?listKey=xxx
+		))
+
+	// add study codes
+	studyCodeListGroup.POST("/codes", mw.RequirePayload(), h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType:        pc.RESOURCE_TYPE_STUDY,
+			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+			ExtractResourceKeys: getStudyKeyFromParams,
+			Action:              pc.ACTION_MANAGE_STUDY_CODE_LISTS,
+		},
+		nil,
+		h.addStudyCodeListEntriesHandler,
+	))
+
+	// remove study code
+	studyCodeListGroup.DELETE("/codes", h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType:        pc.RESOURCE_TYPE_STUDY,
+			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+			ExtractResourceKeys: getStudyKeyFromParams,
+			Action:              pc.ACTION_MANAGE_STUDY_CODE_LISTS,
+		},
+		nil,
+		h.removeStudyCodeListEntryHandler, // ?listKey=xy&code=abc
+	))
 }
 
 func (h *HttpEndpoints) addStudyRuleEndpoints(rg *gin.RouterGroup) {
@@ -1487,6 +1538,120 @@ func (h *HttpEndpoints) updateNotificationSubscriptions(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "notification subscriptions updated"})
+}
+
+func (h *HttpEndpoints) getStudyCodeListKeysHandler(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	slog.Info("getting study code list keys", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	keys, err := h.studyDBConn.GetUniqueStudyCodeListKeysForStudy(token.InstanceID, studyKey)
+	if err != nil {
+		slog.Error("failed to get study code list keys", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study code list keys"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"listKeys": keys})
+}
+
+func (h *HttpEndpoints) getStudyCodeListEntriesHandler(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	listKey := c.DefaultQuery("listKey", "")
+
+	if studyKey == "" || listKey == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "studyKey and listKey must be provided"})
+		return
+	}
+
+	slog.Info("getting study code list entries", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("listKey", listKey))
+
+	entries, err := h.studyDBConn.GetStudyCodeListEntries(token.InstanceID, studyKey, listKey)
+	if err != nil {
+		slog.Error("failed to get study code list entries", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("listKey", listKey), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"codeList": entries})
+}
+
+type AddStudyCodeListEntriesRequest struct {
+	ListKey string   `json:"listKey"`
+	Codes   []string `json:"codes"`
+}
+
+func (h *HttpEndpoints) addStudyCodeListEntriesHandler(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	if studyKey == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "studyKey is required"})
+		return
+	}
+
+	var req AddStudyCodeListEntriesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	req.ListKey = strings.TrimSpace(req.ListKey)
+	if req.ListKey == "" {
+		slog.Error("list key is empty")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	slog.Info("adding new study code list entries", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("listKey", req.ListKey))
+
+	errors := []string{}
+	for _, code := range req.Codes {
+		code = strings.TrimSpace(code)
+		if code == "" {
+			errors = append(errors, "empty code cannot be added")
+			continue
+		}
+
+		err := h.studyDBConn.AddStudyCodeListEntry(token.InstanceID, studyKey, req.ListKey, code)
+		if err != nil {
+			slog.Error("failed to add study code list entry", slog.String("error", err.Error()))
+			errors = append(errors, fmt.Sprintf("failed to add study code list entry '%s': %s", code, err.Error()))
+			continue
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"errors": errors})
+}
+
+func (h *HttpEndpoints) removeStudyCodeListEntryHandler(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := strings.TrimSpace(c.Param("studyKey"))
+	listKey := strings.TrimSpace(c.DefaultQuery("listKey", ""))
+	code := strings.TrimSpace(c.DefaultQuery("code", ""))
+
+	if studyKey == "" || listKey == "" || code == "" {
+		slog.Error("Missing required parameters", slog.String("studyKey", studyKey), slog.String("listKey", listKey), slog.String("code", code))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required parameters"})
+		return
+	}
+
+	slog.Info("deleting study code list entry", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("listKey", listKey), slog.String("code", code))
+
+	err := h.studyDBConn.DeleteStudyCodeListEntry(token.InstanceID, studyKey, listKey, code)
+	if err != nil {
+		slog.Error("Error deleting study code list entry", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
 func (h *HttpEndpoints) getCurrentStudyRules(c *gin.Context) {
