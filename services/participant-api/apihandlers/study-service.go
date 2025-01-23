@@ -25,6 +25,7 @@ func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
 		studiesGroup.GET("/", h.getStudiesByStatus) // ?status=active&instanceID=test
 		studiesGroup.GET("/:studyKey", h.getStudy)
 		studiesGroup.GET("/participating", mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.getParticipatingStudies)
+		studiesGroup.GET("/:studyKey/code-lists/has-code", h.studyHasCodeListCode) // ?code=code&listKey=listKey
 	}
 
 	// study events
@@ -190,6 +191,40 @@ func (h *HttpEndpoints) getParticipatingStudies(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"studies": studyInfos})
+}
+
+func (h *HttpEndpoints) studyHasCodeListCode(c *gin.Context) {
+	instanceID := c.DefaultQuery("instanceID", "")
+	studyKey := c.Param("studyKey")
+	if !h.isInstanceAllowed(instanceID) {
+		slog.Error("instance not allowed", slog.String("instanceID", instanceID))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "instance not allowed"})
+		return
+	}
+
+	if studyKey == "" {
+		slog.Error("studyKey is required", slog.String("instanceID", instanceID))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "studyKey is required"})
+		return
+	}
+
+	code := c.DefaultQuery("code", "")
+	listKey := c.DefaultQuery("listKey", "")
+
+	if code == "" || listKey == "" {
+		slog.Error("missing required fields", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing required fields"})
+		return
+	}
+
+	exists, err := h.studyDBConn.StudyCodeListEntryExists(instanceID, studyKey, listKey, code)
+	if err != nil {
+		slog.Error("failed to check if code exists", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to check if code exists"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"exists": exists})
 }
 
 func (h *HttpEndpoints) enterStudy(c *gin.Context) {
