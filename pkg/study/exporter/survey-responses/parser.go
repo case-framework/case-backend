@@ -190,7 +190,9 @@ func (rp *ResponseParser) ResponseToStrList(
 
 	// add response item columns
 	for _, colName := range rp.columns.ResponseColumns {
-		out = append(out, valueToStr(result[colName]))
+		str := valueToStr(result[colName])
+		str = replaceNewlines(str)
+		out = append(out, str)
 	}
 
 	// add meta columns
@@ -224,7 +226,9 @@ func (rp *ResponseParser) ResponseToLongFormat(
 		currentRespLine := []string{}
 		currentRespLine = append(currentRespLine, fixedValues...)
 		currentRespLine = append(currentRespLine, colName)
-		currentRespLine = append(currentRespLine, valueToStr(result[colName]))
+		str := valueToStr(result[colName])
+		str = replaceNewlines(str)
+		currentRespLine = append(currentRespLine, str)
 		out = append(out, currentRespLine)
 	}
 

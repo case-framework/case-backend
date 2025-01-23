@@ -50,6 +50,12 @@ func valueToStr(resultVal interface{}) string {
 	return str
 }
 
+func replaceNewlines(str string) string {
+	newStr := strings.ReplaceAll(str, "\r\n", "<br />")
+	newStr = strings.ReplaceAll(newStr, "\n", "<br />")
+	return newStr
+}
+
 func findResponse(responses []studytypes.SurveyItemResponse, key string) *studytypes.SurveyItemResponse {
 	for _, r := range responses {
 		if r.Key == key {
