@@ -128,6 +128,14 @@ func mapToResponseDef(rItem *studytypes.ItemComponent, lang string) []ResponseDe
 		responseDef.Label = label
 		responseDef.ResponseType = QUESTION_TYPE_TEXT_INPUT
 		return []ResponseDef{responseDef}
+	case "codeValidator":
+		label, err := getPreviewText(rItem, lang)
+		if err != nil {
+			slog.Debug("label not found for component")
+		}
+		responseDef.Label = label
+		responseDef.ResponseType = QUESTION_TYPE_TEXT_INPUT
+		return []ResponseDef{responseDef}
 	case "consent":
 		label, err := getPreviewText(rItem, lang)
 		if err != nil {
