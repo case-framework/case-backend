@@ -218,6 +218,14 @@ func (db MockStudyDBService) SaveResearcherMessage(instanceID string, studyKey s
 	return nil
 }
 
+func (db MockStudyDBService) StudyCodeListEntryExists(instanceID string, studyKey string, listKey string, code string) (bool, error) {
+	return false, nil
+}
+
+func (db MockStudyDBService) DeleteStudyCodeListEntry(instanceID string, studyKey string, listKey string, code string) error {
+	return nil
+}
+
 func TestEvalCheckConditionForOldResponses(t *testing.T) {
 
 	testResponses := []studyTypes.SurveyResponse{

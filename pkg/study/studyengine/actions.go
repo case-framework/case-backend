@@ -70,6 +70,8 @@ func ActionEval(action studyTypes.Expression, oldState ActionData, event StudyEv
 		newState, err = removeAllConfidentialResponses(action, oldState, event)
 	case "EXTERNAL_EVENT_HANDLER":
 		newState, err = externalEventHandler(action, oldState, event)
+	case "REMOVE_STUDY_CODE":
+		newState, err = removeStudyCode(action, oldState, event)
 	default:
 		newState = oldState
 		err = errors.New("action name not known")
@@ -901,6 +903,43 @@ func externalEventHandler(action studyTypes.Expression, oldState ActionData, eve
 			newState.ReportsToCreate[key] = value
 		}
 		slog.Debug("received new report list from external service")
+	}
+	return
+}
+
+func removeStudyCode(action studyTypes.Expression, oldState ActionData, event StudyEvent) (newState ActionData, err error) {
+	newState = oldState
+
+	if len(action.Data) != 2 {
+		return newState, errors.New("invalid number of arguments")
+	}
+	EvalContext := EvalContext{
+		Event:            event,
+		ParticipantState: newState.PState,
+	}
+	arg1, err := EvalContext.expressionArgResolver(action.Data[0])
+	if err != nil {
+		return newState, err
+	}
+
+	listKey, ok1 := arg1.(string)
+	if !ok1 {
+		return newState, errors.New("could not parse arguments")
+	}
+
+	arg2, err := EvalContext.expressionArgResolver(action.Data[1])
+	if err != nil {
+		return newState, err
+	}
+
+	code, ok2 := arg2.(string)
+	if !ok2 {
+		return newState, errors.New("could not parse arguments")
+	}
+
+	err = CurrentStudyEngine.studyDBService.DeleteStudyCodeListEntry(event.InstanceID, event.StudyKey, listKey, code)
+	if err != nil {
+		slog.Error("unexpected error during action", slog.String("action", action.Name), slog.String("error", err.Error()))
 	}
 	return
 }

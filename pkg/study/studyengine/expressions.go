@@ -44,6 +44,9 @@ func ExpressionEval(expression studyTypes.Expression, evalCtx EvalContext) (val 
 	// Old responses:
 	case "checkConditionForOldResponses":
 		val, err = evalCtx.checkConditionForOldResponses(expression)
+	// Study code lists:
+	case "isStudyCodePresent":
+		val, err = evalCtx.isStudyCodePresent(expression)
 	// Access event payload:
 	case "hasEventPayload":
 		val, err = evalCtx.hasEventPayload()
@@ -233,6 +236,40 @@ func (ctx EvalContext) hasStudyStatus(exp studyTypes.Expression, withIncomingPar
 	}
 
 	return pState.StudyStatus == arg1Val, nil
+}
+
+func (ctx EvalContext) isStudyCodePresent(exp studyTypes.Expression) (val bool, err error) {
+	if CurrentStudyEngine == nil || CurrentStudyEngine.studyDBService == nil {
+		return val, errors.New("studyCodeExists: DB connection not available in the context")
+	}
+
+	if len(exp.Data) != 2 {
+		return val, errors.New("studyCodeExists: invalid number of arguments")
+	}
+
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	listKey, ok := arg1.(string)
+	if !ok {
+		return val, errors.New("could not cast arguments")
+	}
+
+	arg2, err := ctx.expressionArgResolver(exp.Data[1])
+	if err != nil {
+		return val, err
+	}
+	code, ok := arg2.(string)
+	if !ok {
+		return val, errors.New("could not cast arguments")
+	}
+
+	exists, err := CurrentStudyEngine.studyDBService.StudyCodeListEntryExists(ctx.Event.InstanceID, ctx.Event.StudyKey, listKey, code)
+	if err != nil {
+		exists = false
+	}
+	return exists, nil
 }
 
 func (ctx EvalContext) checkConditionForOldResponses(exp studyTypes.Expression) (val bool, err error) {
