@@ -36,6 +36,8 @@ type StudyDBService interface {
 	GetResponses(instanceID string, studyKey string, filter bson.M, sort bson.M, page int64, limit int64) (responses []studyTypes.SurveyResponse, paginationInfo *studyDB.PaginationInfos, err error)
 	DeleteConfidentialResponses(instanceID string, studyKey string, participantID string, key string) (count int64, err error)
 	SaveResearcherMessage(instanceID string, studyKey string, message studyTypes.StudyMessage) error
+	StudyCodeListEntryExists(instanceID string, studyKey string, listKey string, code string) (bool, error)
+	DeleteStudyCodeListEntry(instanceID string, studyKey string, listKey string, code string) error
 }
 
 type ActionData struct {
