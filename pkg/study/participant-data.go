@@ -473,6 +473,38 @@ func resolvePrefillRules(instanceID string, studyKey string, participantID strin
 	return prefills, nil
 }
 
+func GetLinkingCode(instanceID string, studyKey string, profileID string, key string) (value string, err error) {
+	study, err := getStudyIfActive(instanceID, studyKey)
+	if err != nil {
+		slog.Error("error getting study", slog.String("error", err.Error()))
+		return
+	}
+
+	participantID, _, err := ComputeParticipantIDs(study, profileID)
+	if err != nil {
+		slog.Error("Error computing participant IDs", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+		return
+	}
+
+	pState, err := studyDBService.GetParticipantByID(instanceID, studyKey, participantID)
+	if err != nil {
+		slog.Debug("Error getting participant state", slog.String("error", err.Error()))
+		return
+	}
+
+	if pState.LinkingCodes == nil {
+		slog.Debug("no linking codes found for participant", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID))
+		return
+	}
+	value, ok := pState.LinkingCodes[key]
+	if !ok {
+		slog.Debug("linking code for key not found", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("key", key))
+		return
+	}
+
+	return value, nil
+}
+
 func GetSubmissionHistory(instanceID string, studyKey string, profileIDs []string, limit int64) (submissionHistory SubmissionHistory, err error) {
 	study, err := getStudyIfActive(instanceID, studyKey)
 	if err != nil {

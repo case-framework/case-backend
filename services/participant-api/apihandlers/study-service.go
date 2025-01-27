@@ -52,6 +52,8 @@ func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
 		// reports:
 		// TODO: get reports reports/studyKey - query for profileIDs, report key, page, limit, filter
 
+		participantInfoGroup.GET("/linking-code", h.getLinkingCode) // ?pid=profileID&key=key
+
 		participantInfoGroup.GET("/responses", h.getStudyResponsesForProfile)
 		participantInfoGroup.GET("/submission-history", h.getSubmissionHistory)
 
@@ -588,6 +590,38 @@ func (h *HttpEndpoints) submitTempParticipantResponse(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"assignedSurveys": result})
+}
+
+func (h *HttpEndpoints) getLinkingCode(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	pid := c.DefaultQuery("pid", "")
+	key := c.DefaultQuery("key", "")
+
+	if pid == "" || key == "" {
+		slog.Error("missing required fields", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("pid", pid), slog.String("key", key))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing required fields"})
+		return
+	}
+
+	if !h.checkProfileBelongsToUser(token.InstanceID, token.Subject, pid) {
+		slog.Warn("profile not found", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("profileID", pid))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "profile not found"})
+		return
+	}
+
+	slog.Info("getting linking code", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("profileID", pid), slog.String("key", key))
+
+	result, err := studyService.GetLinkingCode(token.InstanceID, studyKey, pid, key)
+	if err != nil {
+		slog.Error("failed to get linking code", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get linking code"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"linkingCode": result})
 }
 
 func (h *HttpEndpoints) getStudyResponsesForProfile(c *gin.Context) {
