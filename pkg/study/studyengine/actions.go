@@ -40,6 +40,10 @@ func ActionEval(action studyTypes.Expression, oldState ActionData, event StudyEv
 		newState, err = updateFlagAction(action, oldState, event)
 	case "REMOVE_FLAG":
 		newState, err = removeFlagAction(action, oldState, event)
+	case "SET_LINKING_CODE":
+		newState, err = setLinkingCodeAction(action, oldState, event)
+	case "DELETE_LINKING_CODE":
+		newState, err = deleteLinkingCodeAction(action, oldState, event)
 	case "ADD_NEW_SURVEY":
 		newState, err = addNewSurveyAction(action, oldState, event)
 	case "REMOVE_ALL_SURVEYS":
@@ -283,6 +287,79 @@ func removeFlagAction(action studyTypes.Expression, oldState ActionData, event S
 
 	delete(newState.PState.Flags, key)
 	return
+}
+
+func setLinkingCodeAction(action studyTypes.Expression, oldState ActionData, event StudyEvent) (newState ActionData, err error) {
+	newState = oldState
+	if len(action.Data) != 2 {
+		return newState, errors.New("setLinkingCodeAction must have exactly two arguments")
+	}
+	EvalContext := EvalContext{
+		Event:            event,
+		ParticipantState: newState.PState,
+	}
+	k, err := EvalContext.expressionArgResolver(action.Data[0])
+	if err != nil {
+		return newState, err
+	}
+
+	key, ok := k.(string)
+	if !ok {
+		return newState, errors.New("could not parse key")
+	}
+
+	v, err := EvalContext.expressionArgResolver(action.Data[1])
+	if err != nil {
+		return newState, err
+	}
+	value, ok := v.(string)
+	if !ok {
+		return newState, errors.New("could not parse value")
+	}
+
+	if newState.PState.LinkingCodes == nil {
+		newState.PState.LinkingCodes = map[string]string{}
+	} else {
+		newState.PState.LinkingCodes = make(map[string]string)
+		for k, v := range oldState.PState.LinkingCodes {
+			newState.PState.LinkingCodes[k] = v
+		}
+	}
+	newState.PState.LinkingCodes[key] = value
+	return
+}
+
+func deleteLinkingCodeAction(action studyTypes.Expression, oldState ActionData, event StudyEvent) (newState ActionData, err error) {
+	newState = oldState
+	if len(action.Data) < 1 {
+		// Delete all linking codes
+		newState.PState.LinkingCodes = map[string]string{}
+	} else {
+
+		EvalContext := EvalContext{
+			Event:            event,
+			ParticipantState: newState.PState,
+		}
+		k, err := EvalContext.expressionArgResolver(action.Data[0])
+		if err != nil {
+			return newState, err
+		}
+
+		key, ok := k.(string)
+		if !ok {
+			return newState, errors.New("could not parse key")
+		}
+		if newState.PState.LinkingCodes != nil {
+			newState.PState.LinkingCodes = make(map[string]string)
+			for k, v := range oldState.PState.LinkingCodes {
+				if k == key {
+					continue
+				}
+				newState.PState.LinkingCodes[k] = v
+			}
+		}
+	}
+	return newState, nil
 }
 
 // addNewSurveyAction appends a new AssignedSurvey for the participant state

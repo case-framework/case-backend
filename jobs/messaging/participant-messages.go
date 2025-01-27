@@ -107,6 +107,11 @@ func handleParticipantMessages(wg *sync.WaitGroup) {
 							payload["flags."+k] = v
 						}
 
+						// include linking codes into payload
+						for k, v := range p.LinkingCodes {
+							payload["linkingCodes."+k] = v
+						}
+
 						subject, content, err := emailsending.GenerateEmailContent(template, user.Account.PreferredLanguage, payload)
 						if err != nil {
 							counters.IncreaseCounter(false)

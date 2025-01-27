@@ -75,6 +75,10 @@ func ExpressionEval(expression studyTypes.Expression, evalCtx EvalContext) (val 
 		val, err = evalCtx.hasParticipantFlagKey(expression, false)
 	case "getParticipantFlagValue":
 		val, err = evalCtx.getParticipantFlagValue(expression, false)
+	case "hasLinkingCode":
+		val, err = evalCtx.hasLinkingCode(expression, false)
+	case "getLinkingCodeValue":
+		val, err = evalCtx.getLinkingCode(expression, false)
 	case "getLastSubmissionDate":
 		val, err = evalCtx.getLastSubmissionDate(expression, false)
 	case "lastSubmissionDateOlderThan":
@@ -100,6 +104,10 @@ func ExpressionEval(expression studyTypes.Expression, evalCtx EvalContext) (val 
 		val, err = evalCtx.hasParticipantFlagKey(expression, true)
 	case "incomingState:getParticipantFlagValue":
 		val, err = evalCtx.getParticipantFlagValue(expression, true)
+	case "incomingState:hasLinkingCode":
+		val, err = evalCtx.hasLinkingCode(expression, true)
+	case "incomingState:getLinkingCodeValue":
+		val, err = evalCtx.getLinkingCode(expression, true)
 	case "incomingState:getLastSubmissionDate":
 		val, err = evalCtx.getLastSubmissionDate(expression, true)
 	case "incomingState:lastSubmissionDateOlderThan":
@@ -689,6 +697,64 @@ func (ctx EvalContext) hasParticipantFlag(exp studyTypes.Expression, withIncomin
 		return false, nil
 	}
 	return true, nil
+}
+
+func (ctx EvalContext) hasLinkingCode(exp studyTypes.Expression, withIncomingParticipantState bool) (val bool, err error) {
+	pState := ctx.ParticipantState
+	if withIncomingParticipantState {
+		pState = ctx.Event.MergeWithParticipant
+	}
+	if len(exp.Data) != 1 {
+		return val, errors.New("unexpected numbers of arguments")
+	}
+
+	if exp.Data[0].IsNumber() {
+		return val, errors.New("unexpected argument types")
+	}
+
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	arg1Val, ok := arg1.(string)
+	if !ok {
+		return val, errors.New("could not cast argument 1")
+	}
+
+	_, ok = pState.LinkingCodes[arg1Val]
+	if !ok {
+		return false, nil
+	}
+	return true, nil
+}
+
+func (ctx EvalContext) getLinkingCode(exp studyTypes.Expression, withIncomingParticipantState bool) (val string, err error) {
+	pState := ctx.ParticipantState
+	if withIncomingParticipantState {
+		pState = ctx.Event.MergeWithParticipant
+	}
+	if len(exp.Data) != 1 {
+		return val, errors.New("unexpected numbers of arguments")
+	}
+
+	if exp.Data[0].IsNumber() {
+		return val, errors.New("unexpected argument types")
+	}
+
+	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	arg1Val, ok := arg1.(string)
+	if !ok {
+		return val, errors.New("could not cast argument 1")
+	}
+
+	res, ok := pState.LinkingCodes[arg1Val]
+	if !ok {
+		return "", nil
+	}
+	return res, nil
 }
 
 func (ctx EvalContext) getLastSubmissionDate(exp studyTypes.Expression, withIncomingParticipantState bool) (val float64, err error) {
