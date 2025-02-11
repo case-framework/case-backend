@@ -600,7 +600,8 @@ func (h *HttpEndpoints) updateContactPreferences(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
 
 	var req struct {
-		SubscribedToNewsletter bool `json:"subscribedToNewsletter"`
+		SubscribedToNewsletter   bool `json:"subscribedToNewsletter"`
+		ToggleWeeklySubscription bool `json:"toggleWeeklySubscription"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -617,6 +618,10 @@ func (h *HttpEndpoints) updateContactPreferences(c *gin.Context) {
 	}
 
 	user.ContactPreferences.SubscribedToNewsletter = req.SubscribedToNewsletter
+
+	if req.ToggleWeeklySubscription {
+		user.ContactPreferences.SubscribedToWeekly = !user.ContactPreferences.SubscribedToWeekly
+	}
 
 	_, err = h.userDBConn.ReplaceUser(token.InstanceID, user)
 	if err != nil {
