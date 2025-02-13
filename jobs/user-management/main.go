@@ -30,6 +30,10 @@ func main() {
 		cleanUpUsersMarkedForDeletion()
 	}
 
+	if conf.RunTasks.GenerateProfileIDLookup {
+		generateProfileIDLookup()
+	}
+
 	slog.Info("User management jobs completed", slog.String("duration", time.Since(start).String()))
 }
 
