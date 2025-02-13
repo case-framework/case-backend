@@ -21,6 +21,16 @@ const (
 	ENV_STUDY_DB_PASSWORD = "STUDY_DB_PASSWORD"
 )
 
+type ResponseExportTask struct {
+	InstanceID   string   `json:"instance_id" yaml:"instance_id"`
+	StudyKey     string   `json:"study_key" yaml:"study_key"`
+	SurveyKeys   []string `json:"survey_keys" yaml:"survey_keys"`
+	ExtraCtxCols []string `json:"extra_context_columns" yaml:"extra_context_columns"`
+	ExportFormat string   `json:"export_format" yaml:"export_format"`
+	Separator    string   `json:"separator" yaml:"separator"`
+	ShortKeys    bool     `json:"short_keys" yaml:"short_keys"`
+}
+
 type config struct {
 	// Logging configs
 	Logging utils.LoggerConfig `json:"logging" yaml:"logging"`
@@ -31,18 +41,10 @@ type config struct {
 	} `json:"db_configs" yaml:"db_configs"`
 
 	ResponseExports struct {
-		ExportPath    string `json:"export_path" yaml:"export_path"`
-		RetentionDays int    `json:"retention_days" yaml:"retention_days"`
-		OverrideOld   bool   `json:"override_old" yaml:"override_old"`
-		ExportFormat  string `json:"export_format" yaml:"export_format"`
-		Separator     string `json:"separator" yaml:"separator"`
-		ShortKeys     bool   `json:"short_keys" yaml:"short_keys"`
-		Sources       []struct {
-			InstanceID   string   `json:"instance_id" yaml:"instance_id"`
-			StudyKey     string   `json:"study_key" yaml:"study_key"`
-			SurveyKeys   []string `json:"survey_keys" yaml:"survey_keys"`
-			ExtraCtxCols []string `json:"extra_context_columns" yaml:"extra_context_columns"`
-		} `json:"sources" yaml:"sources"`
+		ExportPath    string               `json:"export_path" yaml:"export_path"`
+		RetentionDays int                  `json:"retention_days" yaml:"retention_days"`
+		OverrideOld   bool                 `json:"override_old" yaml:"override_old"`
+		ExportTasks   []ResponseExportTask `json:"export_tasks" yaml:"export_tasks"`
 	} `json:"response_exports" yaml:"response_exports"`
 }
 
@@ -132,7 +134,7 @@ func initDBs() {
 
 func getInstanceIDs() []string {
 	instanceIDs := []string{}
-	for _, source := range conf.ResponseExports.Sources {
+	for _, source := range conf.ResponseExports.ExportTasks {
 		instanceIDs = append(instanceIDs, source.InstanceID)
 	}
 	return instanceIDs
