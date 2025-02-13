@@ -58,7 +58,8 @@ type config struct {
 	} `json:"response_exports" yaml:"response_exports"`
 
 	ConfidentialResponsesExports struct {
-		ExportTasks []ConfidentialResponsesExportTask `json:"export_tasks" yaml:"export_tasks"`
+		PreservePreviousFiles bool                              `json:"preserve_previous_files" yaml:"preserve_previous_files"`
+		ExportTasks           []ConfidentialResponsesExportTask `json:"export_tasks" yaml:"export_tasks"`
 	} `json:"conf_resp_exports" yaml:"conf_resp_exports"`
 }
 

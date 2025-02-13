@@ -15,7 +15,11 @@ func main() {
 		runResponseExportsForTask(rExpTask)
 	}
 
-	cleanUpConfidentialResponsesExports()
+	if !conf.ConfidentialResponsesExports.PreservePreviousFiles {
+		cleanUpConfidentialResponsesExports()
+	} else {
+		slog.Info("Not cleaning up previous confidential responses exports")
+	}
 	for _, rExpTask := range conf.ConfidentialResponsesExports.ExportTasks {
 		slog.Info("Running confidential responses export task", slog.String("instanceID", rExpTask.InstanceID), slog.String("studyKey", rExpTask.StudyKey), slog.String("name", rExpTask.Name))
 		runConfidentialResponsesExportsForTask(rExpTask)
