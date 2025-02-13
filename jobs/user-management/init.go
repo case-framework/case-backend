@@ -66,6 +66,13 @@ type config struct {
 
 		ExternalServices []studyengine.ExternalService `json:"external_services" yaml:"external_services"`
 	} `json:"study_configs" yaml:"study_configs"`
+
+	RunTasks struct {
+		CleanUpUnverifiedUsers        bool `json:"clean_up_unverified_users" yaml:"clean_up_unverified_users"`
+		SendReminderToConfirmAccounts bool `json:"send_reminder_to_confirm_accounts" yaml:"send_reminder_to_confirm_accounts"`
+		HandleInactiveUsers           bool `json:"handle_inactive_users" yaml:"handle_inactive_users"`
+		GenerateProfileIDLookup       bool `json:"generate_profile_id_lookup" yaml:"generate_profile_id_lookup"`
+	} `json:"run_tasks" yaml:"run_tasks"`
 }
 
 var conf config

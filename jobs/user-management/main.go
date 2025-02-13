@@ -19,10 +19,20 @@ func main() {
 	slog.Info("Starting user management job")
 	start := time.Now()
 
-	cleanUpUnverifiedUsers()
-	sendReminderToConfirmAccounts()
-	notifyInactiveUsersAndMarkForDeletion()
-	cleanUpUsersMarkedForDeletion()
+	if conf.RunTasks.CleanUpUnverifiedUsers {
+		cleanUpUnverifiedUsers()
+	}
+	if conf.RunTasks.SendReminderToConfirmAccounts {
+		sendReminderToConfirmAccounts()
+	}
+	if conf.RunTasks.HandleInactiveUsers {
+		notifyInactiveUsersAndMarkForDeletion()
+		cleanUpUsersMarkedForDeletion()
+	}
+
+	if conf.RunTasks.GenerateProfileIDLookup {
+		generateProfileIDLookup()
+	}
 
 	slog.Info("User management jobs completed", slog.String("duration", time.Since(start).String()))
 }

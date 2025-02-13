@@ -79,7 +79,6 @@ func OnEnterStudy(instanceID string, studyKey string, profileID string) (result 
 		// save particicpant id profile lookup
 		if err = studyDBService.AddConfidentialIDMapEntry(instanceID, confidentialID, profileID, studyKey); err != nil {
 			slog.Error("Error saving participant ID profile lookup", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
-			return
 		}
 	}
 
@@ -256,7 +255,6 @@ func OnMergeTempParticipant(instanceID string, studyKey string, profileID string
 		err = studyDBService.AddConfidentialIDMapEntry(instanceID, confidentialID, profileID, studyKey)
 		if err != nil {
 			slog.Error("Error saving participant ID lookup", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
-			return
 		}
 	}
 
