@@ -21,6 +21,25 @@ const (
 	ENV_STUDY_DB_PASSWORD = "STUDY_DB_PASSWORD"
 )
 
+type ResponseExportTask struct {
+	InstanceID   string   `json:"instance_id" yaml:"instance_id"`
+	StudyKey     string   `json:"study_key" yaml:"study_key"`
+	SurveyKeys   []string `json:"survey_keys" yaml:"survey_keys"`
+	ExtraCtxCols []string `json:"extra_context_columns" yaml:"extra_context_columns"`
+	ExportFormat string   `json:"export_format" yaml:"export_format"`
+	Separator    string   `json:"separator" yaml:"separator"`
+	ShortKeys    bool     `json:"short_keys" yaml:"short_keys"`
+}
+
+type ConfidentialResponsesExportTask struct {
+	InstanceID        string   `json:"instance_id" yaml:"instance_id"`
+	StudyKey          string   `json:"study_key" yaml:"study_key"`
+	StudyGlobalSecret string   `json:"study_global_secret" yaml:"study_global_secret"`
+	Name              string   `json:"name" yaml:"name"`                       // optional name for the export file (used as "survey_key")
+	RespKeyFilter     []string `json:"resp_key_filter" yaml:"resp_key_filter"` // optional filter for response keys to inlcude only these
+	ExportFormat      string   `json:"export_format" yaml:"export_format"`     // csv or json
+}
+
 type config struct {
 	// Logging configs
 	Logging utils.LoggerConfig `json:"logging" yaml:"logging"`
@@ -30,20 +49,18 @@ type config struct {
 		StudyDB db.DBConfigYaml `json:"study_db" yaml:"study_db"`
 	} `json:"db_configs" yaml:"db_configs"`
 
+	ExportPath string `json:"export_path" yaml:"export_path"`
+
 	ResponseExports struct {
-		ExportPath    string `json:"export_path" yaml:"export_path"`
-		RetentionDays int    `json:"retention_days" yaml:"retention_days"`
-		OverrideOld   bool   `json:"override_old" yaml:"override_old"`
-		ExportFormat  string `json:"export_format" yaml:"export_format"`
-		Separator     string `json:"separator" yaml:"separator"`
-		ShortKeys     bool   `json:"short_keys" yaml:"short_keys"`
-		Sources       []struct {
-			InstanceID   string   `json:"instance_id" yaml:"instance_id"`
-			StudyKey     string   `json:"study_key" yaml:"study_key"`
-			SurveyKeys   []string `json:"survey_keys" yaml:"survey_keys"`
-			ExtraCtxCols []string `json:"extra_context_columns" yaml:"extra_context_columns"`
-		} `json:"sources" yaml:"sources"`
+		RetentionDays int                  `json:"retention_days" yaml:"retention_days"`
+		OverrideOld   bool                 `json:"override_old" yaml:"override_old"`
+		ExportTasks   []ResponseExportTask `json:"export_tasks" yaml:"export_tasks"`
 	} `json:"response_exports" yaml:"response_exports"`
+
+	ConfidentialResponsesExports struct {
+		PreservePreviousFiles bool                              `json:"preserve_previous_files" yaml:"preserve_previous_files"`
+		ExportTasks           []ConfidentialResponsesExportTask `json:"export_tasks" yaml:"export_tasks"`
+	} `json:"conf_resp_exports" yaml:"conf_resp_exports"`
 }
 
 var conf config
@@ -89,20 +106,20 @@ func init() {
 		panic(err)
 	}
 
-	if conf.ResponseExports.ExportPath == "" {
+	if conf.ExportPath == "" {
 		err := fmt.Errorf("export path must be set to define where to store the export files")
 		slog.Error("Error reading config", slog.String("error", err.Error()))
 		panic(err)
 	}
 
-	if _, err := os.Stat(conf.ResponseExports.ExportPath); os.IsNotExist(err) {
+	if _, err := os.Stat(conf.ExportPath); os.IsNotExist(err) {
 		// create folder
-		err = os.MkdirAll(conf.ResponseExports.ExportPath, os.ModePerm)
+		err = os.MkdirAll(conf.ExportPath, os.ModePerm)
 		if err != nil {
 			slog.Error("Error creating export path", slog.String("error", err.Error()))
 			panic(err)
 		}
-		slog.Info("Created export path", slog.String("path", conf.ResponseExports.ExportPath))
+		slog.Info("Created export path", slog.String("path", conf.ExportPath))
 	}
 }
 
@@ -132,7 +149,7 @@ func initDBs() {
 
 func getInstanceIDs() []string {
 	instanceIDs := []string{}
-	for _, source := range conf.ResponseExports.Sources {
+	for _, source := range conf.ResponseExports.ExportTasks {
 		instanceIDs = append(instanceIDs, source.InstanceID)
 	}
 	return instanceIDs

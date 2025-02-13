@@ -741,6 +741,28 @@ func (h *HttpEndpoints) addStudyDataExporterEndpoints(rg *gin.RouterGroup) {
 			),
 		)
 
+		confidentialResponsesGroup.GET("/", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_CONFIDENTIAL_RESPONSES,
+			},
+			nil,
+			h.getAvailableConfidentailDataExports,
+		))
+
+		confidentialResponsesGroup.GET("/:exportID", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_CONFIDENTIAL_RESPONSES,
+			},
+			nil,
+			h.getAvailableConfidentailDataExport,
+		))
+
 	}
 }
 
@@ -2894,6 +2916,92 @@ func (h *HttpEndpoints) getConfidentialResponses(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"responses": results})
 }
 
+func (h *HttpEndpoints) getAvailableConfidentailDataExports(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	slog.Info("getting available confidential response exports", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	if h.dailyFileExportPath == "" {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "daily file export path not set"})
+		return
+	}
+
+	targetFolderPath := filepath.Join(h.dailyFileExportPath, token.InstanceID, studyKey)
+
+	dailyExports := []string{}
+	// collect all files
+
+	err := filepath.Walk(targetFolderPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		// Parse date from filename (assuming format YYYY-MM-DD##responses##..##..)
+		basename := filepath.Base(path)
+		parts := strings.Split(basename, "##")
+		if len(parts) < 2 {
+			return nil
+		}
+		if parts[1] != "confidential-responses" {
+			return nil
+		}
+		dailyExports = append(dailyExports, basename)
+		return nil
+	})
+	if err != nil {
+		slog.Error("unexpected error when reading confidential file exports", slog.String("error", err.Error()))
+	}
+
+	c.JSON(http.StatusOK, gin.H{"availableFiles": dailyExports})
+}
+
+func (h *HttpEndpoints) getAvailableConfidentailDataExport(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	exportID := c.Param("exportID")
+	studyKey := c.Param("studyKey")
+
+	if h.dailyFileExportPath == "" {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "daily file export path not set"})
+		return
+	}
+
+	decoded, err := base64.URLEncoding.DecodeString(exportID)
+	if err != nil {
+		slog.Error("error decoding exportID", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "error decoding exportID"})
+	}
+	filename := string(decoded)
+
+	slog.Info("downloading prepared confidential response export file", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("fileName", filename))
+
+	resultFilePath := filepath.Join(h.dailyFileExportPath, token.InstanceID, studyKey, filename)
+
+	// file exists?
+	if _, err := os.Stat(resultFilePath); os.IsNotExist(err) {
+		slog.Error("file does not exist", slog.String("path", resultFilePath))
+		c.JSON(http.StatusNotFound, gin.H{"error": "file does not exist"})
+		return
+	}
+
+	// Return file from file system
+	ext := filepath.Ext(resultFilePath)
+	contentType := "application/json"
+	if ext == ".csv" {
+		contentType = "text/csv"
+	}
+
+	c.Header("Content-Disposition", "attachment; filename="+filename)
+	c.Header("Content-Type", contentType)
+	c.File(resultFilePath)
+}
+
 func (h *HttpEndpoints) getExportTaskStatus(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 
@@ -3043,7 +3151,6 @@ func (h *HttpEndpoints) getDailyExport(c *gin.Context) {
 	c.Header("Content-Disposition", "attachment; filename="+filename)
 	c.Header("Content-Type", contentType)
 	c.File(resultFilePath)
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
 
 func (h *HttpEndpoints) getStudyResponses(c *gin.Context) {

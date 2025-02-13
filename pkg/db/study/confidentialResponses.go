@@ -1,8 +1,11 @@
 package study
 
 import (
+	"context"
 	"errors"
+	"log/slog"
 
+	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 	studytypes "github.com/case-framework/case-backend/pkg/study/types"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -75,6 +78,40 @@ func (dbService *StudyDBService) FindConfidentialResponses(instanceID string, st
 	}
 
 	return responses, nil
+}
+
+func (dbService *StudyDBService) FindAndExecuteOnConfidentialResponses(
+	ctx context.Context,
+	instanceID string, studyKey string,
+	returnOnError bool,
+	fn func(r studyTypes.SurveyResponse, args ...interface{}) error,
+	args ...interface{},
+) error {
+
+	filter := bson.M{}
+	cursor, err := dbService.collectionConfidentialResponses(instanceID, studyKey).Find(ctx, filter)
+	if err != nil {
+		return err
+	}
+
+	defer cursor.Close(ctx)
+
+	for cursor.Next(ctx) {
+		var response studyTypes.SurveyResponse
+		if err = cursor.Decode(&response); err != nil {
+			slog.Error("Error while decoding response", slog.String("error", err.Error()))
+			continue
+		}
+
+		if err = fn(response, args...); err != nil {
+			slog.Error("Error while executing function on confidential response", slog.String("responseID", response.ID.Hex()), slog.String("error", err.Error()))
+			if returnOnError {
+				return err
+			}
+			continue
+		}
+	}
+	return nil
 }
 
 func (dbService *StudyDBService) DeleteConfidentialResponses(instanceID string, studyKey string, participantID string, key string) (count int64, err error) {
