@@ -31,6 +31,13 @@ type ResponseExportTask struct {
 	ShortKeys    bool     `json:"short_keys" yaml:"short_keys"`
 }
 
+type ConfidentialResponsesExportTask struct {
+	InstanceID    string `json:"instance_id" yaml:"instance_id"`
+	StudyKey      string `json:"study_key" yaml:"study_key"`
+	Name          string `json:"name" yaml:"name"`                       // optional name for the export file (used as "survey_key")
+	RespKeyFilter string `json:"resp_key_filter" yaml:"resp_key_filter"` // optional filter for response keys to inlcude only these
+}
+
 type config struct {
 	// Logging configs
 	Logging utils.LoggerConfig `json:"logging" yaml:"logging"`
@@ -49,7 +56,8 @@ type config struct {
 	} `json:"response_exports" yaml:"response_exports"`
 
 	ConfidentialResponsesExports struct {
-	}
+		ExportTasks []ConfidentialResponsesExportTask `json:"export_tasks" yaml:"export_tasks"`
+	} `json:"conf_resp_exports" yaml:"conf_resp_exports"`
 }
 
 var conf config
