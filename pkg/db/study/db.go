@@ -165,7 +165,9 @@ func (dbService *StudyDBService) ensureIndexes() error {
 				Keys: bson.D{
 					{Key: "confidentialID", Value: 1},
 					{Key: "studyKey", Value: 1},
-				}},
+				},
+				Options: options.Index().SetUnique(true),
+			},
 		)
 		if err != nil {
 			slog.Error("Error creating index for confidentialIDMap", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
