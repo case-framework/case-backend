@@ -40,12 +40,16 @@ type config struct {
 		StudyDB db.DBConfigYaml `json:"study_db" yaml:"study_db"`
 	} `json:"db_configs" yaml:"db_configs"`
 
+	ExportPath string `json:"export_path" yaml:"export_path"`
+
 	ResponseExports struct {
-		ExportPath    string               `json:"export_path" yaml:"export_path"`
 		RetentionDays int                  `json:"retention_days" yaml:"retention_days"`
 		OverrideOld   bool                 `json:"override_old" yaml:"override_old"`
 		ExportTasks   []ResponseExportTask `json:"export_tasks" yaml:"export_tasks"`
 	} `json:"response_exports" yaml:"response_exports"`
+
+	ConfidentialResponsesExports struct {
+	}
 }
 
 var conf config
@@ -91,20 +95,20 @@ func init() {
 		panic(err)
 	}
 
-	if conf.ResponseExports.ExportPath == "" {
+	if conf.ExportPath == "" {
 		err := fmt.Errorf("export path must be set to define where to store the export files")
 		slog.Error("Error reading config", slog.String("error", err.Error()))
 		panic(err)
 	}
 
-	if _, err := os.Stat(conf.ResponseExports.ExportPath); os.IsNotExist(err) {
+	if _, err := os.Stat(conf.ExportPath); os.IsNotExist(err) {
 		// create folder
-		err = os.MkdirAll(conf.ResponseExports.ExportPath, os.ModePerm)
+		err = os.MkdirAll(conf.ExportPath, os.ModePerm)
 		if err != nil {
 			slog.Error("Error creating export path", slog.String("error", err.Error()))
 			panic(err)
 		}
-		slog.Info("Created export path", slog.String("path", conf.ResponseExports.ExportPath))
+		slog.Info("Created export path", slog.String("path", conf.ExportPath))
 	}
 }
 

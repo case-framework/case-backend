@@ -33,7 +33,7 @@ func main() {
 func runResponseExportsForTask(rExpTask ResponseExportTask) {
 	// ensure there is a folder path for the source (export_path/instance_id/study_key)
 	relativeFolderPath := path.Join(rExpTask.InstanceID, rExpTask.StudyKey)
-	exportFolderPathForSource := path.Join(conf.ResponseExports.ExportPath, relativeFolderPath)
+	exportFolderPathForSource := path.Join(conf.ExportPath, relativeFolderPath)
 	if _, err := os.Stat(exportFolderPathForSource); os.IsNotExist(err) {
 		// create folder
 		err = os.MkdirAll(exportFolderPathForSource, os.ModePerm)
