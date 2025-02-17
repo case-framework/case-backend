@@ -2,6 +2,7 @@ package globalinfos
 
 import (
 	"errors"
+	"log/slog"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -15,6 +16,10 @@ import (
 func (dbService *GlobalInfosDBService) CreateIndexForTemptokens() error {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
+
+	if _, err := dbService.collectionTemptokens().Indexes().DropAll(ctx); err != nil {
+		slog.Error("Error dropping indexes for temptokens", slog.String("error", err.Error()))
+	}
 
 	_, err := dbService.collectionTemptokens().Indexes().CreateMany(
 		ctx, []mongo.IndexModel{
