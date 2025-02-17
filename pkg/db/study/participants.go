@@ -15,6 +15,10 @@ func (dbService *StudyDBService) CreateIndexForParticipantsCollection(instanceID
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
+	if _, err := dbService.collectionParticipants(instanceID, studyKey).Indexes().DropAll(ctx); err != nil {
+		slog.Error("Error dropping indexes for participants", slog.String("error", err.Error()))
+	}
+
 	collection := dbService.collectionParticipants(instanceID, studyKey)
 	indexes := []mongo.IndexModel{
 		{

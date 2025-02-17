@@ -2,6 +2,7 @@ package study
 
 import (
 	"errors"
+	"log/slog"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -15,6 +16,10 @@ import (
 func (dbService *StudyDBService) CreateIndexForSurveyCollection(instanceID string, studyKey string) error {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
+
+	if _, err := dbService.collectionSurveys(instanceID, studyKey).Indexes().DropAll(ctx); err != nil {
+		slog.Error("Error dropping indexes for surveys", slog.String("error", err.Error()))
+	}
 
 	collection := dbService.collectionSurveys(instanceID, studyKey)
 	indexes := []mongo.IndexModel{

@@ -15,6 +15,10 @@ func (dbService *StudyDBService) createIndexForStudyInfosCollection(instanceID s
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
+	if _, err := dbService.collectionStudyInfos(instanceID).Indexes().DropAll(ctx); err != nil {
+		slog.Error("Error dropping indexes for studyInfos", slog.String("error", err.Error()))
+	}
+
 	_, err := dbService.collectionStudyInfos(instanceID).Indexes().CreateOne(
 		ctx,
 		mongo.IndexModel{
