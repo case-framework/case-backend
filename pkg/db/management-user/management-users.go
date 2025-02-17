@@ -1,12 +1,32 @@
 package managementuser
 
 import (
+	"log/slog"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+func (dbService *ManagementUserDBService) createIndexForManagementUsers(instanceID string) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	if _, err := dbService.collectionManagementUsers(instanceID).Indexes().DropAll(ctx); err != nil {
+		slog.Error("Error dropping indexes for management users: ", slog.String("error", err.Error()))
+	}
+
+	_, err := dbService.collectionManagementUsers(instanceID).Indexes().CreateOne(
+		ctx,
+		mongo.IndexModel{
+			Keys:    bson.D{{Key: "sub", Value: 1}},
+			Options: options.Index().SetUnique(true),
+		},
+	)
+	return err
+}
 
 func (dbService *ManagementUserDBService) CreateUser(
 	instanceID string,
