@@ -2,6 +2,7 @@ package participantuser
 
 import (
 	"errors"
+	"log/slog"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -19,6 +20,10 @@ const (
 func (dbService *ParticipantUserDBService) CreateIndexForRenewTokens(instanceID string) error {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
+
+	if _, err := dbService.collectionRenewTokens(instanceID).Indexes().DropAll(ctx); err != nil {
+		slog.Error("Error dropping indexes for renew tokens", slog.String("error", err.Error()))
+	}
 
 	_, err := dbService.collectionRenewTokens(instanceID).Indexes().CreateMany(
 		ctx, []mongo.IndexModel{

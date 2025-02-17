@@ -2,6 +2,7 @@ package participantuser
 
 import (
 	"errors"
+	"log/slog"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -18,6 +19,10 @@ const (
 func (dbService *ParticipantUserDBService) CreateIndexForOTPs(instanceID string) error {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
+
+	if _, err := dbService.collectionOTPs(instanceID).Indexes().DropAll(ctx); err != nil {
+		slog.Error("Error dropping indexes for OTPs", slog.String("error", err.Error()))
+	}
 
 	_, err := dbService.collectionOTPs(instanceID).Indexes().CreateMany(
 		ctx, []mongo.IndexModel{
