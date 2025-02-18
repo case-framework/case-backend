@@ -159,7 +159,7 @@ func ExpressionEval(expression studyTypes.Expression, evalCtx EvalContext) (val 
 	return
 }
 
-func (ctx EvalContext) expressionArgResolver(arg studyTypes.ExpressionArg) (interface{}, error) {
+func (ctx EvalContext) ExpressionArgResolver(arg studyTypes.ExpressionArg) (interface{}, error) {
 	switch arg.DType {
 	case "num":
 		return arg.Num, nil
@@ -181,7 +181,7 @@ func (ctx EvalContext) checkEventType(exp studyTypes.Expression) (val bool, err 
 		return val, errors.New("unexpected numbers of arguments")
 	}
 
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
@@ -199,7 +199,7 @@ func (ctx EvalContext) checkEventKey(exp studyTypes.Expression) (val bool, err e
 		return val, errors.New("unexpected numbers of arguments")
 	}
 
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
@@ -217,7 +217,7 @@ func (ctx EvalContext) checkSurveyResponseKey(exp studyTypes.Expression) (val bo
 		return val, errors.New("unexpected numbers of arguments")
 	}
 
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
@@ -255,7 +255,7 @@ func (ctx EvalContext) isStudyCodePresent(exp studyTypes.Expression) (val bool, 
 		return val, errors.New("studyCodeExists: invalid number of arguments")
 	}
 
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
@@ -264,7 +264,7 @@ func (ctx EvalContext) isStudyCodePresent(exp studyTypes.Expression) (val bool, 
 		return val, errors.New("could not cast arguments")
 	}
 
-	arg2, err := ctx.expressionArgResolver(exp.Data[1])
+	arg2, err := ctx.ExpressionArgResolver(exp.Data[1])
 	if err != nil {
 		return val, err
 	}
@@ -308,7 +308,7 @@ func (ctx EvalContext) checkConditionForOldResponses(exp studyTypes.Expression) 
 	since := int64(0)
 	until := int64(0)
 	if argNum > 1 {
-		arg1, err := ctx.expressionArgResolver(exp.Data[1])
+		arg1, err := ctx.ExpressionArgResolver(exp.Data[1])
 		if err != nil {
 			return val, err
 		}
@@ -329,7 +329,7 @@ func (ctx EvalContext) checkConditionForOldResponses(exp studyTypes.Expression) 
 		}
 	}
 	if argNum > 3 {
-		arg4, err := ctx.expressionArgResolver(exp.Data[3])
+		arg4, err := ctx.ExpressionArgResolver(exp.Data[3])
 		if err != nil {
 			return val, err
 		}
@@ -340,7 +340,7 @@ func (ctx EvalContext) checkConditionForOldResponses(exp studyTypes.Expression) 
 
 	}
 	if argNum > 4 {
-		arg5, err := ctx.expressionArgResolver(exp.Data[4])
+		arg5, err := ctx.ExpressionArgResolver(exp.Data[4])
 		if err != nil {
 			return val, err
 		}
@@ -532,7 +532,7 @@ func (ctx EvalContext) hasSurveyKeyAssigned(exp studyTypes.Expression, withIncom
 	if len(exp.Data) != 1 || !exp.Data[0].IsString() {
 		return val, errors.New("unexpected number or wrong type of argument")
 	}
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
@@ -584,7 +584,7 @@ func (ctx EvalContext) getSurveyKeyAssignedUntil(exp studyTypes.Expression, with
 	if len(exp.Data) != 1 || !exp.Data[0].IsString() {
 		return val, errors.New("unexpected number or wrong type of argument")
 	}
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
@@ -616,7 +616,7 @@ func (ctx EvalContext) hasParticipantFlagKey(exp studyTypes.Expression, withInco
 		return val, errors.New("unexpected argument types")
 	}
 
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
@@ -645,7 +645,7 @@ func (ctx EvalContext) getParticipantFlagValue(exp studyTypes.Expression, withIn
 		return val, errors.New("unexpected argument types")
 	}
 
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
@@ -674,7 +674,7 @@ func (ctx EvalContext) hasParticipantFlag(exp studyTypes.Expression, withIncomin
 		return val, errors.New("unexpected argument types")
 	}
 
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
@@ -683,7 +683,7 @@ func (ctx EvalContext) hasParticipantFlag(exp studyTypes.Expression, withIncomin
 		return val, errors.New("could not cast argument 1")
 	}
 
-	arg2, err := ctx.expressionArgResolver(exp.Data[1])
+	arg2, err := ctx.ExpressionArgResolver(exp.Data[1])
 	if err != nil {
 		return val, err
 	}
@@ -712,7 +712,7 @@ func (ctx EvalContext) hasLinkingCode(exp studyTypes.Expression, withIncomingPar
 		return val, errors.New("unexpected argument types")
 	}
 
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
@@ -741,7 +741,7 @@ func (ctx EvalContext) getLinkingCode(exp studyTypes.Expression, withIncomingPar
 		return val, errors.New("unexpected argument types")
 	}
 
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
@@ -774,7 +774,7 @@ func (ctx EvalContext) getLastSubmissionDate(exp studyTypes.Expression, withInco
 		return float64(maxTs), nil
 	}
 
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
@@ -797,7 +797,7 @@ func (ctx EvalContext) lastSubmissionDateOlderThan(exp studyTypes.Expression, wi
 		return val, errors.New("unexpected numbers of arguments")
 	}
 
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
@@ -833,7 +833,7 @@ func (ctx EvalContext) responseHasKeysAny(exp studyTypes.Expression) (val bool, 
 		return val, errors.New("unexpected numbers of arguments")
 	}
 
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
@@ -841,7 +841,7 @@ func (ctx EvalContext) responseHasKeysAny(exp studyTypes.Expression) (val bool, 
 	if !ok {
 		return val, errors.New("could not cast arguments")
 	}
-	arg2, err := ctx.expressionArgResolver(exp.Data[1])
+	arg2, err := ctx.ExpressionArgResolver(exp.Data[1])
 	if err != nil {
 		return val, err
 	}
@@ -852,7 +852,7 @@ func (ctx EvalContext) responseHasKeysAny(exp studyTypes.Expression) (val bool, 
 
 	targetKeys := []string{}
 	for _, d := range exp.Data[2:] {
-		arg, err := ctx.expressionArgResolver(d)
+		arg, err := ctx.ExpressionArgResolver(d)
 		if err != nil {
 			return val, err
 		}
@@ -897,7 +897,7 @@ func (ctx EvalContext) responseHasOnlyKeysOtherThan(exp studyTypes.Expression) (
 		return val, errors.New("unexpected numbers of arguments")
 	}
 
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
@@ -905,7 +905,7 @@ func (ctx EvalContext) responseHasOnlyKeysOtherThan(exp studyTypes.Expression) (
 	if !ok {
 		return val, errors.New("could not cast arguments")
 	}
-	arg2, err := ctx.expressionArgResolver(exp.Data[1])
+	arg2, err := ctx.ExpressionArgResolver(exp.Data[1])
 	if err != nil {
 		return val, err
 	}
@@ -916,7 +916,7 @@ func (ctx EvalContext) responseHasOnlyKeysOtherThan(exp studyTypes.Expression) (
 
 	targetKeys := []string{}
 	for _, d := range exp.Data[2:] {
-		arg, err := ctx.expressionArgResolver(d)
+		arg, err := ctx.ExpressionArgResolver(d)
 		if err != nil {
 			return val, err
 		}
@@ -965,7 +965,7 @@ func (ctx EvalContext) getResponseValueAsNum(exp studyTypes.Expression) (val flo
 		return val, errors.New("unexpected numbers of arguments")
 	}
 
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
@@ -973,7 +973,7 @@ func (ctx EvalContext) getResponseValueAsNum(exp studyTypes.Expression) (val flo
 	if !ok {
 		return val, errors.New("could not cast arguments")
 	}
-	arg2, err := ctx.expressionArgResolver(exp.Data[1])
+	arg2, err := ctx.ExpressionArgResolver(exp.Data[1])
 	if err != nil {
 		return val, err
 	}
@@ -1004,7 +1004,7 @@ func (ctx EvalContext) getResponseValueAsStr(exp studyTypes.Expression) (val str
 		return val, errors.New("unexpected numbers of arguments")
 	}
 
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
@@ -1012,7 +1012,7 @@ func (ctx EvalContext) getResponseValueAsStr(exp studyTypes.Expression) (val str
 	if !ok {
 		return val, errors.New("could not cast arguments")
 	}
-	arg2, err := ctx.expressionArgResolver(exp.Data[1])
+	arg2, err := ctx.ExpressionArgResolver(exp.Data[1])
 	if err != nil {
 		return val, err
 	}
@@ -1042,7 +1042,7 @@ func (ctx EvalContext) getSelectedKeys(exp studyTypes.Expression) (val string, e
 		return val, errors.New("unexpected numbers of arguments")
 	}
 
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
@@ -1050,7 +1050,7 @@ func (ctx EvalContext) getSelectedKeys(exp studyTypes.Expression) (val string, e
 	if !ok {
 		return val, errors.New("could not cast arguments")
 	}
-	arg2, err := ctx.expressionArgResolver(exp.Data[1])
+	arg2, err := ctx.ExpressionArgResolver(exp.Data[1])
 	if err != nil {
 		return val, err
 	}
@@ -1184,11 +1184,11 @@ func (ctx EvalContext) eq(exp studyTypes.Expression) (val bool, err error) {
 		return val, errors.New("not expected numbers of arguments")
 	}
 
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
-	arg2, err := ctx.expressionArgResolver(exp.Data[1])
+	arg2, err := ctx.ExpressionArgResolver(exp.Data[1])
 	if err != nil {
 		return val, err
 	}
@@ -1216,11 +1216,11 @@ func (ctx EvalContext) lt(exp studyTypes.Expression) (val bool, err error) {
 		return val, errors.New("not expected numbers of arguments")
 	}
 
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
-	arg2, err := ctx.expressionArgResolver(exp.Data[1])
+	arg2, err := ctx.ExpressionArgResolver(exp.Data[1])
 	if err != nil {
 		return val, err
 	}
@@ -1248,11 +1248,11 @@ func (ctx EvalContext) lte(exp studyTypes.Expression) (val bool, err error) {
 		return val, errors.New("not expected numbers of arguments")
 	}
 
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
-	arg2, err := ctx.expressionArgResolver(exp.Data[1])
+	arg2, err := ctx.ExpressionArgResolver(exp.Data[1])
 	if err != nil {
 		return val, err
 	}
@@ -1280,11 +1280,11 @@ func (ctx EvalContext) gt(exp studyTypes.Expression) (val bool, err error) {
 		return val, errors.New("not expected numbers of arguments")
 	}
 
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
-	arg2, err := ctx.expressionArgResolver(exp.Data[1])
+	arg2, err := ctx.ExpressionArgResolver(exp.Data[1])
 	if err != nil {
 		return val, err
 	}
@@ -1312,11 +1312,11 @@ func (ctx EvalContext) gte(exp studyTypes.Expression) (val bool, err error) {
 		return val, errors.New("not expected numbers of arguments")
 	}
 
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
-	arg2, err := ctx.expressionArgResolver(exp.Data[1])
+	arg2, err := ctx.ExpressionArgResolver(exp.Data[1])
 	if err != nil {
 		return val, err
 	}
@@ -1347,7 +1347,7 @@ func (ctx EvalContext) hasMessageTypeAssigned(exp studyTypes.Expression, withInc
 	if len(exp.Data) != 1 {
 		return val, errors.New("should have at exactly one argument")
 	}
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
@@ -1367,7 +1367,7 @@ func (ctx EvalContext) getMessageNextTime(exp studyTypes.Expression, withIncomin
 	if len(exp.Data) != 1 {
 		return val, errors.New("should have at exactly one argument")
 	}
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
@@ -1392,7 +1392,7 @@ func (ctx EvalContext) and(exp studyTypes.Expression) (val bool, err error) {
 	}
 
 	for _, d := range exp.Data {
-		arg1, err := ctx.expressionArgResolver(d)
+		arg1, err := ctx.ExpressionArgResolver(d)
 		if err != nil {
 			return val, err
 		}
@@ -1416,7 +1416,7 @@ func (ctx EvalContext) or(exp studyTypes.Expression) (val bool, err error) {
 	}
 
 	for _, d := range exp.Data {
-		arg1, err := ctx.expressionArgResolver(d)
+		arg1, err := ctx.ExpressionArgResolver(d)
 		if err != nil {
 			slog.Debug("unexpected error during expression eval", slog.String("expression", exp.Name), slog.String("error", err.Error()))
 			continue
@@ -1440,7 +1440,7 @@ func (ctx EvalContext) not(exp studyTypes.Expression) (val bool, err error) {
 		return val, errors.New("should have one argument")
 	}
 
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
@@ -1458,7 +1458,7 @@ func (ctx EvalContext) not(exp studyTypes.Expression) (val bool, err error) {
 
 func (ctx EvalContext) sum(exp studyTypes.Expression) (t float64, err error) {
 	for idx, dataExp := range exp.Data {
-		arg, err := ctx.expressionArgResolver(dataExp)
+		arg, err := ctx.ExpressionArgResolver(dataExp)
 		if err != nil {
 			slog.Error("unexpected error during expression eval", slog.Int("index", idx), slog.String("expression", exp.Name), slog.String("error", err.Error()))
 			continue
@@ -1483,7 +1483,7 @@ func (ctx EvalContext) neg(exp studyTypes.Expression) (val float64, err error) {
 		return val, errors.New("should have one argument")
 	}
 
-	arg, err := ctx.expressionArgResolver(exp.Data[0])
+	arg, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
@@ -1500,7 +1500,7 @@ func (ctx EvalContext) timestampWithOffset(exp studyTypes.Expression) (t float64
 		return t, errors.New("should have one or two arguments")
 	}
 
-	arg1, err1 := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err1 := ctx.ExpressionArgResolver(exp.Data[0])
 	if err1 != nil {
 		return t, err1
 	}
@@ -1511,7 +1511,7 @@ func (ctx EvalContext) timestampWithOffset(exp studyTypes.Expression) (t float64
 
 	referenceTime := Now().Unix()
 	if len(exp.Data) == 2 {
-		arg2, err2 := ctx.expressionArgResolver(exp.Data[1])
+		arg2, err2 := ctx.ExpressionArgResolver(exp.Data[1])
 		if err2 != nil {
 			return t, err2
 		}
@@ -1531,7 +1531,7 @@ func (ctx EvalContext) getTsForNextISOWeek(exp studyTypes.Expression) (t float64
 		return t, errors.New("should have one or two arguments")
 	}
 
-	arg1, err1 := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err1 := ctx.ExpressionArgResolver(exp.Data[0])
 	if err1 != nil {
 		return t, err1
 	}
@@ -1547,7 +1547,7 @@ func (ctx EvalContext) getTsForNextISOWeek(exp studyTypes.Expression) (t float64
 
 	referenceTime := Now()
 	if len(exp.Data) == 2 {
-		arg2, err2 := ctx.expressionArgResolver(exp.Data[1])
+		arg2, err2 := ctx.ExpressionArgResolver(exp.Data[1])
 		if err2 != nil {
 			return t, err2
 		}
@@ -1576,7 +1576,7 @@ func (ctx EvalContext) getISOWeekForTs(exp studyTypes.Expression) (t float64, er
 		return t, errors.New("should have one argument")
 	}
 
-	arg1, err1 := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err1 := ctx.ExpressionArgResolver(exp.Data[0])
 	if err1 != nil {
 		return t, err1
 	}
@@ -1595,7 +1595,7 @@ func (ctx EvalContext) parseValueAsNum(exp studyTypes.Expression) (val float64, 
 		return val, errors.New("should have one argument")
 	}
 
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
@@ -1618,7 +1618,7 @@ func (ctx EvalContext) generateRandomNumber(exp studyTypes.Expression) (val floa
 		return val, errors.New("should have two arguments")
 	}
 
-	arg1, err := ctx.expressionArgResolver(exp.Data[0])
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
 	if err != nil {
 		return val, err
 	}
@@ -1627,7 +1627,7 @@ func (ctx EvalContext) generateRandomNumber(exp studyTypes.Expression) (val floa
 	}
 	min := int(arg1.(float64))
 
-	arg2, err := ctx.expressionArgResolver(exp.Data[1])
+	arg2, err := ctx.ExpressionArgResolver(exp.Data[1])
 	if err != nil {
 		return val, err
 	}
@@ -1660,7 +1660,7 @@ func (ctx EvalContext) externalEventEval(exp studyTypes.Expression) (val interfa
 	pathname := ""
 
 	if len(exp.Data) > 1 {
-		arg1, err := ctx.expressionArgResolver(exp.Data[1])
+		arg1, err := ctx.ExpressionArgResolver(exp.Data[1])
 		if err != nil {
 			return val, err
 		}
@@ -1711,7 +1711,7 @@ func (ctx EvalContext) externalEventEval(exp studyTypes.Expression) (val interfa
 }
 
 func (ctx EvalContext) mustGetStrValue(arg studyTypes.ExpressionArg) (string, error) {
-	arg1, err := ctx.expressionArgResolver(arg)
+	arg1, err := ctx.ExpressionArgResolver(arg)
 	if err != nil {
 		return "", err
 	}

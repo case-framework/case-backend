@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/case-framework/case-backend/pkg/study/studyengine"
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -225,6 +226,8 @@ func GetAssignedSurveyWithContext(instanceID string, studyKey string, surveyKey 
 		slog.Error("error resolving prefill rules", slog.String("error", err.Error()))
 		return
 	}
+	// remove non existing prefill slots
+	prefill = removeNonExistingPrefillSlots(prefill, surveyDef)
 
 	surveyDef.ContextRules = nil
 	surveyDef.PrefillRules = nil
@@ -347,7 +350,7 @@ func resolveContextRules(instanceID string, studyKey string, pState studyTypes.P
 }
 
 func resolvePrefillRules(instanceID string, studyKey string, participantID string, rules []studyTypes.Expression) (prefills *studyTypes.SurveyResponse, err error) {
-	if rules == nil || len(rules) < 1 {
+	if len(rules) < 1 {
 		return nil, nil
 	}
 
@@ -427,32 +430,46 @@ func resolvePrefillRules(instanceID string, studyKey string, participantID strin
 			} else {
 				prefills.Responses = append(prefills.Responses, prefillItem)
 			}
-		case "GET_LAST_SURVEY_ITEM":
-			if len(rule.Data) < 2 {
-				slog.Error("GET_LAST_SURVEY_ITEM must have at least two arguments")
+		case "PREFILL_ITEM_WITH_LAST_RESPONSE":
+			if len(rule.Data) < 1 {
+				slog.Error("PREFILL_ITEM_WITH_LAST_RESPONSE must have at least one argument")
 				continue
 			}
 			if participantID == "" {
 				slog.Error("participantID is required")
 				continue
 			}
-			surveyKey := rule.Data[0].Str
-			itemKey := rule.Data[1].Str
+
+			itemKey := rule.Data[0].Str
+			surveyKey := strings.Split(itemKey, ".")[0]
 			since := int64(0)
-			if len(rule.Data) == 3 {
-				// look up responses that are not older than:
-				since = time.Now().Unix() - int64(rule.Data[2].Num)
+			if len(rule.Data) >= 2 {
+				timeFilter := rule.Data[1]
+
+				expCtx := studyengine.EvalContext{}
+				resolvedTimeFilter, err := expCtx.ExpressionArgResolver(timeFilter)
+				if err != nil {
+					slog.Error("error resolving time filter", slog.String("surveyKey", surveyKey), slog.String("itemKey", itemKey), slog.String("error", err.Error()))
+					continue
+				}
+
+				val, ok := resolvedTimeFilter.(float64)
+				if !ok {
+					slog.Error("time filter is not a number", slog.String("surveyKey", surveyKey), slog.String("itemKey", itemKey))
+					continue
+				}
+				since = int64(val)
+				slog.Debug("prefill with last response later than", slog.String("surveyKey", surveyKey), slog.String("itemKey", itemKey), slog.String("since", time.Unix(since, 0).String()))
 			}
 
 			previousResp, ok := lastSurveyCache[surveyKey]
 			if !ok {
 				filter := bson.M{
 					"participantID": participantID,
-					"surveyKey":     surveyKey,
+					"key":           surveyKey,
 					"arrivedAt":     bson.M{"$gt": since},
 				}
 				resps, _, err := studyDBService.GetResponses(instanceID, studyKey, filter, bson.M{"arrivedAt": -1}, 1, 1)
-
 				if err != nil || len(resps) < 1 {
 					continue
 				}
@@ -471,6 +488,102 @@ func resolvePrefillRules(instanceID string, studyKey string, participantID strin
 		}
 	}
 	return prefills, nil
+}
+
+func removeNonExistingPrefillSlots(prefills *studyTypes.SurveyResponse, surveyDef *studyTypes.Survey) *studyTypes.SurveyResponse {
+	if prefills == nil {
+		return nil
+	}
+
+	prefillResps := []studyTypes.SurveyItemResponse{}
+	for _, item := range prefills.Responses {
+		// has survey item been removed?
+		itemDef := findSurveyItemDef(&surveyDef.SurveyDefinition, item.Key)
+		if itemDef == nil {
+			slog.Debug("Prefill item not found in definition", slog.String("itemKey", item.Key))
+			continue
+		}
+
+		// has slot been removed?
+		filteredItem := filterNonExistingSlots(item, itemDef)
+		if filteredItem == nil {
+			slog.Debug("Prefill item has no slots", slog.String("itemKey", item.Key))
+			continue
+		}
+
+		prefillResps = append(prefillResps, *filteredItem)
+	}
+
+	prefills.Responses = prefillResps
+	return prefills
+}
+
+func findSurveyItemDef(item *studyTypes.SurveyItem, key string) *studyTypes.SurveyItem {
+	if item == nil {
+		return nil
+	}
+	if item.Key == key {
+		return item
+	}
+	for _, itemDef := range item.Items {
+		if strings.HasPrefix(key, itemDef.Key) {
+			return findSurveyItemDef(&itemDef, key)
+		}
+	}
+	return nil
+}
+
+func filterNonExistingSlots(itemPrefill studyTypes.SurveyItemResponse, itemDef *studyTypes.SurveyItem) *studyTypes.SurveyItemResponse {
+	if itemDef.Components == nil {
+		return nil
+	}
+	var rgComp *studyTypes.ItemComponent
+	for _, comp := range itemDef.Components.Items {
+		if comp.Role == "responseGroup" {
+			rgComp = &comp
+			break
+		}
+	}
+
+	if rgComp == nil {
+		return nil
+	}
+
+	respItem := getFilteredPrefillResponseComp(itemPrefill.Response, rgComp)
+	if respItem == nil {
+		return nil
+	}
+	itemPrefill.Response = respItem
+	return &itemPrefill
+}
+
+func getFilteredPrefillResponseComp(respItem *studyTypes.ResponseItem, compDef *studyTypes.ItemComponent) *studyTypes.ResponseItem {
+	if compDef == nil || compDef.Key != respItem.Key {
+		return nil
+	}
+
+	filteredItems := []*studyTypes.ResponseItem{}
+	for _, subItem := range respItem.Items {
+		var compForSubItem *studyTypes.ItemComponent
+		for _, c := range compDef.Items {
+			if c.Key == subItem.Key {
+				compForSubItem = &c
+				break
+			}
+		}
+
+		if compForSubItem == nil {
+			slog.Debug("Prefill item has no existing slot", slog.String("responseItemKey", subItem.Key))
+			continue
+		}
+		subItem = getFilteredPrefillResponseComp(subItem, compForSubItem)
+		if subItem == nil {
+			continue
+		}
+		filteredItems = append(filteredItems, subItem)
+	}
+	respItem.Items = filteredItems
+	return respItem
 }
 
 func GetLinkingCode(instanceID string, studyKey string, profileID string, key string) (value string, err error) {
