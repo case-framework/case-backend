@@ -226,6 +226,8 @@ func GetAssignedSurveyWithContext(instanceID string, studyKey string, surveyKey 
 		slog.Error("error resolving prefill rules", slog.String("error", err.Error()))
 		return
 	}
+	// remove non existing prefill slots
+	prefill = removeNonExistingPrefillSlots(prefill, surveyDef)
 
 	surveyDef.ContextRules = nil
 	surveyDef.PrefillRules = nil
@@ -486,6 +488,44 @@ func resolvePrefillRules(instanceID string, studyKey string, participantID strin
 		}
 	}
 	return prefills, nil
+}
+
+func removeNonExistingPrefillSlots(prefills *studyTypes.SurveyResponse, surveyDef *studyTypes.Survey) *studyTypes.SurveyResponse {
+	if prefills == nil {
+		return nil
+	}
+
+	prefillResps := []studyTypes.SurveyItemResponse{}
+	for _, item := range prefills.Responses {
+		// has survey item been removed?
+		itemDef := findSurveyItemDef(&surveyDef.SurveyDefinition, item.Key)
+		if itemDef == nil {
+			slog.Debug("Prefill item not found in definition", slog.String("itemKey", item.Key))
+			continue
+		}
+
+		// TODO: has slot been removed?
+
+		prefillResps = append(prefillResps, item)
+	}
+
+	prefills.Responses = prefillResps
+	return prefills
+}
+
+func findSurveyItemDef(item *studyTypes.SurveyItem, key string) *studyTypes.SurveyItem {
+	if item == nil {
+		return nil
+	}
+	if item.Key == key {
+		return item
+	}
+	for _, itemDef := range item.Items {
+		if strings.HasPrefix(key, itemDef.Key) {
+			return findSurveyItemDef(&itemDef, key)
+		}
+	}
+	return nil
 }
 
 func GetLinkingCode(instanceID string, studyKey string, profileID string, key string) (value string, err error) {
