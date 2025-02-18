@@ -504,9 +504,14 @@ func removeNonExistingPrefillSlots(prefills *studyTypes.SurveyResponse, surveyDe
 			continue
 		}
 
-		// TODO: has slot been removed?
+		// has slot been removed?
+		filteredItem := filterNonExistingSlots(item, itemDef)
+		if filteredItem == nil {
+			slog.Debug("Prefill item has no slots", slog.String("itemKey", item.Key))
+			continue
+		}
 
-		prefillResps = append(prefillResps, item)
+		prefillResps = append(prefillResps, *filteredItem)
 	}
 
 	prefills.Responses = prefillResps
@@ -526,6 +531,59 @@ func findSurveyItemDef(item *studyTypes.SurveyItem, key string) *studyTypes.Surv
 		}
 	}
 	return nil
+}
+
+func filterNonExistingSlots(itemPrefill studyTypes.SurveyItemResponse, itemDef *studyTypes.SurveyItem) *studyTypes.SurveyItemResponse {
+	if itemDef.Components == nil {
+		return nil
+	}
+	var rgComp *studyTypes.ItemComponent
+	for _, comp := range itemDef.Components.Items {
+		if comp.Role == "responseGroup" {
+			rgComp = &comp
+			break
+		}
+	}
+
+	if rgComp == nil {
+		return nil
+	}
+
+	respItem := getFilteredPrefillResponseComp(itemPrefill.Response, rgComp)
+	if respItem == nil {
+		return nil
+	}
+	itemPrefill.Response = respItem
+	return &itemPrefill
+}
+
+func getFilteredPrefillResponseComp(respItem *studyTypes.ResponseItem, compDef *studyTypes.ItemComponent) *studyTypes.ResponseItem {
+	if compDef == nil || compDef.Key != respItem.Key {
+		return nil
+	}
+
+	filteredItems := []*studyTypes.ResponseItem{}
+	for _, subItem := range respItem.Items {
+		var compForSubItem *studyTypes.ItemComponent
+		for _, c := range compDef.Items {
+			if c.Key == subItem.Key {
+				compForSubItem = &c
+				break
+			}
+		}
+
+		if compForSubItem == nil {
+			slog.Debug("Prefill item has no existing slot", slog.String("responseItemKey", subItem.Key))
+			continue
+		}
+		subItem = getFilteredPrefillResponseComp(subItem, compForSubItem)
+		if subItem == nil {
+			continue
+		}
+		filteredItems = append(filteredItems, subItem)
+	}
+	respItem.Items = filteredItems
+	return respItem
 }
 
 func GetLinkingCode(instanceID string, studyKey string, profileID string, key string) (value string, err error) {
