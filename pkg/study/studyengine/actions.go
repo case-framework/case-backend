@@ -185,7 +185,7 @@ func updateStudyStatusAction(action studyTypes.Expression, oldState ActionData, 
 		Event:            event,
 		ParticipantState: newState.PState,
 	}
-	k, err := EvalContext.expressionArgResolver(action.Data[0])
+	k, err := EvalContext.ExpressionArgResolver(action.Data[0])
 	if err != nil {
 		return newState, err
 	}
@@ -222,11 +222,11 @@ func updateFlagAction(action studyTypes.Expression, oldState ActionData, event S
 		Event:            event,
 		ParticipantState: newState.PState,
 	}
-	k, err := EvalContext.expressionArgResolver(action.Data[0])
+	k, err := EvalContext.ExpressionArgResolver(action.Data[0])
 	if err != nil {
 		return newState, err
 	}
-	v, err := EvalContext.expressionArgResolver(action.Data[1])
+	v, err := EvalContext.ExpressionArgResolver(action.Data[1])
 	if err != nil {
 		return newState, err
 	}
@@ -268,7 +268,7 @@ func removeFlagAction(action studyTypes.Expression, oldState ActionData, event S
 		Event:            event,
 		ParticipantState: newState.PState,
 	}
-	k, err := EvalContext.expressionArgResolver(action.Data[0])
+	k, err := EvalContext.ExpressionArgResolver(action.Data[0])
 	if err != nil {
 		return newState, err
 	}
@@ -298,7 +298,7 @@ func setLinkingCodeAction(action studyTypes.Expression, oldState ActionData, eve
 		Event:            event,
 		ParticipantState: newState.PState,
 	}
-	k, err := EvalContext.expressionArgResolver(action.Data[0])
+	k, err := EvalContext.ExpressionArgResolver(action.Data[0])
 	if err != nil {
 		return newState, err
 	}
@@ -308,7 +308,7 @@ func setLinkingCodeAction(action studyTypes.Expression, oldState ActionData, eve
 		return newState, errors.New("could not parse key")
 	}
 
-	v, err := EvalContext.expressionArgResolver(action.Data[1])
+	v, err := EvalContext.ExpressionArgResolver(action.Data[1])
 	if err != nil {
 		return newState, err
 	}
@@ -340,7 +340,7 @@ func deleteLinkingCodeAction(action studyTypes.Expression, oldState ActionData, 
 			Event:            event,
 			ParticipantState: newState.PState,
 		}
-		k, err := EvalContext.expressionArgResolver(action.Data[0])
+		k, err := EvalContext.ExpressionArgResolver(action.Data[0])
 		if err != nil {
 			return newState, err
 		}
@@ -372,19 +372,19 @@ func addNewSurveyAction(action studyTypes.Expression, oldState ActionData, event
 		Event:            event,
 		ParticipantState: newState.PState,
 	}
-	k, err := EvalContext.expressionArgResolver(action.Data[0])
+	k, err := EvalContext.ExpressionArgResolver(action.Data[0])
 	if err != nil {
 		return newState, err
 	}
-	start, err := EvalContext.expressionArgResolver(action.Data[1])
+	start, err := EvalContext.ExpressionArgResolver(action.Data[1])
 	if err != nil {
 		return newState, err
 	}
-	end, err := EvalContext.expressionArgResolver(action.Data[2])
+	end, err := EvalContext.ExpressionArgResolver(action.Data[2])
 	if err != nil {
 		return newState, err
 	}
-	c, err := EvalContext.expressionArgResolver(action.Data[3])
+	c, err := EvalContext.ExpressionArgResolver(action.Data[3])
 	if err != nil {
 		return newState, err
 	}
@@ -432,11 +432,11 @@ func removeSurveyByKey(action studyTypes.Expression, oldState ActionData, event 
 		Event:            event,
 		ParticipantState: newState.PState,
 	}
-	k, err := EvalContext.expressionArgResolver(action.Data[0])
+	k, err := EvalContext.ExpressionArgResolver(action.Data[0])
 	if err != nil {
 		return newState, err
 	}
-	pos, err := EvalContext.expressionArgResolver(action.Data[1])
+	pos, err := EvalContext.ExpressionArgResolver(action.Data[1])
 	if err != nil {
 		return newState, err
 	}
@@ -491,7 +491,7 @@ func removeSurveysByKey(action studyTypes.Expression, oldState ActionData, event
 		Event:            event,
 		ParticipantState: newState.PState,
 	}
-	k, err := EvalContext.expressionArgResolver(action.Data[0])
+	k, err := EvalContext.ExpressionArgResolver(action.Data[0])
 	if err != nil {
 		return newState, err
 	}
@@ -522,11 +522,11 @@ func addMessage(action studyTypes.Expression, oldState ActionData, event StudyEv
 		Event:            event,
 		ParticipantState: newState.PState,
 	}
-	arg1, err := EvalContext.expressionArgResolver(action.Data[0])
+	arg1, err := EvalContext.ExpressionArgResolver(action.Data[0])
 	if err != nil {
 		return newState, err
 	}
-	arg2, err := EvalContext.expressionArgResolver(action.Data[1])
+	arg2, err := EvalContext.ExpressionArgResolver(action.Data[1])
 	if err != nil {
 		return newState, err
 	}
@@ -568,7 +568,7 @@ func removeMessagesByType(action studyTypes.Expression, oldState ActionData, eve
 		Event:            event,
 		ParticipantState: newState.PState,
 	}
-	k, err := EvalContext.expressionArgResolver(action.Data[0])
+	k, err := EvalContext.ExpressionArgResolver(action.Data[0])
 	if err != nil {
 		return newState, err
 	}
@@ -599,7 +599,7 @@ func notifyResearcher(action studyTypes.Expression, oldState ActionData, event S
 		Event:            event,
 		ParticipantState: newState.PState,
 	}
-	k, err := EvalContext.expressionArgResolver(action.Data[0])
+	k, err := EvalContext.ExpressionArgResolver(action.Data[0])
 	if err != nil {
 		return newState, err
 	}
@@ -612,11 +612,11 @@ func notifyResearcher(action studyTypes.Expression, oldState ActionData, event S
 	payload := map[string]string{}
 
 	for i := 1; i < len(action.Data)-1; i = i + 2 {
-		k, err := EvalContext.expressionArgResolver(action.Data[i])
+		k, err := EvalContext.ExpressionArgResolver(action.Data[i])
 		if err != nil {
 			return newState, err
 		}
-		v, err := EvalContext.expressionArgResolver(action.Data[i+1])
+		v, err := EvalContext.ExpressionArgResolver(action.Data[i+1])
 		if err != nil {
 			return newState, err
 		}
@@ -656,7 +656,7 @@ func initReport(action studyTypes.Expression, oldState ActionData, event StudyEv
 		Event:            event,
 		ParticipantState: newState.PState,
 	}
-	k, err := EvalContext.expressionArgResolver(action.Data[0])
+	k, err := EvalContext.ExpressionArgResolver(action.Data[0])
 	if err != nil {
 		return newState, err
 	}
@@ -684,7 +684,7 @@ func updateReportData(action studyTypes.Expression, oldState ActionData, event S
 		Event:            event,
 		ParticipantState: newState.PState,
 	}
-	k, err := EvalContext.expressionArgResolver(action.Data[0])
+	k, err := EvalContext.ExpressionArgResolver(action.Data[0])
 	if err != nil {
 		slog.Error("unexpected error during action", slog.String("action", action.Name), slog.String("error", err.Error()))
 		return newState, err
@@ -706,7 +706,7 @@ func updateReportData(action studyTypes.Expression, oldState ActionData, event S
 	}
 
 	// Get attribute Key
-	a, err := EvalContext.expressionArgResolver(action.Data[1])
+	a, err := EvalContext.ExpressionArgResolver(action.Data[1])
 	if err != nil {
 		slog.Debug("error during action", slog.String("action", action.Name), slog.String("error", err.Error()))
 		return newState, err
@@ -717,7 +717,7 @@ func updateReportData(action studyTypes.Expression, oldState ActionData, event S
 	}
 
 	// Get value
-	v, err := EvalContext.expressionArgResolver(action.Data[2])
+	v, err := EvalContext.ExpressionArgResolver(action.Data[2])
 	if err != nil {
 		slog.Debug("error during action", slog.String("action", action.Name), slog.String("error", err.Error()))
 		return newState, err
@@ -726,7 +726,7 @@ func updateReportData(action studyTypes.Expression, oldState ActionData, event S
 	dType := ""
 	if len(action.Data) > 3 {
 		// Set dtype
-		d, err := EvalContext.expressionArgResolver(action.Data[3])
+		d, err := EvalContext.ExpressionArgResolver(action.Data[3])
 		if err != nil {
 			return newState, err
 		}
@@ -785,7 +785,7 @@ func removeReportData(action studyTypes.Expression, oldState ActionData, event S
 		Event:            event,
 		ParticipantState: newState.PState,
 	}
-	k, err := EvalContext.expressionArgResolver(action.Data[0])
+	k, err := EvalContext.ExpressionArgResolver(action.Data[0])
 	if err != nil {
 		return newState, err
 	}
@@ -803,7 +803,7 @@ func removeReportData(action studyTypes.Expression, oldState ActionData, event S
 	}
 
 	// Get attribute Key
-	a, err := EvalContext.expressionArgResolver(action.Data[1])
+	a, err := EvalContext.ExpressionArgResolver(action.Data[1])
 	if err != nil {
 		return newState, err
 	}
@@ -838,7 +838,7 @@ func cancelReport(action studyTypes.Expression, oldState ActionData, event Study
 		Event:            event,
 		ParticipantState: newState.PState,
 	}
-	k, err := EvalContext.expressionArgResolver(action.Data[0])
+	k, err := EvalContext.ExpressionArgResolver(action.Data[0])
 	if err != nil {
 		return newState, err
 	}
@@ -865,7 +865,7 @@ func removeConfidentialResponseByKey(action studyTypes.Expression, oldState Acti
 		Event:            event,
 		ParticipantState: newState.PState,
 	}
-	k, err := EvalContext.expressionArgResolver(action.Data[0])
+	k, err := EvalContext.ExpressionArgResolver(action.Data[0])
 	if err != nil {
 		return newState, err
 	}
@@ -905,7 +905,7 @@ func externalEventHandler(action studyTypes.Expression, oldState ActionData, eve
 		Event:            event,
 		ParticipantState: newState.PState,
 	}
-	k, err := EvalContext.expressionArgResolver(action.Data[0])
+	k, err := EvalContext.ExpressionArgResolver(action.Data[0])
 	if err != nil {
 		return newState, err
 	}
@@ -923,7 +923,7 @@ func externalEventHandler(action studyTypes.Expression, oldState ActionData, eve
 
 	pathname := ""
 	if len(action.Data) > 1 {
-		arg1, err := EvalContext.expressionArgResolver(action.Data[1])
+		arg1, err := EvalContext.ExpressionArgResolver(action.Data[1])
 		if err != nil {
 			return newState, err
 		}
@@ -994,7 +994,7 @@ func removeStudyCode(action studyTypes.Expression, oldState ActionData, event St
 		Event:            event,
 		ParticipantState: newState.PState,
 	}
-	arg1, err := EvalContext.expressionArgResolver(action.Data[0])
+	arg1, err := EvalContext.ExpressionArgResolver(action.Data[0])
 	if err != nil {
 		return newState, err
 	}
@@ -1004,7 +1004,7 @@ func removeStudyCode(action studyTypes.Expression, oldState ActionData, event St
 		return newState, errors.New("could not parse arguments")
 	}
 
-	arg2, err := EvalContext.expressionArgResolver(action.Data[1])
+	arg2, err := EvalContext.ExpressionArgResolver(action.Data[1])
 	if err != nil {
 		return newState, err
 	}

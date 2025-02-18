@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/case-framework/case-backend/pkg/study/studyengine"
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -347,7 +348,7 @@ func resolveContextRules(instanceID string, studyKey string, pState studyTypes.P
 }
 
 func resolvePrefillRules(instanceID string, studyKey string, participantID string, rules []studyTypes.Expression) (prefills *studyTypes.SurveyResponse, err error) {
-	if rules == nil || len(rules) < 1 {
+	if len(rules) < 1 {
 		return nil, nil
 	}
 
@@ -427,32 +428,46 @@ func resolvePrefillRules(instanceID string, studyKey string, participantID strin
 			} else {
 				prefills.Responses = append(prefills.Responses, prefillItem)
 			}
-		case "GET_LAST_SURVEY_ITEM":
-			if len(rule.Data) < 2 {
-				slog.Error("GET_LAST_SURVEY_ITEM must have at least two arguments")
+		case "PREFILL_ITEM_WITH_LAST_RESPONSE":
+			if len(rule.Data) < 1 {
+				slog.Error("PREFILL_ITEM_WITH_LAST_RESPONSE must have at least one argument")
 				continue
 			}
 			if participantID == "" {
 				slog.Error("participantID is required")
 				continue
 			}
-			surveyKey := rule.Data[0].Str
-			itemKey := rule.Data[1].Str
+
+			itemKey := rule.Data[0].Str
+			surveyKey := strings.Split(itemKey, ".")[0]
 			since := int64(0)
-			if len(rule.Data) == 3 {
-				// look up responses that are not older than:
-				since = time.Now().Unix() - int64(rule.Data[2].Num)
+			if len(rule.Data) >= 2 {
+				timeFilter := rule.Data[1]
+
+				expCtx := studyengine.EvalContext{}
+				resolvedTimeFilter, err := expCtx.ExpressionArgResolver(timeFilter)
+				if err != nil {
+					slog.Error("error resolving time filter", slog.String("surveyKey", surveyKey), slog.String("itemKey", itemKey), slog.String("error", err.Error()))
+					continue
+				}
+
+				val, ok := resolvedTimeFilter.(float64)
+				if !ok {
+					slog.Error("time filter is not a number", slog.String("surveyKey", surveyKey), slog.String("itemKey", itemKey))
+					continue
+				}
+				since = int64(val)
+				slog.Debug("prefill with last response later than", slog.String("surveyKey", surveyKey), slog.String("itemKey", itemKey), slog.String("since", time.Unix(since, 0).String()))
 			}
 
 			previousResp, ok := lastSurveyCache[surveyKey]
 			if !ok {
 				filter := bson.M{
 					"participantID": participantID,
-					"surveyKey":     surveyKey,
+					"key":           surveyKey,
 					"arrivedAt":     bson.M{"$gt": since},
 				}
 				resps, _, err := studyDBService.GetResponses(instanceID, studyKey, filter, bson.M{"arrivedAt": -1}, 1, 1)
-
 				if err != nil || len(resps) < 1 {
 					continue
 				}
