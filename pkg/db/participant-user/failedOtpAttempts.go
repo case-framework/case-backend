@@ -1,6 +1,7 @@
 package participantuser
 
 import (
+	"log/slog"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -20,6 +21,11 @@ type FailedOtpAttempt struct {
 func (dbService *ParticipantUserDBService) CreateIndexForFailedOtpAttempts(instanceID string) error {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
+
+	if _, err := dbService.collectionFailedOtpAttempts(instanceID).Indexes().DropAll(ctx); err != nil {
+		slog.Error("Error dropping indexes for FailedOtpAttempts", slog.String("error", err.Error()))
+	}
+
 	_, err := dbService.collectionFailedOtpAttempts(instanceID).Indexes().CreateMany(
 		ctx, []mongo.IndexModel{
 			{

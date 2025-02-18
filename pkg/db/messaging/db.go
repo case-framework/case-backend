@@ -107,6 +107,10 @@ func (dbService *MessagingDBService) ensureIndexes() error {
 		defer cancel()
 
 		// Email Templates
+		if _, err := dbService.collectionEmailTemplates(instanceID).Indexes().DropAll(ctx); err != nil {
+			slog.Error("Error dropping indexes for email templates: ", slog.String("error", err.Error()))
+		}
+
 		_, err := dbService.collectionEmailTemplates(instanceID).Indexes().CreateOne(
 			ctx,
 			// index unique on messageType and studyKey combo:

@@ -21,6 +21,11 @@ func (dbService *ManagementUserDBService) collectionServiceUserAPIKeys(instanceI
 func (dbService *ManagementUserDBService) createIndexForServiceUserAPIKeys(instanceID string) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
+
+	if _, err := dbService.collectionServiceUserAPIKeys(instanceID).Indexes().DropAll(ctx); err != nil {
+		slog.Error("Error dropping indexes for service user API keys: ", slog.String("error", err.Error()))
+	}
+
 	_, err := dbService.collectionServiceUserAPIKeys(instanceID).Indexes().CreateMany(
 		ctx,
 		[]mongo.IndexModel{

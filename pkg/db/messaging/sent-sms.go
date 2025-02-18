@@ -1,6 +1,7 @@
 package messaging
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/messaging/types"
@@ -12,6 +13,10 @@ import (
 func (dbService *MessagingDBService) CreateSentSMSIndex(instanceID string) error {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
+
+	if _, err := dbService.collectionSentSMS(instanceID).Indexes().DropAll(ctx); err != nil {
+		slog.Error("Error dropping indexes for sent SMS: ", slog.String("error", err.Error()))
+	}
 
 	_, err := dbService.collectionSentSMS(instanceID).Indexes().CreateMany(
 		ctx, []mongo.IndexModel{

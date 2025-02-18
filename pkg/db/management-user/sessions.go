@@ -1,14 +1,36 @@
 package managementuser
 
 import (
+	"log/slog"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func (dbService *ManagementUserDBService) collectionSessions(instanceID string) *mongo.Collection {
 	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_SESSIONS)
+}
+
+func (dbService *ManagementUserDBService) createIndexForSessions(instanceID string) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	if _, err := dbService.collectionSessions(instanceID).Indexes().DropAll(ctx); err != nil {
+		slog.Error("Error dropping indexes for sessions", slog.String("error", err.Error()))
+	}
+
+	_, err := dbService.collectionSessions(instanceID).Indexes().CreateMany(
+		ctx, []mongo.IndexModel{
+			{
+				Keys:    bson.D{{Key: "createdAt", Value: 1}},
+				Options: options.Index().SetExpireAfterSeconds(REMOVE_SESSIONS_AFTER),
+			},
+		},
+	)
+	return err
 }
 
 // Session represents a user session, created when a user logs in

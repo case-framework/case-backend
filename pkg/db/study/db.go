@@ -141,6 +141,10 @@ func (dbService *StudyDBService) ensureIndexes() error {
 		defer cancel()
 
 		// task queue: auto delete on creation date
+		if _, err := dbService.collectionTaskQueue(instanceID).Indexes().DropAll(ctx); err != nil {
+			slog.Error("Error dropping indexes for task queue", slog.String("error", err.Error()))
+		}
+
 		_, err := dbService.collectionTaskQueue(instanceID).Indexes().CreateOne(
 			ctx,
 			mongo.IndexModel{
@@ -159,6 +163,10 @@ func (dbService *StudyDBService) ensureIndexes() error {
 		}
 
 		// index on confidentialIDMap
+		if _, err := dbService.collectionConfidentialIDMap(instanceID).Indexes().DropAll(ctx); err != nil {
+			slog.Error("Error dropping indexes for confidentialIDMap", slog.String("error", err.Error()))
+		}
+
 		_, err = dbService.collectionConfidentialIDMap(instanceID).Indexes().CreateOne(
 			ctx,
 			mongo.IndexModel{

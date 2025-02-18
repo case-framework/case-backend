@@ -1,9 +1,35 @@
 package managementuser
 
 import (
+	"log/slog"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
+
+func (dbService *ManagementUserDBService) createIndexForPermissions(instanceID string) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	if _, err := dbService.collectionPermissions(instanceID).Indexes().DropAll(ctx); err != nil {
+		slog.Error("Error dropping indexes for permissions: ", slog.String("error", err.Error()))
+	}
+
+	_, err := dbService.collectionPermissions(instanceID).Indexes().CreateOne(
+		ctx,
+		mongo.IndexModel{
+			Keys: bson.D{
+				{Key: "subjectID", Value: 1},
+				{Key: "subjectType", Value: 1},
+				{Key: "resourceType", Value: 1},
+				{Key: "resourceID", Value: 1},
+				{Key: "action", Value: 1},
+			},
+		},
+	)
+	return err
+}
 
 // Create permission
 func (dbService *ManagementUserDBService) CreatePermission(

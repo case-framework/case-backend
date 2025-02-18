@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/db"
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -90,48 +89,20 @@ func (dbService *ManagementUserDBService) getContext() (ctx context.Context, can
 func (dbService *ManagementUserDBService) ensureIndexes() error {
 	slog.Debug("Ensuring indexes for management user DB")
 	for _, instanceID := range dbService.InstanceIDs {
-		ctx, cancel := dbService.getContext()
-		defer cancel()
 
 		// create unique index for sub
-		_, err := dbService.collectionManagementUsers(instanceID).Indexes().CreateOne(
-			ctx,
-			mongo.IndexModel{
-				Keys:    bson.D{{Key: "sub", Value: 1}},
-				Options: options.Index().SetUnique(true),
-			},
-		)
-		if err != nil {
+		if err := dbService.createIndexForManagementUsers(instanceID); err != nil {
 			slog.Error("Error creating unique index for sub in userDB.management_users", slog.String("error", err.Error()))
 		}
 
 		// create index for permissions
-		_, err = dbService.collectionPermissions(instanceID).Indexes().CreateOne(
-			ctx,
-			mongo.IndexModel{
-				Keys: bson.D{
-					{Key: "subjectID", Value: 1},
-					{Key: "subjectType", Value: 1},
-					{Key: "resourceType", Value: 1},
-					{Key: "resourceID", Value: 1},
-					{Key: "action", Value: 1},
-				},
-			},
-		)
-		if err != nil {
+		if err := dbService.createIndexForPermissions(instanceID); err != nil {
 			slog.Error("Error creating index for permissions in userDB.permissions", slog.String("error", err.Error()))
 		}
 
 		// create index for sessions
-		_, err = dbService.collectionSessions(instanceID).Indexes().CreateOne(
-			ctx,
-			mongo.IndexModel{
-				Keys:    bson.D{{Key: "createdAt", Value: 1}},
-				Options: options.Index().SetExpireAfterSeconds(REMOVE_SESSIONS_AFTER),
-			},
-		)
-		if err != nil {
-			slog.Error("Error creating index for createdAt in userDB.sessions", slog.String("error", err.Error()))
+		if err := dbService.createIndexForSessions(instanceID); err != nil {
+			slog.Error("Error creating index for userDB.sessions: ", slog.String("error", err.Error()))
 		}
 
 		dbService.createIndexForServiceUserAPIKeys(instanceID)
