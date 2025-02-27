@@ -49,13 +49,10 @@ func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
 		// TODO: delete files
 		// TODO: file upload
 
-		// reports:
-		// TODO: get reports reports/studyKey - query for profileIDs, report key, page, limit, filter
-
 		participantInfoGroup.GET("/linking-code", h.getLinkingCode) // ?pid=profileID&key=key
-
 		participantInfoGroup.GET("/responses", h.getStudyResponsesForProfile)
 		participantInfoGroup.GET("/submission-history", h.getSubmissionHistory)
+		participantInfoGroup.GET("/reports", h.getReports) // ?pid=profileID&limit=10&page=1&filter=
 
 	}
 
@@ -590,6 +587,55 @@ func (h *HttpEndpoints) submitTempParticipantResponse(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"assignedSurveys": result})
+}
+
+func (h *HttpEndpoints) getReports(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+	studyKey := c.Param("studyKey")
+	pid := c.DefaultQuery("pid", "")
+
+	slog.Info("getReports", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("subject", token.Subject), slog.String("pid", token.ProfileID))
+
+	if !h.checkProfileBelongsToUser(token.InstanceID, token.Subject, pid) {
+		slog.Warn("profile not found", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("profileID", pid))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "profile not found"})
+		return
+	}
+
+	query, err := apihelpers.ParsePaginatedQueryFromCtx(c)
+	if err != nil {
+		slog.Error("error parsing query", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "error parsing query"})
+		return
+	}
+
+	study, err := h.studyDBConn.GetStudy(token.InstanceID, studyKey)
+	if err != nil {
+		slog.Error("failed to get study", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study"})
+		return
+	}
+
+	participantID, _, err := studyService.ComputeParticipantIDs(study, pid)
+	if err != nil {
+		slog.Error("Error computing participant IDs", slog.String("instanceID", token.InstanceID), slog.String("studyKey", study.Key), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error computing participant IDs"})
+		return
+	}
+
+	filter := query.Filter
+	filter["participantID"] = participantID
+	result, pageInfos, err := h.studyDBConn.GetReports(token.InstanceID, studyKey, filter, query.Page, query.Limit)
+	if err != nil {
+		slog.Error("error getting reports", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting reports"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"reports":    result,
+		"pagination": pageInfos,
+	})
 }
 
 func (h *HttpEndpoints) getLinkingCode(c *gin.Context) {
