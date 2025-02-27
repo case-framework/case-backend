@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
@@ -883,13 +884,14 @@ func (h *HttpEndpoints) verifyOTP(c *gin.Context) {
 	}
 
 	// user management method to verify OTP
+	code := strings.TrimSpace(req.Code)
 	otp, err := usermanagement.VerifyOTP(
 		token.InstanceID,
 		token.Subject,
-		req.Code,
+		code,
 	)
 	if err != nil {
-		slog.Warn("failed to verify OTP", slog.String("error", err.Error()))
+		slog.Warn("failed to verify OTP", slog.String("error", err.Error()), slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
 		if err := h.userDBConn.AddFailedOtpAttempt(token.InstanceID, token.Subject); err != nil {
 			slog.Error("failed to add failed otp attempt", slog.String("error", err.Error()))
 		}
