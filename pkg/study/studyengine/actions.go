@@ -76,6 +76,8 @@ func ActionEval(action studyTypes.Expression, oldState ActionData, event StudyEv
 		newState, err = externalEventHandler(action, oldState, event)
 	case "REMOVE_STUDY_CODE":
 		newState, err = removeStudyCode(action, oldState, event)
+	case "DRAW_STUDY_CODE_AS_LINKING_CODE":
+		newState, err = drawStudyCodeAsLinkingCode(action, oldState, event)
 	default:
 		newState = oldState
 		err = errors.New("action name not known")
@@ -1018,5 +1020,67 @@ func removeStudyCode(action studyTypes.Expression, oldState ActionData, event St
 	if err != nil {
 		slog.Error("unexpected error during action", slog.String("action", action.Name), slog.String("error", err.Error()))
 	}
+	return
+}
+
+func drawStudyCodeAsLinkingCode(action studyTypes.Expression, oldState ActionData, event StudyEvent) (newState ActionData, err error) {
+	newState = oldState
+
+	if len(action.Data) < 1 {
+		return newState, errors.New("DRAW_STUDY_CODE_AS_LINKING_CODE must have at least one argument")
+	}
+
+	EvalContext := EvalContext{
+		Event:            event,
+		ParticipantState: newState.PState,
+	}
+	arg1, err := EvalContext.ExpressionArgResolver(action.Data[0])
+	if err != nil {
+		return newState, err
+	}
+
+	listKey, ok1 := arg1.(string)
+	if !ok1 {
+		return newState, errors.New("could not parse arguments")
+	}
+
+	linkingCodeKey := listKey
+	if len(action.Data) > 1 {
+		arg2, err := EvalContext.ExpressionArgResolver(action.Data[1])
+
+		if err != nil {
+			return newState, err
+		}
+		var ok2 bool
+		linkingCodeKey, ok2 = arg2.(string)
+		if !ok2 {
+			return newState, errors.New("could not parse arguments")
+		}
+	}
+
+	if newState.PState.LinkingCodes == nil {
+		newState.PState.LinkingCodes = map[string]string{}
+	} else {
+		newState.PState.LinkingCodes = make(map[string]string)
+		for k, v := range oldState.PState.LinkingCodes {
+			newState.PState.LinkingCodes[k] = v
+		}
+	}
+
+	// draw code
+	code, err := CurrentStudyEngine.studyDBService.DrawStudyCode(event.InstanceID, event.StudyKey, listKey)
+	if err != nil {
+		slog.Error("unexpected error during action", slog.String("action", action.Name), slog.String("error", err.Error()))
+		return newState, err
+	}
+
+	// if code emptry, remove linking code
+	if code == "" {
+		slog.Debug("linking code is empty, removing")
+		delete(newState.PState.LinkingCodes, linkingCodeKey)
+	} else {
+		newState.PState.LinkingCodes[linkingCodeKey] = code
+	}
+
 	return
 }
