@@ -226,6 +226,10 @@ func (db MockStudyDBService) DeleteStudyCodeListEntry(instanceID string, studyKe
 	return nil
 }
 
+func (db MockStudyDBService) DrawStudyCode(instanceID string, studyKey string, listKey string) (string, error) {
+	return "", nil
+}
+
 func TestEvalCheckConditionForOldResponses(t *testing.T) {
 
 	testResponses := []studyTypes.SurveyResponse{

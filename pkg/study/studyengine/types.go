@@ -38,6 +38,7 @@ type StudyDBService interface {
 	SaveResearcherMessage(instanceID string, studyKey string, message studyTypes.StudyMessage) error
 	StudyCodeListEntryExists(instanceID string, studyKey string, listKey string, code string) (bool, error)
 	DeleteStudyCodeListEntry(instanceID string, studyKey string, listKey string, code string) error
+	DrawStudyCode(instanceID string, studyKey string, listKey string) (string, error)
 }
 
 type ActionData struct {

@@ -1659,20 +1659,32 @@ func (h *HttpEndpoints) removeStudyCodeListEntryHandler(c *gin.Context) {
 	listKey := strings.TrimSpace(c.DefaultQuery("listKey", ""))
 	code := strings.TrimSpace(c.DefaultQuery("code", ""))
 
-	if studyKey == "" || listKey == "" || code == "" {
-		slog.Error("Missing required parameters", slog.String("studyKey", studyKey), slog.String("listKey", listKey), slog.String("code", code))
+	if studyKey == "" || listKey == "" {
+		slog.Error("Missing required parameters", slog.String("studyKey", studyKey), slog.String("listKey", listKey))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required parameters"})
 		return
 	}
 
-	slog.Info("deleting study code list entry", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("listKey", listKey), slog.String("code", code))
+	if code == "" {
+		// remove full list
+		slog.Info("deleting study code list (full)", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("listKey", listKey))
+		err := h.studyDBConn.DeleteStudyCodeListEntries(token.InstanceID, studyKey, listKey)
+		if err != nil {
+			slog.Error("Error deleting study code list", slog.String("error", err.Error()))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	} else {
+		slog.Info("deleting study code list entry", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("listKey", listKey), slog.String("code", code))
 
-	err := h.studyDBConn.DeleteStudyCodeListEntry(token.InstanceID, studyKey, listKey, code)
-	if err != nil {
-		slog.Error("Error deleting study code list entry", slog.String("error", err.Error()))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		err := h.studyDBConn.DeleteStudyCodeListEntry(token.InstanceID, studyKey, listKey, code)
+		if err != nil {
+			slog.Error("Error deleting study code list entry", slog.String("error", err.Error()))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 	}
+
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
