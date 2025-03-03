@@ -8,6 +8,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
+	"github.com/case-framework/case-backend/pkg/study/types"
 	studytypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
@@ -123,4 +124,24 @@ func (dbService *StudyDBService) DeleteStudyCodeListEntry(instanceID string, stu
 
 	_, err := dbService.collectionStudyCodeLists(instanceID).DeleteOne(ctx, filter)
 	return err
+}
+
+func (dbService *StudyDBService) DrawStudyCode(instanceID string, studyKey string, listKey string) (*types.StudyCodeListEntry, error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	filter := bson.M{
+		"studyKey": studyKey,
+		"listKey":  listKey,
+	}
+
+	var result types.StudyCodeListEntry
+	err := dbService.collectionStudyCodeLists(instanceID).FindOneAndDelete(ctx, filter).Decode(&result)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &result, nil
 }
