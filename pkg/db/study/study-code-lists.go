@@ -139,7 +139,7 @@ func (dbService *StudyDBService) DeleteStudyCodeListEntry(instanceID string, stu
 	return err
 }
 
-func (dbService *StudyDBService) DrawStudyCode(instanceID string, studyKey string, listKey string) (*types.StudyCodeListEntry, error) {
+func (dbService *StudyDBService) DrawStudyCode(instanceID string, studyKey string, listKey string) (string, error) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
@@ -152,9 +152,9 @@ func (dbService *StudyDBService) DrawStudyCode(instanceID string, studyKey strin
 	err := dbService.collectionStudyCodeLists(instanceID).FindOneAndDelete(ctx, filter).Decode(&result)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			return nil, nil
+			return "", nil
 		}
-		return nil, err
+		return "", err
 	}
-	return &result, nil
+	return result.Code, nil
 }
