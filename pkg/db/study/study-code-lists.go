@@ -139,6 +139,14 @@ func (dbService *StudyDBService) DeleteStudyCodeListEntry(instanceID string, stu
 	return err
 }
 
+func (dbService *StudyDBService) DeleteStudyCodeListsForStudy(instanceID string, studyKey string) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	_, err := dbService.collectionStudyCodeLists(instanceID).DeleteMany(ctx, bson.M{"studyKey": studyKey})
+	return err
+}
+
 func (dbService *StudyDBService) DrawStudyCode(instanceID string, studyKey string, listKey string) (string, error) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
