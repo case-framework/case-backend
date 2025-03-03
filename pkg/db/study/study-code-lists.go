@@ -112,6 +112,19 @@ func (dbService *StudyDBService) StudyCodeListEntryExists(instanceID string, stu
 	return count > 0, err
 }
 
+func (dbService *StudyDBService) DeleteStudyCodeListEntries(instanceID string, studyKey string, listKey string) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	filter := bson.M{
+		"studyKey": studyKey,
+		"listKey":  listKey,
+	}
+
+	_, err := dbService.collectionStudyCodeLists(instanceID).DeleteMany(ctx, filter)
+	return err
+}
+
 func (dbService *StudyDBService) DeleteStudyCodeListEntry(instanceID string, studyKey string, listKey string, code string) error {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
