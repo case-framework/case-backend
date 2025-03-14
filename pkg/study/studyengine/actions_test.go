@@ -8,6 +8,11 @@ import (
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
+const (
+	ASSIGNED_SURVEY_CATEGORY_PRIO   = "prio"
+	ASSIGNED_SURVEY_CATEGORY_NORMAL = "normal"
+)
+
 func TestActions(t *testing.T) {
 	// Override Now function for testing
 	originalNow := Now
@@ -223,7 +228,7 @@ func TestActions(t *testing.T) {
 				{DType: "str", Str: "testSurveyKey"},
 				{DType: "num", Num: float64(now - 10)},
 				{DType: "num", Num: float64(now + 10)},
-				{DType: "str", Str: studyTypes.ASSIGNED_SURVEY_CATEGORY_NORMAL},
+				{DType: "str", Str: ASSIGNED_SURVEY_CATEGORY_NORMAL},
 			},
 		}
 		newState, err := ActionEval(action, actionData, event)
@@ -251,7 +256,7 @@ func TestActions(t *testing.T) {
 				{DType: "str", Str: "testSurveyKey"},
 				{DType: "num", Num: float64(now - 10)},
 				{DType: "num", Num: float64(now + 10)},
-				{DType: "str", Str: studyTypes.ASSIGNED_SURVEY_CATEGORY_NORMAL},
+				{DType: "str", Str: ASSIGNED_SURVEY_CATEGORY_NORMAL},
 			},
 		}
 		newState, err := ActionEval(action, actionData, event)
@@ -290,7 +295,7 @@ func TestActions(t *testing.T) {
 				{DType: "str", Str: "testSurveyKey1"},
 				{DType: "num", Num: float64(now - 10)},
 				{DType: "num", Num: float64(now + 10)},
-				{DType: "str", Str: studyTypes.ASSIGNED_SURVEY_CATEGORY_NORMAL},
+				{DType: "str", Str: ASSIGNED_SURVEY_CATEGORY_NORMAL},
 			},
 		}
 		newState, err := ActionEval(action, actionData, event)
@@ -343,7 +348,7 @@ func TestActions(t *testing.T) {
 				{DType: "str", Str: "testSurveyKey1"},
 				{DType: "num", Num: float64(now - 10)},
 				{DType: "num", Num: float64(now + 10)},
-				{DType: "str", Str: studyTypes.ASSIGNED_SURVEY_CATEGORY_NORMAL},
+				{DType: "str", Str: ASSIGNED_SURVEY_CATEGORY_NORMAL},
 			},
 		}
 		newState, err := ActionEval(action, actionData, event)
@@ -395,7 +400,7 @@ func TestActions(t *testing.T) {
 				{DType: "str", Str: "testSurveyKey1"},
 				{DType: "num", Num: float64(now - 10)},
 				{DType: "num", Num: float64(now + 10)},
-				{DType: "str", Str: studyTypes.ASSIGNED_SURVEY_CATEGORY_NORMAL},
+				{DType: "str", Str: ASSIGNED_SURVEY_CATEGORY_NORMAL},
 			},
 		}
 		newState, err := ActionEval(action, actionData, event)

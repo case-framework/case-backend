@@ -1,12 +1,5 @@
 package types
 
-const (
-	ASSIGNED_SURVEY_CATEGORY_PRIO   = "prio"
-	ASSIGNED_SURVEY_CATEGORY_NORMAL = "normal"
-	ASSIGNED_SURVEY_CATEGORY_QUICK  = "quick"
-	ASSIGNED_SURVEY_CATEGORY_UPDATE = "update"
-)
-
 type AssignedSurvey struct {
 	StudyKey   string `bson:"studyKey" json:"studyKey"`
 	SurveyKey  string `bson:"surveyKey" json:"surveyKey"`
