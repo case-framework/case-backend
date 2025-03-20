@@ -56,6 +56,23 @@ func (dbService *StudyDBService) GetTaskByID(instanceID string, taskID string) (
 	return task, err
 }
 
+func (dbService *StudyDBService) GetTaskByFilename(instanceID string, filename string) (studyTypes.Task, error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	var task studyTypes.Task
+
+	filter := bson.M{
+		"resultFile": filename,
+	}
+
+	err := dbService.collectionTaskQueue(instanceID).FindOne(ctx, filter).Decode(&task)
+	if err != nil {
+		return task, err
+	}
+	return task, nil
+}
+
 func (dbService *StudyDBService) UpdateTaskTotalCount(instanceID string, taskID string, totalCount int) error {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
