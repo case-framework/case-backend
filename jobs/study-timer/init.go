@@ -39,6 +39,11 @@ type config struct {
 
 		ExternalServices []studyengine.ExternalService `json:"external_services" yaml:"external_services"`
 	} `json:"study_configs" yaml:"study_configs"`
+
+	CleanUpConfig struct {
+		FilestorePath            string `json:"filestore_path" yaml:"filestore_path"`
+		CleanOrphanedTaskResults bool   `json:"clean_orphaned_task_results" yaml:"clean_orphaned_task_results"`
+	} `json:"clean_up_config" yaml:"clean_up_config"`
 }
 
 var conf config
