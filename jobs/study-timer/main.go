@@ -2,6 +2,10 @@ package main
 
 import (
 	"log/slog"
+	"os"
+	"path"
+	"path/filepath"
+	"strings"
 	"time"
 
 	studyservice "github.com/case-framework/case-backend/pkg/study"
@@ -24,6 +28,10 @@ func main() {
 		for _, study := range studies {
 			updateStudyStats(instanceID, study)
 			studyservice.OnStudyTimer(instanceID, &study)
+		}
+
+		if conf.CleanUpConfig.CleanOrphanedTaskResults {
+			cleanUpOrphanedTaskResults(instanceID)
 		}
 	}
 
@@ -59,5 +67,33 @@ func updateStudyStats(instanceID string, study studyTypes.Study) {
 	err = studyDBService.UpdateStudyStats(instanceID, study.Key, stats)
 	if err != nil {
 		slog.Error("Failed to update study stats", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
+	}
+}
+
+func cleanUpOrphanedTaskResults(instanceID string) {
+	slog.Info("Cleaning up orphaned task results (old files)", slog.String("instanceID", instanceID))
+
+	folder := path.Join(conf.CleanUpConfig.FilestorePath, instanceID)
+
+	// get all files in folder recursively
+	files, err := filepath.Glob(folder + "/**/*")
+	if err != nil {
+		slog.Error("Failed to get files", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
+		return
+	}
+
+	for _, file := range files {
+		// check if file is a task result file
+		relativeFilepath := (strings.TrimPrefix(file, path.Clean(conf.CleanUpConfig.FilestorePath)))[1:]
+
+		_, err := studyDBService.GetTaskByFilename(instanceID, relativeFilepath)
+		if err != nil {
+			slog.Info("Task for file not found, removing file", slog.String("reason", err.Error()), slog.String("instanceID", instanceID), slog.String("file", relativeFilepath))
+			err = os.Remove(file)
+			if err != nil {
+				slog.Error("Failed to remove file", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("file", relativeFilepath))
+			}
+			continue
+		}
 	}
 }
