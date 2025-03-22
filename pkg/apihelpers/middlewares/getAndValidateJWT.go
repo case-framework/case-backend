@@ -58,3 +58,26 @@ func GetAndValidateParticipantUserJWTWithIgnoringExpiration(tokenSignKey string)
 		c.Set("validatedToken", parsedToken)
 	}
 }
+
+// Can be used by other services to validate the JWT token of the management users
+func GetAndValidateManagementUserJWT(tokenSignKey string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token, err := extractToken(c)
+		if err != nil {
+			slog.Warn("no Authorization token found")
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.Abort()
+			return
+		}
+
+		// Parse and validate token
+		parsedToken, ok, err := jwthandling.ValidateManagementUserToken(token, tokenSignKey)
+		if err != nil || !ok {
+			slog.Warn("token validation failed")
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "error during token validation"})
+			c.Abort()
+			return
+		}
+		c.Set("validatedToken", parsedToken)
+	}
+}
