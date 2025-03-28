@@ -174,7 +174,7 @@ func (s *WeekDayStrategy) Weekday() int {
 	if s.useWeight {
 		value := rand.Intn(s.weights.total)
 		weekday = s.weights.Lookup(value)
-		fmt.Printf(" %d=>%d ", value, weekday)
+		slog.Debug("Weighted strategy lookup", "value", value, "weekday", weekday)
 	} else {
 		weekday = rand.Intn(7)
 	}
