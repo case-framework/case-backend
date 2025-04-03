@@ -4,6 +4,8 @@ import (
 	"context"
 	"log/slog"
 	"time"
+
+	studyUtils "github.com/case-framework/case-backend/pkg/study/utils"
 )
 
 func main() {
@@ -23,6 +25,17 @@ func main() {
 	for _, rExpTask := range conf.ConfidentialResponsesExports.ExportTasks {
 		slog.Info("Running confidential responses export task", slog.String("instanceID", rExpTask.InstanceID), slog.String("studyKey", rExpTask.StudyKey), slog.String("name", rExpTask.Name))
 		runConfidentialResponsesExportsForTask(rExpTask)
+	}
+
+	// Run cleanup for orphaned task results
+	if conf.CleanUpConfig.CleanOrphanedTaskResults {
+		for _, instanceID := range conf.CleanUpConfig.InstanceIDs {
+			studyUtils.CleanUpOrphanedTaskResults(
+				instanceID,
+				studyDBService,
+				conf.CleanUpConfig.FilestoreRoot,
+			)
+		}
 	}
 
 	if err := studyDBService.DBClient.Disconnect(context.Background()); err != nil {
