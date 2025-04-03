@@ -46,7 +46,7 @@ func runResponseExportsForTask(rExpTask ResponseExportTask) {
 				targetDate := time.Now().Add(
 					time.Duration(-(conf.ResponseExports.RetentionDays - i)) * time.Hour * 24,
 				)
-				generateExportForSurveyForTargetDate(rExpTask.InstanceID, rExpTask.StudyKey, surveyKey, rExpTask.ExportFormat, targetDate, exportFolderPathForTask, parser)
+				generateExportForSurveyForTargetDate(rExpTask.InstanceID, rExpTask.StudyKey, surveyKey, rExpTask.ExportFormat, targetDate, exportFolderPathForTask, parser, rExpTask.CreateEmptyFile)
 			}
 		}
 
@@ -54,11 +54,11 @@ func runResponseExportsForTask(rExpTask ResponseExportTask) {
 		targetDate := time.Now().Add(
 			time.Duration(-1 * time.Hour * 24),
 		)
-		generateExportForSurveyForTargetDate(rExpTask.InstanceID, rExpTask.StudyKey, surveyKey, rExpTask.ExportFormat, targetDate, exportFolderPathForTask, parser)
+		generateExportForSurveyForTargetDate(rExpTask.InstanceID, rExpTask.StudyKey, surveyKey, rExpTask.ExportFormat, targetDate, exportFolderPathForTask, parser, rExpTask.CreateEmptyFile)
 
 		// today
 		targetDate = time.Now()
-		generateExportForSurveyForTargetDate(rExpTask.InstanceID, rExpTask.StudyKey, surveyKey, rExpTask.ExportFormat, targetDate, exportFolderPathForTask, parser)
+		generateExportForSurveyForTargetDate(rExpTask.InstanceID, rExpTask.StudyKey, surveyKey, rExpTask.ExportFormat, targetDate, exportFolderPathForTask, parser, rExpTask.CreateEmptyFile)
 	}
 }
 
@@ -94,7 +94,7 @@ func initResponseParser(instanceID string, studyKey string, surveyKey string, sh
 	return
 }
 
-func generateExportForSurveyForTargetDate(instanceID string, studyKey string, surveyKey string, format string, targetDate time.Time, exportPath string, parser *surveyresponses.ResponseParser) {
+func generateExportForSurveyForTargetDate(instanceID string, studyKey string, surveyKey string, format string, targetDate time.Time, exportPath string, parser *surveyresponses.ResponseParser, createEmptyFile bool) {
 	fileName := responseFileName(targetDate, surveyKey, format)
 	responseFilePath := filepath.Join(exportPath, fileName)
 
@@ -115,7 +115,7 @@ func generateExportForSurveyForTargetDate(instanceID string, studyKey string, su
 		slog.Error("Error getting responses count", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("surveyKey", surveyKey), slog.String("error", err.Error()))
 		return
 	}
-	if count == 0 {
+	if !createEmptyFile && count == 0 {
 		slog.Debug("No responses for target date and survey key, skipping", slog.String("targetDate", targetDate.Format("2006-01-02")), slog.String("surveyKey", surveyKey))
 		return
 	}

@@ -22,13 +22,14 @@ const (
 )
 
 type ResponseExportTask struct {
-	InstanceID   string   `json:"instance_id" yaml:"instance_id"`
-	StudyKey     string   `json:"study_key" yaml:"study_key"`
-	SurveyKeys   []string `json:"survey_keys" yaml:"survey_keys"`
-	ExtraCtxCols []string `json:"extra_context_columns" yaml:"extra_context_columns"`
-	ExportFormat string   `json:"export_format" yaml:"export_format"`
-	Separator    string   `json:"separator" yaml:"separator"`
-	ShortKeys    bool     `json:"short_keys" yaml:"short_keys"`
+	InstanceID      string   `json:"instance_id" yaml:"instance_id"`
+	StudyKey        string   `json:"study_key" yaml:"study_key"`
+	SurveyKeys      []string `json:"survey_keys" yaml:"survey_keys"`
+	ExtraCtxCols    []string `json:"extra_context_columns" yaml:"extra_context_columns"`
+	ExportFormat    string   `json:"export_format" yaml:"export_format"`
+	Separator       string   `json:"separator" yaml:"separator"`
+	ShortKeys       bool     `json:"short_keys" yaml:"short_keys"`
+	CreateEmptyFile bool     `json:"create_empty_file" yaml:"create_empty_file"`
 }
 
 type ConfidentialResponsesExportTask struct {
