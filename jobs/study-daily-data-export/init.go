@@ -61,6 +61,12 @@ type config struct {
 		PreservePreviousFiles bool                              `json:"preserve_previous_files" yaml:"preserve_previous_files"`
 		ExportTasks           []ConfidentialResponsesExportTask `json:"export_tasks" yaml:"export_tasks"`
 	} `json:"conf_resp_exports" yaml:"conf_resp_exports"`
+
+	CleanUpConfig struct {
+		CleanOrphanedTaskResults bool     `json:"clean_orphaned_task_results" yaml:"clean_orphaned_task_results"`
+		FilestoreRoot            string   `json:"filestore_root" yaml:"filestore_root"`
+		InstanceIDs              []string `json:"instance_ids" yaml:"instance_ids"`
+	} `json:"clean_up_config" yaml:"clean_up_config"`
 }
 
 var conf config
