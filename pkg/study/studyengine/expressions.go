@@ -141,6 +141,8 @@ func ExpressionEval(expression studyTypes.Expression, evalCtx EvalContext) (val 
 	// Other
 	case "timestampWithOffset":
 		val, err = evalCtx.timestampWithOffset(expression)
+	case "getTsForNextStartOfMonth":
+		val, err = evalCtx.getTsForNextStartOfMonth(expression)
 	case "getISOWeekForTs":
 		val, err = evalCtx.getISOWeekForTs(expression)
 	case "getTsForNextISOWeek":
@@ -1523,6 +1525,95 @@ func (ctx EvalContext) timestampWithOffset(exp studyTypes.Expression) (t float64
 	}
 
 	t = float64(referenceTime + delta)
+	return
+}
+
+func (ctx EvalContext) getTsForNextStartOfMonth(exp studyTypes.Expression) (t float64, err error) {
+	if len(exp.Data) != 1 && len(exp.Data) != 2 {
+		return t, errors.New("should have one or two arguments")
+	}
+
+	arg1, err1 := ctx.ExpressionArgResolver(exp.Data[0])
+	if err1 != nil {
+		return t, err1
+	}
+
+	var month int
+	// Check if arg1 is a string or a number
+	switch v := arg1.(type) {
+	case float64:
+		month = int(v)
+		if month < 1 || month > 12 {
+			return t, errors.New("month number should be between 1 and 12")
+		}
+	case string:
+		// Convert month name to month number
+		monthStr := strings.ToLower(v)
+		switch monthStr {
+		case "january", "jan":
+			month = 1
+		case "february", "feb":
+			month = 2
+		case "march", "mar":
+			month = 3
+		case "april", "apr":
+			month = 4
+		case "may":
+			month = 5
+		case "june", "jun":
+			month = 6
+		case "july", "jul":
+			month = 7
+		case "august", "aug":
+			month = 8
+		case "september", "sep":
+			month = 9
+		case "october", "oct":
+			month = 10
+		case "november", "nov":
+			month = 11
+		case "december", "dec":
+			month = 12
+		default:
+			return t, errors.New("invalid month name: " + v)
+		}
+	default:
+		return t, errors.New("argument 1 should be a month name (string) or month number (float64)")
+	}
+
+	referenceTime := Now()
+	if len(exp.Data) == 2 {
+		arg2, err2 := ctx.ExpressionArgResolver(exp.Data[1])
+		if err2 != nil {
+			return t, err2
+		}
+		if reflect.TypeOf(arg2).Kind() != reflect.Float64 {
+			return t, errors.New("argument 2 should be resolved as type number (float64)")
+		}
+
+		referenceTime = time.Unix(int64(arg2.(float64)), 0)
+	}
+
+	// Get the first day of the next occurrence of the specified month
+	currentYear := referenceTime.Year()
+	currentMonth := int(referenceTime.Month())
+
+	targetYear := currentYear
+	if currentMonth > month {
+		// If the current month is after the target month, we need to go to next year
+		targetYear++
+	}
+
+	// Create the first day of the target month
+	firstOfMonth := time.Date(targetYear, time.Month(month), 1, 0, 0, 0, 0, referenceTime.Location())
+
+	// If the target month is the current month, but we've already passed the 1st day
+	// we need to go to the next year
+	if currentMonth == month && referenceTime.After(firstOfMonth) {
+		firstOfMonth = time.Date(targetYear+1, time.Month(month), 1, 0, 0, 0, 0, referenceTime.Location())
+	}
+
+	t = float64(firstOfMonth.Unix())
 	return
 }
 

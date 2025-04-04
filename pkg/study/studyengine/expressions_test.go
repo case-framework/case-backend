@@ -2915,6 +2915,123 @@ func TestEvalGetISOWeekForTs(t *testing.T) {
 	})
 }
 
+func TestEvalGetTsForNextStartOfMonth(t *testing.T) {
+
+	t.Run("wrong month name", func(t *testing.T) {
+		exp := studyTypes.Expression{Name: "getTsForNextStartOfMonth", Data: []studyTypes.ExpressionArg{
+			{DType: "str", Str: "wrong"},
+		}}
+		EvalContext := EvalContext{}
+		_, err := ExpressionEval(exp, EvalContext)
+		if err == nil {
+			t.Error("should return type error")
+			return
+		}
+	})
+
+	t.Run("wrong month index", func(t *testing.T) {
+		exp := studyTypes.Expression{Name: "getTsForNextStartOfMonth", Data: []studyTypes.ExpressionArg{
+			{DType: "num", Num: 0},
+		}}
+		EvalContext := EvalContext{}
+		_, err := ExpressionEval(exp, EvalContext)
+		if err == nil {
+			t.Error("should return type error")
+			return
+		}
+	})
+
+	t.Run("wrong reference type", func(t *testing.T) {
+		exp := studyTypes.Expression{Name: "getTsForNextStartOfMonth", Data: []studyTypes.ExpressionArg{
+			{DType: "num", Num: 3},
+			{DType: "str", Str: "test"},
+		}}
+		EvalContext := EvalContext{}
+		_, err := ExpressionEval(exp, EvalContext)
+		if err == nil {
+			t.Error("should return type error")
+			return
+		}
+	})
+
+	t.Run("without reference", func(t *testing.T) {
+		exp := studyTypes.Expression{Name: "getTsForNextStartOfMonth", Data: []studyTypes.ExpressionArg{
+			{DType: "str", Str: "January"},
+		}}
+		EvalContext := EvalContext{}
+		ret, err := ExpressionEval(exp, EvalContext)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err.Error())
+			return
+		}
+		ts := ret.(float64)
+		tsD := time.Unix(int64(ts), 0)
+		refTs := time.Now().AddDate(1, 0, 0)
+		// beginning of the year
+		refTs = time.Date(refTs.Year(), 1, 1, 0, 0, 0, 0, time.Local)
+
+		y_i := refTs.Unix()
+		y := tsD.Unix()
+		if y != y_i {
+			t.Errorf("unexpected value: %d, expected %d", y, y_i)
+		}
+	})
+
+	t.Run("with absolute reference", func(t *testing.T) {
+		refTs := time.Date(2023, 9, 10, 0, 0, 0, 0, time.Local)
+		exp := studyTypes.Expression{Name: "getTsForNextStartOfMonth", Data: []studyTypes.ExpressionArg{
+			{DType: "num", Num: 1},
+			{DType: "num", Num: float64(refTs.Unix())},
+		}}
+		EvalContext := EvalContext{}
+		ret, err := ExpressionEval(exp, EvalContext)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err.Error())
+			return
+		}
+		ts := ret.(float64)
+		tsD := time.Unix(int64(ts), 0)
+		refTs = refTs.AddDate(1, 0, 0)
+		// beginning of the year
+		refTs = time.Date(refTs.Year(), 1, 1, 0, 0, 0, 0, time.Local)
+		y_i := refTs.Unix()
+		y := tsD.Unix()
+		if y != y_i {
+			t.Errorf("unexpected value: %d, expected %d", y, y_i)
+		}
+
+	})
+
+	t.Run("with relative reference", func(t *testing.T) {
+		exp := studyTypes.Expression{Name: "getTsForNextStartOfMonth", Data: []studyTypes.ExpressionArg{
+			{DType: "num", Num: 1},
+			{DType: "exp", Exp: &studyTypes.Expression{
+				Name: "timestampWithOffset",
+				Data: []studyTypes.ExpressionArg{
+					{DType: "num", Num: 0},
+				},
+			}},
+		}}
+		EvalContext := EvalContext{}
+		ret, err := ExpressionEval(exp, EvalContext)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err.Error())
+			return
+		}
+		ts := ret.(float64)
+		tsD := time.Unix(int64(ts), 0)
+		refTs := time.Now().AddDate(1, 0, 0)
+		// beginning of the year
+		refTs = time.Date(refTs.Year(), 1, 1, 0, 0, 0, 0, time.Local)
+
+		y_i := refTs.Unix()
+		y := tsD.Unix()
+		if y != y_i {
+			t.Errorf("unexpected value: %d, expected %d", y, y_i)
+		}
+	})
+}
+
 func TestEvalGetTsForNextISOWeek(t *testing.T) {
 	t.Run("wrong iso week type", func(t *testing.T) {
 		exp := studyTypes.Expression{Name: "getTsForNextISOWeek", Data: []studyTypes.ExpressionArg{
