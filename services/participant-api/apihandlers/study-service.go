@@ -51,6 +51,7 @@ func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
 
 		participantInfoGroup.GET("/linking-code", h.getLinkingCode) // ?pid=profileID&key=key
 		participantInfoGroup.GET("/responses", h.getStudyResponsesForProfile)
+		participantInfoGroup.GET("/confidential-response", h.getConfidentialResponse) // ?pid=profileID&key=key
 		participantInfoGroup.GET("/submission-history", h.getSubmissionHistory)
 		participantInfoGroup.GET("/reports", h.getReports) // ?pid=profileID&limit=10&page=1&filter=
 
@@ -775,6 +776,50 @@ func (h *HttpEndpoints) getStudyResponsesForProfile(c *gin.Context) {
 		"responses":  responses,
 		"pagination": paginationInfo,
 	})
+}
+
+func (h *HttpEndpoints) getConfidentialResponse(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	profileID := c.DefaultQuery("pid", "")
+	key := c.DefaultQuery("key", "")
+
+	if profileID == "" || key == "" {
+		slog.Error("missing required fields", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("profileID", profileID), slog.String("key", key))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing required fields"})
+		return
+	}
+
+	if !h.checkProfileBelongsToUser(token.InstanceID, token.Subject, profileID) {
+		slog.Warn("profile not found", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("profileID", profileID))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "profile not found"})
+		return
+	}
+
+	study, err := h.studyDBConn.GetStudy(token.InstanceID, studyKey)
+	if err != nil {
+		slog.Error("failed to get study", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study"})
+		return
+	}
+
+	_, confPID, err := studyService.ComputeParticipantIDs(study, profileID)
+	if err != nil {
+		slog.Error("Error computing participant IDs", slog.String("instanceID", token.InstanceID), slog.String("studyKey", study.Key), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error computing participant IDs"})
+		return
+	}
+
+	resps, err := h.studyDBConn.FindConfidentialResponses(token.InstanceID, studyKey, confPID, key)
+	if err != nil {
+		slog.Error("failed to get confidential responses", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get confidential responses"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"confidentialResponse": resps})
 }
 
 func (h *HttpEndpoints) getSubmissionHistory(c *gin.Context) {
