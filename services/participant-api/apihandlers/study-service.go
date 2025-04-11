@@ -646,7 +646,7 @@ func (h *HttpEndpoints) getParticipantState(c *gin.Context) {
 	pid := c.DefaultQuery("pid", "")
 
 	if pid == "" {
-		slog.Error("missing required fields", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("pid", pid))
+		slog.Error("missing required fields", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("profileID", pid))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing required fields"})
 		return
 	}
@@ -657,7 +657,7 @@ func (h *HttpEndpoints) getParticipantState(c *gin.Context) {
 		return
 	}
 
-	slog.Info("get participant state", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("subject", token.Subject), slog.String("pid", token.ProfileID))
+	slog.Info("get participant state", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("subject", token.Subject), slog.String("profileID", pid))
 
 	study, err := h.studyDBConn.GetStudy(token.InstanceID, studyKey)
 	if err != nil {
