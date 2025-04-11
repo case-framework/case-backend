@@ -15,13 +15,6 @@ import (
 	studyutils "github.com/case-framework/case-backend/pkg/study/utils"
 )
 
-type ConfidentialResponsesExportEntry struct {
-	ParticipantID string
-	EntryID       string
-	ResponseKey   string
-	Value         string
-}
-
 func runConfidentialResponsesExportsForTask(rExpTask ConfidentialResponsesExportTask) {
 	// ensure there is a folder path for the source (export_path/instance_id/study_key)
 	relativeFolderPath := path.Join(rExpTask.InstanceID, rExpTask.StudyKey)
@@ -48,7 +41,7 @@ func runConfidentialResponsesExportsForTask(rExpTask ConfidentialResponsesExport
 	globalSecret := rExpTask.StudyGlobalSecret
 
 	// export to file (CSV or JSON)
-	results := []ConfidentialResponsesExportEntry{}
+	results := []studyutils.ConfidentialResponsesExportEntry{}
 
 	if err := studyDBService.FindAndExecuteOnConfidentialResponses(
 		context.Background(),
@@ -70,7 +63,7 @@ func runConfidentialResponsesExportsForTask(rExpTask ConfidentialResponsesExport
 				return nil
 			}
 
-			results = append(results, confidentialResponseExport(r, pID, rExpTask.RespKeyFilter)...)
+			results = append(results, studyutils.PrepConfidentialResponseExport(r, pID, rExpTask.RespKeyFilter)...)
 			return nil
 		},
 	); err != nil {
@@ -100,7 +93,7 @@ func confidentialResponsesExportFileName(name string, exportFormat string) strin
 	return strings.Join(parts, "##") + "." + exportFormat
 }
 
-func writeCSV(results []ConfidentialResponsesExportEntry, name string, exportFolderPathForTask string) error {
+func writeCSV(results []studyutils.ConfidentialResponsesExportEntry, name string, exportFolderPathForTask string) error {
 	filename := confidentialResponsesExportFileName(name, "csv")
 	file, err := os.Create(filepath.Join(exportFolderPathForTask, filename))
 	if err != nil {
@@ -127,7 +120,7 @@ func writeCSV(results []ConfidentialResponsesExportEntry, name string, exportFol
 	return nil
 }
 
-func writeJSON(results []ConfidentialResponsesExportEntry, name string, exportFolderPathForTask string) error {
+func writeJSON(results []studyutils.ConfidentialResponsesExportEntry, name string, exportFolderPathForTask string) error {
 	filename := confidentialResponsesExportFileName(name, "json")
 	file, err := os.Create(filepath.Join(exportFolderPathForTask, filename))
 	if err != nil {
@@ -168,38 +161,6 @@ func parseSlots(respItem *studyTypes.ResponseItem, slotKey string) map[string]st
 		}
 	}
 	return parsedResp
-}
-
-func confidentialResponseExport(resp studyTypes.SurveyResponse, realPID string, respKeyFilter []string) []ConfidentialResponsesExportEntry {
-	parsedResp := []ConfidentialResponsesExportEntry{}
-
-	for _, r := range resp.Responses {
-		slotKey := r.Key + "-"
-
-		slots := parseSlots(r.Response, slotKey)
-		for k, v := range slots {
-			if len(respKeyFilter) > 0 && !stringInSlice(k, respKeyFilter) {
-				continue
-			}
-			parsedResp = append(parsedResp, ConfidentialResponsesExportEntry{
-				ParticipantID: realPID,
-				EntryID:       resp.ID.Hex(),
-				ResponseKey:   k,
-				Value:         v,
-			})
-		}
-	}
-
-	return parsedResp
-}
-
-func stringInSlice(a string, list []string) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
-	}
-	return false
 }
 
 func cleanUpConfidentialResponsesExports() {
