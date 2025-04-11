@@ -49,7 +49,8 @@ func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
 		// TODO: delete files
 		// TODO: file upload
 
-		participantInfoGroup.GET("/linking-code", h.getLinkingCode) // ?pid=profileID&key=key
+		participantInfoGroup.GET("/participant-state", h.getParticipantState) // ?pid=profileID
+		participantInfoGroup.GET("/linking-code", h.getLinkingCode)           // ?pid=profileID&key=key
 		participantInfoGroup.GET("/responses", h.getStudyResponsesForProfile)
 		participantInfoGroup.GET("/submission-history", h.getSubmissionHistory)
 		participantInfoGroup.GET("/reports", h.getReports) // ?pid=profileID&limit=10&page=1&filter=
@@ -636,6 +637,56 @@ func (h *HttpEndpoints) getReports(c *gin.Context) {
 		"reports":    result,
 		"pagination": pageInfos,
 	})
+}
+
+func (h *HttpEndpoints) getParticipantState(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	studyKey := c.Param("studyKey")
+	pid := c.DefaultQuery("pid", "")
+
+	if pid == "" {
+		slog.Error("missing required fields", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("pid", pid))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing required fields"})
+		return
+	}
+
+	if !h.checkProfileBelongsToUser(token.InstanceID, token.Subject, pid) {
+		slog.Warn("profile not found", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("profileID", pid))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "profile not found"})
+		return
+	}
+
+	slog.Info("get participant state", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("subject", token.Subject), slog.String("pid", token.ProfileID))
+
+	study, err := h.studyDBConn.GetStudy(token.InstanceID, studyKey)
+	if err != nil {
+		slog.Error("failed to get study", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study"})
+		return
+	}
+
+	participantID, _, err := studyService.ComputeParticipantIDs(study, pid)
+	if err != nil {
+		slog.Error("Error computing participant IDs", slog.String("instanceID", token.InstanceID), slog.String("studyKey", study.Key), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error computing participant IDs"})
+		return
+	}
+
+	result, err := h.studyDBConn.GetParticipantByID(token.InstanceID, studyKey, participantID)
+	if err != nil {
+		slog.Error("error getting pState", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting participant state"})
+		return
+	}
+
+	// to fetch specific linking codes, the specific endpoint should be used
+	result.LinkingCodes = nil
+
+	c.JSON(http.StatusOK, gin.H{
+		"participant": result,
+	})
+
 }
 
 func (h *HttpEndpoints) getLinkingCode(c *gin.Context) {
