@@ -15,6 +15,7 @@ import (
 	surveydefinition "github.com/case-framework/case-backend/pkg/study/exporter/survey-definition"
 	surveyresponses "github.com/case-framework/case-backend/pkg/study/exporter/survey-responses"
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
+	studyutils "github.com/case-framework/case-backend/pkg/study/utils"
 )
 
 func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
@@ -805,7 +806,7 @@ func (h *HttpEndpoints) getConfidentialResponse(c *gin.Context) {
 		return
 	}
 
-	_, confPID, err := studyService.ComputeParticipantIDs(study, profileID)
+	participantID, confPID, err := studyService.ComputeParticipantIDs(study, profileID)
 	if err != nil {
 		slog.Error("Error computing participant IDs", slog.String("instanceID", token.InstanceID), slog.String("studyKey", study.Key), slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error computing participant IDs"})
@@ -819,7 +820,12 @@ func (h *HttpEndpoints) getConfidentialResponse(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"confidentialResponse": resps})
+	confRespExport := []studyutils.ConfidentialResponsesExportEntry{}
+	for _, r := range resps {
+		confRespExport = append(confRespExport, studyutils.PrepConfidentialResponseExport(r, participantID, nil)...)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"confidentialResponse": confRespExport})
 }
 
 func (h *HttpEndpoints) getSubmissionHistory(c *gin.Context) {
