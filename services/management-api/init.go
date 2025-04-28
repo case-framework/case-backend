@@ -226,7 +226,9 @@ func initConfig() Config {
 	}
 
 	// Study global secret
-	conf.StudyConfigs.GlobalSecret = os.Getenv(ENV_STUDY_GLOBAL_SECRET)
+	if studyGlobalSecret := os.Getenv(ENV_STUDY_GLOBAL_SECRET); studyGlobalSecret != "" {
+		conf.StudyConfigs.GlobalSecret = studyGlobalSecret
+	}
 	if conf.StudyConfigs.GlobalSecret == "" {
 		slog.Error("Study global secret not set - configure STUDY_GLOBAL_SECRET env variable.")
 		panic("Study global secret not set")
