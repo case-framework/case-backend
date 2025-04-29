@@ -392,11 +392,11 @@ func addNewSurveyAction(action studyTypes.Expression, oldState ActionData, event
 	}
 
 	surveyKey, ok1 := k.(string)
-	validFrom, ok2 := start.(float64)
-	validUntil, ok3 := end.(float64)
+	validFrom, _ := start.(float64)
+	validUntil, _ := end.(float64)
 	category, ok4 := c.(string)
 
-	if !ok1 || !ok2 || !ok3 || !ok4 {
+	if !ok1 || !ok4 {
 		return newState, errors.New("could not parse arguments")
 	}
 
