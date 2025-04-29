@@ -3,6 +3,7 @@ package apihandlers
 import (
 	"log/slog"
 	"net/http"
+	"net/url"
 	"time"
 
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
@@ -220,6 +221,8 @@ func (h *HttpEndpoints) saveGlobalMessageTemplate(c *gin.Context) {
 		return
 	}
 
+	template.MessageType = templates.SanitizeMessageType(template.MessageType)
+
 	err := emailtemplates.CheckAllTranslationsParsable(template)
 	if err != nil {
 		slog.Error("error parsing template", slog.String("error", err.Error()))
@@ -365,6 +368,27 @@ func (h *HttpEndpoints) saveStudyMessageTemplate(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 	studyKey := c.Param("studyKey")
 
+	// check if studyKey exists
+	studies, err := h.studyDBConn.GetStudies(token.InstanceID, "", true)
+	if err != nil {
+		slog.Error("error getting studies", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting studies"})
+		return
+	}
+
+	notFound := true
+	for _, study := range studies {
+		if study.Key == studyKey {
+			notFound = false
+			break
+		}
+	}
+	if notFound {
+		slog.Error("study not found", slog.String("studyKey", studyKey), slog.String("instanceID", token.InstanceID))
+		c.JSON(http.StatusNotFound, gin.H{"error": "study not found"})
+		return
+	}
+
 	// parse body
 	var template messagingTypes.EmailTemplate
 	if err := c.ShouldBindJSON(&template); err != nil {
@@ -374,7 +398,10 @@ func (h *HttpEndpoints) saveStudyMessageTemplate(c *gin.Context) {
 	}
 	template.StudyKey = studyKey
 
-	err := emailtemplates.CheckAllTranslationsParsable(template)
+	// message type must be url safe:
+	template.MessageType = templates.SanitizeMessageType(template.MessageType)
+
+	err = emailtemplates.CheckAllTranslationsParsable(template)
 	if err != nil {
 		slog.Error("error parsing template", slog.String("error", err.Error()))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "error while checking template validity"})
@@ -395,7 +422,7 @@ func (h *HttpEndpoints) saveStudyMessageTemplate(c *gin.Context) {
 func (h *HttpEndpoints) getStudyMessageTemplate(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 	studyKey := c.Param("studyKey")
-	messageType := c.Param("messageType")
+	messageType := url.QueryEscape(c.Param("messageType"))
 
 	slog.Info("getting study message template", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("messageType", messageType))
 
@@ -411,7 +438,7 @@ func (h *HttpEndpoints) getStudyMessageTemplate(c *gin.Context) {
 func (h *HttpEndpoints) deleteStudyMessageTemplate(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 	studyKey := c.Param("studyKey")
-	messageType := c.Param("messageType")
+	messageType := url.QueryEscape(c.Param("messageType"))
 
 	slog.Info("deleting study message template", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("messageType", messageType))
 
