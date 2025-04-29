@@ -398,7 +398,7 @@ func (h *HttpEndpoints) saveStudyMessageTemplate(c *gin.Context) {
 	}
 	template.StudyKey = studyKey
 
-	// message type mut be url safe:
+	// message type must be url safe:
 	template.MessageType = templates.SanitizeMessageType(template.MessageType)
 
 	err = emailtemplates.CheckAllTranslationsParsable(template)
