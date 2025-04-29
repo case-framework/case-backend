@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"net/url"
 	"strings"
 
 	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
@@ -63,4 +64,21 @@ func CheckAllTranslationsParsable(tempTranslations []messagingTypes.LocalizedTem
 		}
 	}
 	return nil
+}
+
+func SanitizeMessageType(messageType string) string {
+	trimmed := strings.TrimSpace(messageType)
+
+	// Remove quotes (both single and double)
+	noQuotes := strings.ReplaceAll(trimmed, "\"", "")
+	noQuotes = strings.ReplaceAll(noQuotes, "'", "")
+
+	// Remove carriage returns and newlines
+	noLineBreaks := strings.ReplaceAll(noQuotes, "\r", "")
+	noLineBreaks = strings.ReplaceAll(noLineBreaks, "\n", "")
+
+	// URL-encode the string to make it safe for use in URLs
+	urlSafe := url.QueryEscape(noLineBreaks)
+
+	return urlSafe
 }

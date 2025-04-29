@@ -220,6 +220,8 @@ func (h *HttpEndpoints) saveGlobalMessageTemplate(c *gin.Context) {
 		return
 	}
 
+	template.MessageType = templates.SanitizeMessageType(template.MessageType)
+
 	err := emailtemplates.CheckAllTranslationsParsable(template)
 	if err != nil {
 		slog.Error("error parsing template", slog.String("error", err.Error()))
@@ -365,6 +367,8 @@ func (h *HttpEndpoints) saveStudyMessageTemplate(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 	studyKey := c.Param("studyKey")
 
+	// check if studyKey exists
+
 	// parse body
 	var template messagingTypes.EmailTemplate
 	if err := c.ShouldBindJSON(&template); err != nil {
@@ -373,6 +377,9 @@ func (h *HttpEndpoints) saveStudyMessageTemplate(c *gin.Context) {
 		return
 	}
 	template.StudyKey = studyKey
+
+	// message type mut be url safe:
+	template.MessageType = templates.SanitizeMessageType(template.MessageType)
 
 	err := emailtemplates.CheckAllTranslationsParsable(template)
 	if err != nil {
