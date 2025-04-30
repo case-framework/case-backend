@@ -55,7 +55,7 @@ func main() {
 	}
 
 	// Start the server
-	slog.Info("Starting Management API on port " + conf.GinConfig.Port)
+	slog.Info("Starting Management API", slog.String("port", conf.GinConfig.Port))
 	if !conf.GinConfig.MTLS.Use {
 		err := router.Run(":" + conf.GinConfig.Port)
 		if err != nil {
