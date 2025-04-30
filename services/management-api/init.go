@@ -34,11 +34,6 @@ const (
 	ENV_MANAGEMENT_USER_JWT_SIGN_KEY   = "MANAGEMENT_USER_JWT_SIGN_KEY"
 	ENV_MANAGEMENT_USER_JWT_EXPIRES_IN = "MANAGEMENT_USER_JWT_EXPIRES_IN"
 
-	ENV_REQUIRE_MUTUAL_TLS     = "REQUIRE_MUTUAL_TLS"
-	ENV_MUTUAL_TLS_SERVER_CERT = "MUTUAL_TLS_SERVER_CERT"
-	ENV_MUTUAL_TLS_SERVER_KEY  = "MUTUAL_TLS_SERVER_KEY"
-	ENV_MUTUAL_TLS_CA_CERT     = "MUTUAL_TLS_CA_CERT"
-
 	ENV_INSTANCE_IDS = "INSTANCE_IDS"
 
 	ENV_MANAGEMENT_USER_DB_USERNAME  = "MANAGEMENT_USER_DB_USERNAME"
@@ -70,19 +65,24 @@ type Config struct {
 	Logging utils.LoggerConfig `json:"logging" yaml:"logging"`
 
 	// Gin configs
-	GinDebugMode bool     `json:"gin_debug_mode"`
-	AllowOrigins []string `json:"allow_origins"`
-	Port         string   `json:"port"`
+	// Gin configs
+	GinConfig struct {
+		DebugMode    bool     `json:"debug_mode" yaml:"debug_mode"`
+		AllowOrigins []string `json:"allow_origins" yaml:"allow_origins"`
+		Port         string   `json:"port" yaml:"port"`
+
+		// Mutual TLS configs
+		MTLS struct {
+			Use              bool                        `json:"use" yaml:"use"`
+			CertificatePaths apihelpers.CertificatePaths `json:"certificate_paths" yaml:"certificate_paths"`
+		} `json:"mtls" yaml:"mtls"`
+	} `json:"gin_config" yaml:"gin_config"`
 
 	// JWT configs
 	ManagementUserJWTSignKey   string        `json:"management_user_jwt_sign_key"`
 	ManagementUserJWTExpiresIn time.Duration `json:"management_user_jwt_expires_in"`
 
 	AllowedInstanceIDs []string `json:"allowed_instance_ids" yaml:"allowed_instance_ids"`
-
-	// Mutual TLS configs
-	UseMTLS          bool                        `json:"use_mtls"`
-	CertificatePaths apihelpers.CertificatePaths `json:"certificate_paths"`
 
 	// DB configs
 	DBConfigs struct {
@@ -105,7 +105,7 @@ type Config struct {
 
 func init() {
 	conf = initConfig()
-	if !conf.GinDebugMode {
+	if !conf.GinConfig.DebugMode {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
@@ -202,10 +202,15 @@ func initConfig() Config {
 		conf.Logging.IncludeBuildInfo,
 	)
 
-	conf.GinDebugMode = os.Getenv(ENV_GIN_DEBUG_MODE) == "true"
-	conf.Port = os.Getenv(ENV_MANAGEMENT_API_LISTEN_PORT)
-	conf.AllowOrigins = strings.Split(os.Getenv(ENV_CORS_ALLOW_ORIGINS), ",")
-
+	if os.Getenv(ENV_GIN_DEBUG_MODE) == "true" {
+		conf.GinConfig.DebugMode = true
+	}
+	if port := os.Getenv(ENV_MANAGEMENT_API_LISTEN_PORT); port != "" {
+		conf.GinConfig.Port = port
+	}
+	if origins := os.Getenv(ENV_CORS_ALLOW_ORIGINS); origins != "" {
+		conf.GinConfig.AllowOrigins = strings.Split(origins, ",")
+	}
 	conf.FilestorePath = getAndCheckFilestorePath()
 
 	// JWT configs
@@ -215,14 +220,6 @@ func initConfig() Config {
 	if err != nil {
 		slog.Error("error during initConfig", slog.String("error", err.Error()), ENV_MANAGEMENT_USER_JWT_EXPIRES_IN, expInVal)
 		panic(err)
-	}
-
-	// Mutual TLS configs
-	conf.UseMTLS = os.Getenv(ENV_REQUIRE_MUTUAL_TLS) == "true"
-	conf.CertificatePaths = apihelpers.CertificatePaths{
-		ServerCertPath: os.Getenv(ENV_MUTUAL_TLS_SERVER_CERT),
-		ServerKeyPath:  os.Getenv(ENV_MUTUAL_TLS_SERVER_KEY),
-		CACertPath:     os.Getenv(ENV_MUTUAL_TLS_CA_CERT),
 	}
 
 	// Study global secret
