@@ -20,7 +20,7 @@ func main() {
 	router := gin.Default()
 	router.Use(cors.New(cors.Config{
 		// AllowAllOrigins: true,
-		AllowOrigins:     conf.AllowOrigins,
+		AllowOrigins:     conf.GinConfig.AllowOrigins,
 		AllowMethods:     []string{"POST", "GET", "PUT", "DELETE"},
 		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type", "Content-Length"},
 		ExposeHeaders:    []string{"Authorization", "Content-Type", "Content-Length"},
@@ -50,33 +50,33 @@ func main() {
 	v1APIHandlers.AddMessagingServiceAPI(v1Root)
 	v1APIHandlers.AddStudyManagementAPI(v1Root)
 
-	if conf.GinDebugMode {
+	if conf.GinConfig.DebugMode {
 		apihelpers.WriteRoutesToFile(router, "management-api-routes.txt")
 	}
 
 	// Start the server
-	slog.Info("Starting Management API on port " + conf.Port)
-	if !conf.UseMTLS {
-		err := router.Run(":" + conf.Port)
+	slog.Info("Starting Management API on port " + conf.GinConfig.Port)
+	if !conf.GinConfig.MTLS.Use {
+		err := router.Run(":" + conf.GinConfig.Port)
 		if err != nil {
 			slog.Error("Exited Management API", slog.String("error", err.Error()))
 			return
 		}
 	} else {
 		// Create tls config for mutual TLS
-		tlsConfig, err := apihelpers.LoadTLSConfig(conf.CertificatePaths)
+		tlsConfig, err := apihelpers.LoadTLSConfig(conf.GinConfig.MTLS.CertificatePaths)
 		if err != nil {
 			slog.Error("Error loading TLS config.", slog.String("error", err.Error()))
 			return
 		}
 
 		server := &http.Server{
-			Addr:      ":" + conf.Port,
+			Addr:      ":" + conf.GinConfig.Port,
 			Handler:   router,
 			TLSConfig: tlsConfig,
 		}
 
-		err = server.ListenAndServeTLS(conf.CertificatePaths.ServerCertPath, conf.CertificatePaths.ServerKeyPath)
+		err = server.ListenAndServeTLS(conf.GinConfig.MTLS.CertificatePaths.ServerCertPath, conf.GinConfig.MTLS.CertificatePaths.ServerKeyPath)
 		if err != nil {
 			slog.Error("Exited Management API", slog.String("error", err.Error()))
 			return
