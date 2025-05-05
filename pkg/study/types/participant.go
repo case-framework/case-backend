@@ -14,6 +14,7 @@ type Participant struct {
 	ID                  primitive.ObjectID   `bson:"_id,omitempty" json:"id,omitempty"`
 	ParticipantID       string               `bson:"participantID" json:"participantId"` // reference to the study specific participant ID
 	CurrentStudySession string               `bson:"currentStudySession" json:"currentStudySession"`
+	ModifiedAt          int64                `bson:"modifiedAt" json:"modifiedAt"`
 	EnteredAt           int64                `bson:"enteredAt" json:"enteredAt"`
 	StudyStatus         string               `bson:"studyStatus" json:"studyStatus"` // shows if participant is active in the study - possible values: "active", "temporary", "exited". Other values are possible and are handled like "exited" on the server.
 	Flags               map[string]string    `bson:"flags" json:"flags"`
