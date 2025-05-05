@@ -2,6 +2,7 @@ package study
 
 import (
 	"log/slog"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -58,6 +59,7 @@ func (dbService *StudyDBService) SaveParticipantState(instanceID string, studyKe
 	defer cancel()
 
 	filter := bson.M{"participantID": pState.ParticipantID}
+	pState.ModifiedAt = time.Now().Unix()
 
 	upsert := true
 	rd := options.After
