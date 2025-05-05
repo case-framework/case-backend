@@ -47,6 +47,17 @@ func (h *HttpEndpoints) AddStudyManagementAPI(rg *gin.RouterGroup) {
 			nil,
 			h.createStudy,
 		))
+
+		// Create a study from an export file
+		studiesGroup.POST("/import-study", mw.RequirePayload(), h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType: pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys: []string{pc.RESOURCE_KEY_STUDY_ALL},
+				Action:       pc.ACTION_CREATE_STUDY,
+			},
+			nil,
+			h.importStudyConfig,
+		))
 	}
 
 	// Study Group
@@ -96,6 +107,29 @@ func (h *HttpEndpoints) addGeneralStudyEndpoints(rg *gin.RouterGroup) {
 		},
 		nil,
 		h.getStudyProps,
+	))
+
+	rg.GET("/export-config", h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType:        pc.RESOURCE_TYPE_STUDY,
+			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+			ExtractResourceKeys: getStudyKeyFromParams,
+			Action:              pc.ACTION_READ_STUDY_CONFIG,
+		},
+		nil,
+		h.exportStudyConfig,
+	)) // config=true&survey=true&rules=true&codelists=true
+
+	// Override study config, survey, and rules from export file
+	rg.POST("/override-study-config", h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType:        pc.RESOURCE_TYPE_STUDY,
+			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+			ExtractResourceKeys: getStudyKeyFromParams,
+			Action:              pc.ACTION_CREATE_STUDY,
+		},
+		nil,
+		h.overrideStudyConfigFromFile,
 	))
 
 	rg.PUT("/is-default", mw.RequirePayload(), h.useAuthorisedHandler(
@@ -1004,6 +1038,10 @@ func (h *HttpEndpoints) createStudy(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"study": study})
 }
 
+func (h *HttpEndpoints) importStudyConfig(c *gin.Context) {
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
 func (h *HttpEndpoints) getStudyProps(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 
@@ -1019,6 +1057,24 @@ func (h *HttpEndpoints) getStudyProps(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"study": study})
+}
+
+func (h *HttpEndpoints) exportStudyConfig(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	includeConfig := c.DefaultQuery("config", "false") == "true"
+	includeSurveys := c.DefaultQuery("surveys", "false") == "true"
+	includeRules := c.DefaultQuery("rules", "false") == "true"
+	includeCodeLists := c.DefaultQuery("codelists", "false") == "true"
+
+	slog.Info("exporting study config", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.Bool("includeConfig", includeConfig), slog.Bool("includeSurveys", includeSurveys), slog.Bool("includeRules", includeRules), slog.Bool("includeCodeLists", includeCodeLists))
+
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) overrideStudyConfigFromFile(c *gin.Context) {
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
 
 type StudyIsDefaultUpdateReq struct {
