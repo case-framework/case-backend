@@ -3414,6 +3414,8 @@ func (h *HttpEndpoints) editStudyParticipant(c *gin.Context) {
 	studyKey := c.Param("studyKey")
 	participantID := c.Param("participantID")
 
+	slog.Info("updating participant", slog.String("participantID", participantID), slog.String("studyKey", studyKey), slog.String("userID", token.Subject), slog.String("instanceID", token.InstanceID))
+
 	var req studyTypes.Participant
 	if err := c.ShouldBindJSON(&req); err != nil {
 		slog.Error("failed to bind request", slog.String("error", err.Error()))
