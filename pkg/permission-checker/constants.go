@@ -44,6 +44,7 @@ const (
 	ACTION_GET_FILES                  = "get-files"
 	ACTION_DELETE_FILES               = "delete-files"
 	ACTION_GET_PARTICIPANT_STATES     = "get-participant-states"
+	ACTION_EDIT_PARTICIPANT_STATES    = "edit-participant-states"
 	ACTION_GET_REPORTS                = "get-reports"
 	ACTION_DELETE_REPORTS             = "delete-reports"
 

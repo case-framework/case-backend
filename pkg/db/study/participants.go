@@ -1,9 +1,12 @@
 package study
 
 import (
+	"errors"
 	"log/slog"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/net/context"
@@ -58,6 +61,7 @@ func (dbService *StudyDBService) SaveParticipantState(instanceID string, studyKe
 	defer cancel()
 
 	filter := bson.M{"participantID": pState.ParticipantID}
+	pState.ModifiedAt = time.Now().Unix()
 
 	upsert := true
 	rd := options.After
@@ -70,6 +74,36 @@ func (dbService *StudyDBService) SaveParticipantState(instanceID string, studyKe
 		ctx, filter, pState, &options,
 	).Decode(&elem)
 	return elem, err
+}
+
+func (dbService *StudyDBService) UpdateParticipantIfNotModified(instanceID string, studyKey string, pState studyTypes.Participant) (studyTypes.Participant, error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	filter := bson.M{
+		"participantID": pState.ParticipantID,
+	}
+	if pState.ModifiedAt > 0 {
+		filter["modifiedAt"] = bson.M{"$lte": pState.ModifiedAt}
+	}
+
+	pState.ID = primitive.NilObjectID
+	pState.ModifiedAt = time.Now().Unix()
+
+	update := bson.M{"$set": pState}
+	result := dbService.collectionParticipants(instanceID, studyKey).FindOneAndUpdate(ctx, filter, update, options.FindOneAndUpdate().SetReturnDocument(options.After))
+
+	if result.Err() != nil {
+		if result.Err() == mongo.ErrNoDocuments {
+			return pState, errors.New("participant not found or has been modified since last fetch")
+		}
+		return pState, result.Err()
+	}
+	var updatedParticipant studyTypes.Participant
+	if err := result.Decode(&updatedParticipant); err != nil {
+		return pState, err
+	}
+	return updatedParticipant, nil
 }
 
 // get participant by id
