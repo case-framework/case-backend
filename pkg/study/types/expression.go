@@ -4,7 +4,7 @@ type Expression struct {
 	Name       string          `bson:"name" json:"name"` // Name of the operation to be evaluated
 	ReturnType string          `bson:"returnType,omitempty" json:"returnType,omitempty"`
 	Data       []ExpressionArg `bson:"data,omitempty" json:"data,omitempty"` // Operation arguments
-	Metadata   struct {
+	Metadata   *struct {
 		SlotTypes []*string `bson:"slotTypes,omitempty" json:"slotTypes,omitempty"`
 	} `bson:"metadata,omitempty" json:"metadata,omitempty"`
 }
