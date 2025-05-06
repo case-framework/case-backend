@@ -48,17 +48,6 @@ func (h *HttpEndpoints) AddStudyManagementAPI(rg *gin.RouterGroup) {
 			nil,
 			h.createStudy,
 		))
-
-		// Create a study from an export file
-		studiesGroup.POST("/import-study", mw.RequirePayload(), h.useAuthorisedHandler(
-			RequiredPermission{
-				ResourceType: pc.RESOURCE_TYPE_STUDY,
-				ResourceKeys: []string{pc.RESOURCE_KEY_STUDY_ALL},
-				Action:       pc.ACTION_CREATE_STUDY,
-			},
-			nil,
-			h.importStudyConfig,
-		))
 	}
 
 	// Study Group
@@ -120,18 +109,6 @@ func (h *HttpEndpoints) addGeneralStudyEndpoints(rg *gin.RouterGroup) {
 		nil,
 		h.exportStudyConfig,
 	)) // config=true&survey=true&rules=true
-
-	// Override study config, survey, and rules from export file
-	rg.POST("/override-study-config", h.useAuthorisedHandler(
-		RequiredPermission{
-			ResourceType:        pc.RESOURCE_TYPE_STUDY,
-			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
-			ExtractResourceKeys: getStudyKeyFromParams,
-			Action:              pc.ACTION_CREATE_STUDY,
-		},
-		nil,
-		h.overrideStudyConfigFromFile,
-	))
 
 	rg.PUT("/is-default", mw.RequirePayload(), h.useAuthorisedHandler(
 		RequiredPermission{
@@ -1039,10 +1016,6 @@ func (h *HttpEndpoints) createStudy(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"study": study})
 }
 
-func (h *HttpEndpoints) importStudyConfig(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
-}
-
 func (h *HttpEndpoints) getStudyProps(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 
@@ -1173,10 +1146,6 @@ func (h *HttpEndpoints) exportStudyConfig(c *gin.Context) {
 
 	// Close the JSON object
 	configWriter.Finish()
-}
-
-func (h *HttpEndpoints) overrideStudyConfigFromFile(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
 
 type StudyIsDefaultUpdateReq struct {
