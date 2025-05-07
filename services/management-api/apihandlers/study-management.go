@@ -20,6 +20,7 @@ import (
 	studyutils "github.com/case-framework/case-backend/pkg/study/utils"
 	"github.com/case-framework/case-backend/pkg/utils"
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	studyDB "github.com/case-framework/case-backend/pkg/db/study"
 	studyService "github.com/case-framework/case-backend/pkg/study"
@@ -97,6 +98,17 @@ func (h *HttpEndpoints) addGeneralStudyEndpoints(rg *gin.RouterGroup) {
 		nil,
 		h.getStudyProps,
 	))
+
+	rg.GET("/export-config", h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType:        pc.RESOURCE_TYPE_STUDY,
+			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+			ExtractResourceKeys: getStudyKeyFromParams,
+			Action:              pc.ACTION_READ_STUDY_CONFIG,
+		},
+		nil,
+		h.exportStudyConfig,
+	)) // config=true&survey=true&rules=true
 
 	rg.PUT("/is-default", mw.RequirePayload(), h.useAuthorisedHandler(
 		RequiredPermission{
@@ -1019,6 +1031,121 @@ func (h *HttpEndpoints) getStudyProps(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"study": study})
+}
+
+type studyConfigWriter struct {
+	Encoder *json.Encoder
+	Writer  gin.ResponseWriter
+}
+
+func (w *studyConfigWriter) WriteString(text string) {
+	if _, err := w.Writer.WriteString(text); err != nil {
+		slog.Error("could not write simple string into config export", slog.String("text", text), slog.String("error", err.Error()))
+	}
+}
+
+func (w *studyConfigWriter) Start() {
+	w.WriteString("{")
+}
+func (w *studyConfigWriter) Finish() {
+	w.WriteString("}")
+}
+
+func (w *studyConfigWriter) WriteKeyValue(key string, value interface{}) {
+	if _, err := w.Writer.WriteString(fmt.Sprintf("\"%s\":", key)); err != nil {
+		slog.Error("could not write key into config export", slog.String("key", key), slog.String("error", err.Error()))
+		return
+	}
+	if err := w.Encoder.Encode(value); err != nil {
+		slog.Error("could not write value into config export", slog.String("key", key), slog.String("error", err.Error()))
+		return
+	}
+}
+
+func (h *HttpEndpoints) exportStudyConfig(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	includeConfig := c.DefaultQuery("config", "false") == "true"
+	includeSurveys := c.DefaultQuery("surveys", "false") == "true"
+	includeRules := c.DefaultQuery("rules", "false") == "true"
+
+	slog.Info("exporting study config", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.Bool("includeConfig", includeConfig), slog.Bool("includeSurveys", includeSurveys), slog.Bool("includeRules", includeRules))
+
+	if !includeConfig && !includeSurveys && !includeRules {
+		msg := "at least one of the following query parameters must be set: config, surveys, rules"
+		slog.Error(msg)
+		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+		return
+	}
+
+	study, err := h.studyDBConn.GetStudy(token.InstanceID, studyKey)
+	if err != nil {
+		slog.Error("failed to get study", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study"})
+		return
+	}
+
+	// Set headers for file download
+	filename := fmt.Sprintf("study_config_%s_%s.json", studyKey, time.Now().Format("2006-01-02"))
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+	c.Header("Content-Type", "application/json")
+	c.Header("Transfer-Encoding", "chunked")
+
+	// Create a streaming JSON encoder that writes directly to the response
+	configWriter := studyConfigWriter{
+		Writer:  c.Writer,
+		Encoder: json.NewEncoder(c.Writer),
+	}
+
+	// Begin the JSON object
+	configWriter.Start()
+	configWriter.WriteKeyValue("exportedAt", time.Now())
+
+	if includeConfig {
+		study.ID = primitive.NilObjectID
+		study.NextTimerEvent = 0
+		study.Stats = studyTypes.StudyStats{}
+		configWriter.WriteString(",")
+		configWriter.WriteKeyValue("config", study)
+	}
+
+	if includeRules {
+
+		rules, err := h.studyDBConn.GetCurrentStudyRules(token.InstanceID, studyKey)
+		if err == nil {
+			rules.ID = primitive.NilObjectID
+			rules.UploadedBy = ""
+			configWriter.WriteString(",")
+			configWriter.WriteKeyValue("rules", rules)
+		} else {
+			slog.Error("failed to get rules for study", slog.String("error", err.Error()), slog.String("studyKey", studyKey), slog.String("instanceID", token.InstanceID))
+		}
+	}
+
+	if includeSurveys {
+		surveyKeys, err := h.studyDBConn.GetSurveyKeysForStudy(token.InstanceID, studyKey, true)
+		if err == nil {
+			surveys := []*studyTypes.Survey{}
+			for _, surveyKey := range surveyKeys {
+				survey, err := h.studyDBConn.GetCurrentSurveyVersion(token.InstanceID, studyKey, surveyKey)
+				if err != nil {
+					slog.Error("failed to get latest survey", slog.String("error", err.Error()))
+					continue
+				}
+				survey.ID = primitive.NilObjectID
+				surveys = append(surveys, survey)
+			}
+
+			configWriter.WriteString(",")
+			configWriter.WriteKeyValue("surveys", surveys)
+		} else {
+			slog.Error("failed to get survey infos for study", slog.String("error", err.Error()), slog.String("studyKey", studyKey), slog.String("instanceID", token.InstanceID))
+		}
+	}
+
+	// Close the JSON object
+	configWriter.Finish()
 }
 
 type StudyIsDefaultUpdateReq struct {
