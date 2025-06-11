@@ -17,11 +17,11 @@ func (dbService *StudyDBService) CreateIndexForConfidentialResponsesCollection(i
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	if _, err := dbService.collectionConfidentialResponses(instanceID, studyKey).Indexes().DropAll(ctx); err != nil {
+	collection := dbService.collectionConfidentialResponses(instanceID, studyKey)
+	if _, err := collection.Indexes().DropAll(ctx); err != nil {
 		slog.Error("Error dropping indexes for confidential responses", slog.String("error", err.Error()))
 	}
 
-	collection := dbService.collectionConfidentialResponses(instanceID, studyKey)
 	indexes := []mongo.IndexModel{
 		{
 			Keys: bson.D{
