@@ -9,8 +9,30 @@ import (
 	studytypes "github.com/case-framework/case-backend/pkg/study/types"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+func (dbService *StudyDBService) CreateIndexForConfidentialResponsesCollection(instanceID string, studyKey string) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	collection := dbService.collectionConfidentialResponses(instanceID, studyKey)
+	if _, err := collection.Indexes().DropAll(ctx); err != nil {
+		slog.Error("Error dropping indexes for confidential responses", slog.String("error", err.Error()))
+	}
+
+	indexes := []mongo.IndexModel{
+		{
+			Keys: bson.D{
+				{Key: "participantID", Value: 1},
+				{Key: "key", Value: 1},
+			},
+		},
+	}
+	_, err := collection.Indexes().CreateMany(ctx, indexes)
+	return err
+}
 
 func (dbService *StudyDBService) AddConfidentialResponse(instanceID string, studyKey string, response studytypes.SurveyResponse) (string, error) {
 	ctx, cancel := dbService.getContext()

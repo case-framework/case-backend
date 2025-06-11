@@ -221,6 +221,12 @@ func (dbService *StudyDBService) ensureIndexes() error {
 				slog.Error("Error creating index for responses: ", slog.String("error", err.Error()))
 			}
 
+			// index on confidentialResponses
+			err = dbService.CreateIndexForConfidentialResponsesCollection(instanceID, studyKey)
+			if err != nil {
+				slog.Error("Error creating index for confidentialResponses: ", slog.String("error", err.Error()))
+			}
+
 			// index on reports
 			err = dbService.CreateIndexForReportsCollection(instanceID, studyKey)
 			if err != nil {
