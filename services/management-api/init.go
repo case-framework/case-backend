@@ -65,7 +65,6 @@ type Config struct {
 	Logging utils.LoggerConfig `json:"logging" yaml:"logging"`
 
 	// Gin configs
-	// Gin configs
 	GinConfig struct {
 		DebugMode    bool     `json:"debug_mode" yaml:"debug_mode"`
 		AllowOrigins []string `json:"allow_origins" yaml:"allow_origins"`
@@ -79,8 +78,8 @@ type Config struct {
 	} `json:"gin_config" yaml:"gin_config"`
 
 	// JWT configs
-	ManagementUserJWTSignKey   string        `json:"management_user_jwt_sign_key"`
-	ManagementUserJWTExpiresIn time.Duration `json:"management_user_jwt_expires_in"`
+	ManagementUserJWTSignKey   string        `json:"management_user_jwt_sign_key" yaml:"management_user_jwt_sign_key"`
+	ManagementUserJWTExpiresIn time.Duration `json:"management_user_jwt_expires_in" yaml:"management_user_jwt_expires_in"`
 
 	AllowedInstanceIDs []string `json:"allowed_instance_ids" yaml:"allowed_instance_ids"`
 
