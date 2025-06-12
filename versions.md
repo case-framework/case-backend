@@ -10,5 +10,5 @@
 - smtp-bridge-emulator: [`v1.0.1`](https://github.com/case-framework/case-backend/releases/tag/smtp-bridge-emulator@v1.0.1)
 - study-daily-data-export-job: [`v1.2.0`](https://github.com/case-framework/case-backend/releases/tag/study-daily-data-export-job@v1.2.0)
 - study-timer-job: [`v1.1.1`](https://github.com/case-framework/case-backend/releases/tag/study-timer-job@v1.1.1)
-- user-management-job: [`v1.1.0`](https://github.com/case-framework/case-backend/releases/tag/user-management-job@v1.1.0)
+- user-management-job: [`v1.1.1`](https://github.com/case-framework/case-backend/releases/tag/user-management-job@v1.1.1)
 
