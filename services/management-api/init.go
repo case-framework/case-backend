@@ -159,7 +159,12 @@ func initStudyService() {
 
 func getAndCheckFilestorePath() string {
 	// To store dynamically generated files
-	fsPath := os.Getenv(ENV_FILESTORE_PATH)
+	fsPath := conf.FilestorePath
+	fsPathFromEnv := os.Getenv(ENV_FILESTORE_PATH)
+	if fsPathFromEnv != "" {
+		fsPath = fsPathFromEnv
+	}
+
 	if fsPath == "" {
 		slog.Error("Filestore path not set")
 		panic("Filestore path not set")
