@@ -202,12 +202,15 @@ func initConfig() Config {
 	checkFilestorePath(conf)
 
 	// JWT configs
-	conf.ManagementUserJWTSignKey = os.Getenv(ENV_MANAGEMENT_USER_JWT_SIGN_KEY)
-	expInVal := os.Getenv(ENV_MANAGEMENT_USER_JWT_EXPIRES_IN)
-	conf.ManagementUserJWTExpiresIn, err = utils.ParseDurationString(expInVal)
-	if err != nil {
-		slog.Error("error during initConfig", slog.String("error", err.Error()), ENV_MANAGEMENT_USER_JWT_EXPIRES_IN, expInVal)
-		panic(err)
+	if jwtSignKey := os.Getenv(ENV_MANAGEMENT_USER_JWT_SIGN_KEY); jwtSignKey != "" {
+		conf.ManagementUserJWTSignKey = jwtSignKey
+	}
+	if jwtExpIn := os.Getenv(ENV_MANAGEMENT_USER_JWT_EXPIRES_IN); jwtExpIn != "" {
+		conf.ManagementUserJWTExpiresIn, err = utils.ParseDurationString(jwtExpIn)
+		if err != nil {
+			slog.Error("error during initConfig", slog.String("error", err.Error()), ENV_MANAGEMENT_USER_JWT_EXPIRES_IN, jwtExpIn)
+			panic(err)
+		}
 	}
 
 	// Study global secret
