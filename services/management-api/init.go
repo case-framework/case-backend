@@ -157,26 +157,6 @@ func initStudyService() {
 	)
 }
 
-func getAndCheckFilestorePath() string {
-	// To store dynamically generated files
-	fsPath := conf.FilestorePath
-	fsPathFromEnv := os.Getenv(ENV_FILESTORE_PATH)
-	if fsPathFromEnv != "" {
-		fsPath = fsPathFromEnv
-	}
-
-	if fsPath == "" {
-		slog.Error("Filestore path not set")
-		panic("Filestore path not set")
-	}
-
-	if _, err := os.Stat(fsPath); os.IsNotExist(err) {
-		slog.Error("Filestore path does not exist", slog.String("path", fsPath))
-		panic("Filestore path does not exist")
-	}
-	return fsPath
-}
-
 func initConfig() Config {
 	conf := Config{}
 
@@ -215,7 +195,11 @@ func initConfig() Config {
 	if origins := os.Getenv(ENV_CORS_ALLOW_ORIGINS); origins != "" {
 		conf.GinConfig.AllowOrigins = strings.Split(origins, ",")
 	}
-	conf.FilestorePath = getAndCheckFilestorePath()
+
+	if fsPathFromEnv := os.Getenv(ENV_FILESTORE_PATH); fsPathFromEnv != "" {
+		conf.FilestorePath = fsPathFromEnv
+	}
+	checkFilestorePath(conf)
 
 	// JWT configs
 	conf.ManagementUserJWTSignKey = os.Getenv(ENV_MANAGEMENT_USER_JWT_SIGN_KEY)
@@ -253,6 +237,21 @@ func readInstanceIDs() []string {
 		}
 	}
 	return filteredInstanceIDs
+}
+
+func checkFilestorePath(conf Config) {
+	// To store dynamically generated files
+	fsPath := conf.FilestorePath
+
+	if fsPath == "" {
+		slog.Error("Filestore path not set")
+		panic("Filestore path not set")
+	}
+
+	if _, err := os.Stat(fsPath); os.IsNotExist(err) {
+		slog.Error("Filestore path does not exist", slog.String("path", fsPath))
+		panic("Filestore path does not exist")
+	}
 }
 
 func secretsOverride() {
