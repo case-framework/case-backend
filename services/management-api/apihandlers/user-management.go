@@ -37,7 +37,6 @@ func (h *HttpEndpoints) AddUserManagementAPI(rg *gin.RouterGroup) {
 	}
 
 	participantUsersGroup := umGroup.Group("/participant-users")
-	participantUsersGroup.Use(mw.IsAdminUser())
 	{
 		participantUsersGroup.POST("/request-deletion", mw.RequirePayload(), h.useAuthorisedHandler(
 			RequiredPermission{
