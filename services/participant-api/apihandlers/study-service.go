@@ -25,13 +25,13 @@ func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
 	{
 		studiesGroup.GET("/", h.getStudiesByStatus) // ?status=active&instanceID=test
 		studiesGroup.GET("/:studyKey", h.getStudy)
-		studiesGroup.GET("/participating", mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.getParticipatingStudies)
+		studiesGroup.GET("/participating", mw.GetAndValidateParticipantUserJWT(h.tokenSignKey, h.globalInfosDBConn), h.getParticipatingStudies)
 		studiesGroup.GET("/:studyKey/code-lists/has-code", h.studyHasCodeListCode) // ?code=code&listKey=listKey?instanceID=test
 	}
 
 	// study events
 	eventsGroup := studyServiceGroup.Group("/events/:studyKey")
-	eventsGroup.Use(mw.GetAndValidateParticipantUserJWT(h.tokenSignKey))
+	eventsGroup.Use(mw.GetAndValidateParticipantUserJWT(h.tokenSignKey, h.globalInfosDBConn))
 	eventsGroup.Use(mw.RequirePayload())
 	{
 		eventsGroup.POST("/enter", h.enterStudy)
@@ -42,7 +42,7 @@ func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
 	}
 
 	participantInfoGroup := studyServiceGroup.Group("/participant-data/:studyKey")
-	participantInfoGroup.Use(mw.GetAndValidateParticipantUserJWT(h.tokenSignKey))
+	participantInfoGroup.Use(mw.GetAndValidateParticipantUserJWT(h.tokenSignKey, h.globalInfosDBConn))
 	{
 		participantInfoGroup.GET("/surveys", h.getAssignedSurveys)             // ?pids=p1,p2,p3
 		participantInfoGroup.GET("/survey/:surveyKey", h.getSurveyWithContext) // ?pid=profileID

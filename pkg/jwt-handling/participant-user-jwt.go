@@ -12,6 +12,7 @@ import (
 type ParticipantUserClaims struct {
 	InstanceID       string               `json:"instance_id,omitempty"`
 	ProfileID        string               `json:"profile_id,omitempty"`
+	SessionID        string               `json:"session_id,omitempty"`
 	Payload          map[string]string    `json:"payload,omitempty"`
 	AccountConfirmed bool                 `json:"accountConfirmed,omitempty"`
 	TempTokenInfos   *userTypes.TempToken `json:"temptoken,omitempty"`
@@ -31,10 +32,12 @@ func GenerateNewParticipantUserToken(
 	otherProfileIDs []string,
 	secretKey string,
 	lastOTPProvided map[string]int64,
+	sessionID string,
 ) (tokenString string, err error) {
 	claims := ParticipantUserClaims{
 		instanceID,
 		profileID,
+		sessionID,
 		payload,
 		accountConfirmed,
 		tempTokenInfos,

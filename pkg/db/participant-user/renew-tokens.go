@@ -36,6 +36,12 @@ func (dbService *ParticipantUserDBService) CreateIndexForRenewTokens(instanceID 
 			},
 			{
 				Keys: bson.D{
+					{Key: "userID", Value: 1},
+					{Key: "sessionID", Value: 1},
+				},
+			},
+			{
+				Keys: bson.D{
 					{Key: "expiresAt", Value: 1},
 				},
 				Options: options.Index().SetExpireAfterSeconds(RENEW_TOKEN_GRACE_PERIOD),
@@ -51,7 +57,7 @@ func (dbService *ParticipantUserDBService) CreateIndexForRenewTokens(instanceID 
 	return err
 }
 
-func (dbService *ParticipantUserDBService) CreateRenewToken(instanceID string, userID string, token string, lifeTimeInSec int) error {
+func (dbService *ParticipantUserDBService) CreateRenewToken(instanceID string, userID string, token string, lifeTimeInSec int, sessionID string) error {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
@@ -63,6 +69,7 @@ func (dbService *ParticipantUserDBService) CreateRenewToken(instanceID string, u
 		UserID:     userID,
 		RenewToken: token,
 		ExpiresAt:  time.Now().Add(ttl),
+		SessionID:  sessionID,
 	}
 
 	_, err := dbService.collectionRenewTokens(instanceID).InsertOne(ctx, renewToken)
@@ -86,6 +93,18 @@ func (dbService *ParticipantUserDBService) DeleteRenewTokenByToken(instanceID st
 
 func (dbService *ParticipantUserDBService) DeleteRenewTokensForUser(instanceID string, userID string) (int64, error) {
 	filter := bson.M{"userID": userID}
+
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+	res, err := dbService.collectionRenewTokens(instanceID).DeleteMany(ctx, filter, nil)
+	if err != nil {
+		return 0, err
+	}
+	return res.DeletedCount, nil
+}
+
+func (dbService *ParticipantUserDBService) DeleteRenewTokensForSession(instanceID string, userID string, sessionID string) (int64, error) {
+	filter := bson.M{"userID": userID, "sessionID": sessionID}
 
 	ctx, cancel := dbService.getContext()
 	defer cancel()

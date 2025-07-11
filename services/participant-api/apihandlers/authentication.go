@@ -1,6 +1,8 @@
 package apihandlers
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -41,15 +43,16 @@ func (h *HttpEndpoints) AddParticipantAuthAPI(rg *gin.RouterGroup) {
 		authGroup.POST("/login-with-temptoken", mw.RequirePayload(), h.loginWithTempToken)
 		authGroup.POST("/temptoken-info", mw.RequirePayload(), h.getTempTokenInfo)
 
-		authGroup.POST("/token/renew", mw.RequirePayload(), mw.GetAndValidateParticipantUserJWTWithIgnoringExpiration(h.tokenSignKey), h.refreshToken)
-		authGroup.GET("/token/validate", mw.RequirePayload(), mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.validateToken)
-		authGroup.GET("/token/revoke", mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.revokeRefreshTokens)
-		authGroup.POST("/resend-email-verification", mw.RequirePayload(), mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.resendEmailVerification)
+		authGroup.POST("/token/renew", mw.RequirePayload(), mw.GetAndValidateParticipantUserJWTWithIgnoringExpiration(h.tokenSignKey, h.globalInfosDBConn), h.refreshToken)
+		authGroup.GET("/token/validate", mw.RequirePayload(), mw.GetAndValidateParticipantUserJWT(h.tokenSignKey, h.globalInfosDBConn), h.validateToken)
+		authGroup.GET("/token/revoke", mw.GetAndValidateParticipantUserJWT(h.tokenSignKey, h.globalInfosDBConn), h.revokeRefreshTokens)
+		authGroup.POST("/resend-email-verification", mw.RequirePayload(), mw.GetAndValidateParticipantUserJWT(h.tokenSignKey, h.globalInfosDBConn), h.resendEmailVerification)
 		authGroup.POST("/verify-email", mw.RequirePayload(), h.verifyEmail)
+		authGroup.POST("/logout", mw.GetAndValidateParticipantUserJWT(h.tokenSignKey, h.globalInfosDBConn), h.logout)
 	}
 
 	otpGroup := authGroup.Group("/otp")
-	otpGroup.Use(mw.GetAndValidateParticipantUserJWT(h.tokenSignKey))
+	otpGroup.Use(mw.GetAndValidateParticipantUserJWT(h.tokenSignKey, h.globalInfosDBConn))
 	{
 		otpGroup.GET("", h.requestOTP)
 		otpGroup.POST("/verify", h.verifyOTP)
@@ -61,6 +64,15 @@ type LoginWithEmailReq struct {
 	Email      string `json:"email"`
 	Password   string `json:"password"`
 	InstanceID string `json:"instanceId"`
+}
+
+// generateSessionID creates a unique session ID using crypto/rand
+func generateSessionID() (string, error) {
+	bytes := make([]byte, 16) // 32 character hex string
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
 }
 
 func (h *HttpEndpoints) loginWithEmail(c *gin.Context) {
@@ -119,6 +131,13 @@ func (h *HttpEndpoints) loginWithEmail(c *gin.Context) {
 	}
 
 	// generate jwt
+	sessionID, err := generateSessionID()
+	if err != nil {
+		slog.Error("failed to generate session ID", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
 	mainProfileID, otherProfileIDs := umUtils.GetMainAndOtherProfiles(user)
 
 	token, err := jwthandling.GenerateNewParticipantUserToken(
@@ -132,6 +151,7 @@ func (h *HttpEndpoints) loginWithEmail(c *gin.Context) {
 		otherProfileIDs,
 		h.tokenSignKey,
 		nil,
+		sessionID,
 	)
 	if err != nil {
 		slog.Error("failed to generate token", slog.String("error", err.Error()))
@@ -147,7 +167,7 @@ func (h *HttpEndpoints) loginWithEmail(c *gin.Context) {
 		return
 	}
 
-	err = h.userDBConn.CreateRenewToken(req.InstanceID, user.ID.Hex(), renewToken, 0)
+	err = h.userDBConn.CreateRenewToken(req.InstanceID, user.ID.Hex(), renewToken, 0, sessionID)
 	if err != nil {
 		slog.Error("failed to save renew token", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -301,6 +321,13 @@ func (h *HttpEndpoints) signupWithEmail(c *gin.Context) {
 	// generate jwt
 	mainProfileID, otherProfileIDs := umUtils.GetMainAndOtherProfiles(newUser)
 
+	sessionID, err := generateSessionID()
+	if err != nil {
+		slog.Error("failed to generate session ID", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
 	token, err := jwthandling.GenerateNewParticipantUserToken(
 		h.ttls.AccessToken,
 		newUser.ID.Hex(),
@@ -312,6 +339,7 @@ func (h *HttpEndpoints) signupWithEmail(c *gin.Context) {
 		otherProfileIDs,
 		h.tokenSignKey,
 		nil,
+		sessionID,
 	)
 	if err != nil {
 		slog.Error("failed to generate token", slog.String("error", err.Error()))
@@ -328,7 +356,7 @@ func (h *HttpEndpoints) signupWithEmail(c *gin.Context) {
 	}
 
 	// generate refresh token
-	err = h.userDBConn.CreateRenewToken(req.InstanceID, newUser.ID.Hex(), renewToken, 0)
+	err = h.userDBConn.CreateRenewToken(req.InstanceID, newUser.ID.Hex(), renewToken, 0, sessionID)
 	if err != nil {
 		slog.Error("failed to save renew token", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -467,6 +495,13 @@ func (h *HttpEndpoints) loginWithTempToken(c *gin.Context) {
 		"email": time.Now().Unix(),
 	}
 
+	sessionID, err := generateSessionID()
+	if err != nil {
+		slog.Error("failed to generate session ID", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
 	token, err := jwthandling.GenerateNewParticipantUserToken(
 		h.ttls.AccessToken,
 		user.ID.Hex(),
@@ -478,6 +513,7 @@ func (h *HttpEndpoints) loginWithTempToken(c *gin.Context) {
 		otherProfileIDs,
 		h.tokenSignKey,
 		lastOTP,
+		sessionID,
 	)
 	if err != nil {
 		slog.Error("failed to generate token", slog.String("error", err.Error()))
@@ -494,7 +530,7 @@ func (h *HttpEndpoints) loginWithTempToken(c *gin.Context) {
 	}
 
 	// generate refresh token
-	err = h.userDBConn.CreateRenewToken(tokenInfos.InstanceID, user.ID.Hex(), renewToken, 0)
+	err = h.userDBConn.CreateRenewToken(tokenInfos.InstanceID, user.ID.Hex(), renewToken, 0, sessionID)
 	if err != nil {
 		slog.Error("failed to save renew token", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -578,7 +614,7 @@ func (h *HttpEndpoints) refreshToken(c *gin.Context) {
 
 	if rt.NextToken == newRenewToken {
 		// this is the first time the refresh token is used
-		err := h.userDBConn.CreateRenewToken(token.InstanceID, token.Subject, newRenewToken, 0)
+		err = h.userDBConn.CreateRenewToken(token.InstanceID, token.Subject, newRenewToken, 0, token.SessionID)
 		if err != nil {
 			slog.Error("failed to save renew token", slog.String("error", err.Error()))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -615,6 +651,7 @@ func (h *HttpEndpoints) refreshToken(c *gin.Context) {
 		otherProfileIDs,
 		h.tokenSignKey,
 		token.LastOTPProvided,
+		token.SessionID,
 	)
 	if err != nil {
 		slog.Error("failed to generate token", slog.String("error", err.Error()))
@@ -720,6 +757,32 @@ func (h *HttpEndpoints) revokeRefreshTokens(c *gin.Context) {
 	}
 	slog.Debug("deleted renew tokens", slog.Int64("count", count))
 	c.JSON(http.StatusOK, gin.H{"message": "tokens revoked"})
+}
+
+func (h *HttpEndpoints) logout(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+	tokenString := c.MustGet("token").(string)
+
+	count, err := h.userDBConn.DeleteRenewTokensForSession(token.InstanceID, token.Subject, token.SessionID)
+	if err != nil {
+		slog.Error("failed to delete specific renew token during logout", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	err = h.globalInfosDBConn.AddBlockedJwt(
+		tokenString,
+		token.ExpiresAt.Time,
+	)
+	if err != nil {
+		slog.Error("failed to add blocked JWT", slog.String("error", err.Error()))
+	}
+
+	slog.Info("user logged out", slog.String("subject", token.Subject), slog.String("instanceID", token.InstanceID), slog.Int64("tokensRevoked", count))
+	c.JSON(http.StatusOK, gin.H{
+		"message":       "logout successful",
+		"tokensRevoked": count,
+	})
 }
 
 func (h *HttpEndpoints) verifyEmail(c *gin.Context) {
@@ -954,6 +1017,7 @@ func (h *HttpEndpoints) verifyOTP(c *gin.Context) {
 		otherProfileIDs,
 		h.tokenSignKey,
 		token.LastOTPProvided,
+		token.SessionID,
 	)
 	if err != nil {
 		slog.Error("failed to generate token", slog.String("error", err.Error()))
@@ -970,7 +1034,7 @@ func (h *HttpEndpoints) verifyOTP(c *gin.Context) {
 	}
 
 	// generate refresh token
-	err = h.userDBConn.CreateRenewToken(token.InstanceID, user.ID.Hex(), renewToken, 0)
+	err = h.userDBConn.CreateRenewToken(token.InstanceID, user.ID.Hex(), renewToken, 0, token.SessionID)
 	if err != nil {
 		slog.Error("failed to save renew token", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})

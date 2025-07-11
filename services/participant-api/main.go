@@ -31,7 +31,7 @@ func main() {
 	// Add handlers
 	router.GET("/", apihandlers.HealthCheckHandle)
 	v1Root := router.Group("/v1")
-	v1Root.Use(middlewares.CheckOTP(conf.GinConfig.OtpConfigs, conf.UserManagementConfig.ParticipantUserJWTConfig.SignKey))
+	v1Root.Use(middlewares.CheckOTP(conf.GinConfig.OtpConfigs, conf.UserManagementConfig.ParticipantUserJWTConfig.SignKey, globalInfosDBService))
 
 	v1APIHandlers := apihandlers.NewHTTPHandler(
 		conf.UserManagementConfig.ParticipantUserJWTConfig.SignKey,
