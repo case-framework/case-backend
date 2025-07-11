@@ -75,6 +75,7 @@ func GetAndValidateParticipantUserJWTWithIgnoringExpiration(tokenSignKey string,
 			c.Abort()
 			return
 		}
+		c.Set("token", token)
 		c.Set("validatedToken", parsedToken)
 	}
 }
