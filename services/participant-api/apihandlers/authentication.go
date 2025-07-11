@@ -46,6 +46,7 @@ func (h *HttpEndpoints) AddParticipantAuthAPI(rg *gin.RouterGroup) {
 		authGroup.GET("/token/revoke", mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.revokeRefreshTokens)
 		authGroup.POST("/resend-email-verification", mw.RequirePayload(), mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.resendEmailVerification)
 		authGroup.POST("/verify-email", mw.RequirePayload(), h.verifyEmail)
+		authGroup.POST("/logout", mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.logout)
 	}
 
 	otpGroup := authGroup.Group("/otp")
@@ -720,6 +721,48 @@ func (h *HttpEndpoints) revokeRefreshTokens(c *gin.Context) {
 	}
 	slog.Debug("deleted renew tokens", slog.Int64("count", count))
 	c.JSON(http.StatusOK, gin.H{"message": "tokens revoked"})
+}
+
+func (h *HttpEndpoints) logout(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	// Check if request has a body with specific refresh token
+	var req struct {
+		RefreshToken string `json:"refreshToken,omitempty"`
+	}
+	// Parse request body - it's optional, so ignore errors
+	_ = c.ShouldBindJSON(&req)
+
+	var count int64
+	var err error
+
+	if req.RefreshToken != "" {
+		// Revoke specific refresh token
+		err = h.userDBConn.DeleteRenewTokenByToken(token.InstanceID, req.RefreshToken)
+		if err != nil {
+			slog.Error("failed to delete specific renew token during logout", slog.String("error", err.Error()))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
+		count = 1 // Only one token was deleted
+	} else {
+		// Revoke all refresh tokens for the user
+		count, err = h.userDBConn.DeleteRenewTokensForUser(token.InstanceID, token.Subject)
+		if err != nil {
+			slog.Error("failed to delete renew tokens during logout", slog.String("error", err.Error()))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
+	}
+
+	// TODO: Add the JWT access token to a block list to prevent further use
+	// This will require implementing a JWT blacklist/blocklist mechanism
+
+	slog.Info("user logged out", slog.String("subject", token.Subject), slog.String("instanceID", token.InstanceID), slog.Int64("tokensRevoked", count))
+	c.JSON(http.StatusOK, gin.H{
+		"message":       "logout successful",
+		"tokensRevoked": count,
+	})
 }
 
 func (h *HttpEndpoints) verifyEmail(c *gin.Context) {
