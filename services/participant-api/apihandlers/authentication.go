@@ -43,16 +43,16 @@ func (h *HttpEndpoints) AddParticipantAuthAPI(rg *gin.RouterGroup) {
 		authGroup.POST("/login-with-temptoken", mw.RequirePayload(), h.loginWithTempToken)
 		authGroup.POST("/temptoken-info", mw.RequirePayload(), h.getTempTokenInfo)
 
-		authGroup.POST("/token/renew", mw.RequirePayload(), mw.GetAndValidateParticipantUserJWTWithIgnoringExpiration(h.tokenSignKey), h.refreshToken)
-		authGroup.GET("/token/validate", mw.RequirePayload(), mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.validateToken)
-		authGroup.GET("/token/revoke", mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.revokeRefreshTokens)
-		authGroup.POST("/resend-email-verification", mw.RequirePayload(), mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.resendEmailVerification)
+		authGroup.POST("/token/renew", mw.RequirePayload(), mw.GetAndValidateParticipantUserJWTWithIgnoringExpiration(h.tokenSignKey, h.globalInfosDBConn), h.refreshToken)
+		authGroup.GET("/token/validate", mw.RequirePayload(), mw.GetAndValidateParticipantUserJWT(h.tokenSignKey, h.globalInfosDBConn), h.validateToken)
+		authGroup.GET("/token/revoke", mw.GetAndValidateParticipantUserJWT(h.tokenSignKey, h.globalInfosDBConn), h.revokeRefreshTokens)
+		authGroup.POST("/resend-email-verification", mw.RequirePayload(), mw.GetAndValidateParticipantUserJWT(h.tokenSignKey, h.globalInfosDBConn), h.resendEmailVerification)
 		authGroup.POST("/verify-email", mw.RequirePayload(), h.verifyEmail)
-		authGroup.POST("/logout", mw.GetAndValidateParticipantUserJWT(h.tokenSignKey), h.logout)
+		authGroup.POST("/logout", mw.GetAndValidateParticipantUserJWT(h.tokenSignKey, h.globalInfosDBConn), h.logout)
 	}
 
 	otpGroup := authGroup.Group("/otp")
-	otpGroup.Use(mw.GetAndValidateParticipantUserJWT(h.tokenSignKey))
+	otpGroup.Use(mw.GetAndValidateParticipantUserJWT(h.tokenSignKey, h.globalInfosDBConn))
 	{
 		otpGroup.GET("", h.requestOTP)
 		otpGroup.POST("/verify", h.verifyOTP)

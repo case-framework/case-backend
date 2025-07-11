@@ -5,17 +5,25 @@ import (
 	"net/http"
 	"strings"
 
+	globalinfosDB "github.com/case-framework/case-backend/pkg/db/global-infos"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	"github.com/gin-gonic/gin"
 )
 
 // GetAndValidateJWT is a middleware that extracts the JWT from the request and validates it
 
-func extractAndValidateParticipantJWT(c *gin.Context, tokenSignKey string) {
+func extractAndValidateParticipantJWT(c *gin.Context, tokenSignKey string, globalInfosDBService *globalinfosDB.GlobalInfosDBService) {
 	token, err := extractToken(c)
 	if err != nil {
 		slog.Warn("no Authorization token found")
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.Abort()
+		return
+	}
+
+	if isTokenBlocked(token, globalInfosDBService) {
+		slog.Warn("token logged out")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "token logged out"})
 		c.Abort()
 		return
 	}
@@ -32,18 +40,29 @@ func extractAndValidateParticipantJWT(c *gin.Context, tokenSignKey string) {
 	c.Set("validatedToken", parsedToken)
 }
 
-func GetAndValidateParticipantUserJWT(tokenSignKey string) gin.HandlerFunc {
+func isTokenBlocked(token string, globalInfosDBService *globalinfosDB.GlobalInfosDBService) bool {
+	return globalInfosDBService.IsJwtBlocked(token)
+}
+
+func GetAndValidateParticipantUserJWT(tokenSignKey string, globalInfosDBService *globalinfosDB.GlobalInfosDBService) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		extractAndValidateParticipantJWT(c, tokenSignKey)
+		extractAndValidateParticipantJWT(c, tokenSignKey, globalInfosDBService)
 	}
 }
 
-func GetAndValidateParticipantUserJWTWithIgnoringExpiration(tokenSignKey string) gin.HandlerFunc {
+func GetAndValidateParticipantUserJWTWithIgnoringExpiration(tokenSignKey string, globalInfosDBService *globalinfosDB.GlobalInfosDBService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token, err := extractToken(c)
 		if err != nil {
 			slog.Warn("no Authorization token found")
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.Abort()
+			return
+		}
+
+		if isTokenBlocked(token, globalInfosDBService) {
+			slog.Warn("token logged out")
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "token logged out"})
 			c.Abort()
 			return
 		}

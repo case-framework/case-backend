@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	globalinfosDB "github.com/case-framework/case-backend/pkg/db/global-infos"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	userTypes "github.com/case-framework/case-backend/pkg/user-management/types"
 	"github.com/gin-gonic/gin"
@@ -19,7 +20,7 @@ type OTPConfig struct {
 	Types  []userTypes.OTPType `json:"types" yaml:"types"`
 }
 
-func CheckOTP(otpConf []OTPConfig, tokenSignKey string) gin.HandlerFunc {
+func CheckOTP(otpConf []OTPConfig, tokenSignKey string, globalInfosDBService *globalinfosDB.GlobalInfosDBService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		route := c.Request.URL.Path
 		method := c.Request.Method
@@ -31,7 +32,7 @@ func CheckOTP(otpConf []OTPConfig, tokenSignKey string) gin.HandlerFunc {
 			return
 		}
 
-		extractAndValidateParticipantJWT(c, tokenSignKey)
+		extractAndValidateParticipantJWT(c, tokenSignKey, globalInfosDBService)
 
 		tokenValue, ok := c.Get("validatedToken")
 		if !ok {

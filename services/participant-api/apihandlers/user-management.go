@@ -27,7 +27,7 @@ const (
 
 func (h *HttpEndpoints) AddUserManagementAPI(rg *gin.RouterGroup) {
 	userGroup := rg.Group("/user")
-	userGroup.Use(mw.GetAndValidateParticipantUserJWT(h.tokenSignKey))
+	userGroup.Use(mw.GetAndValidateParticipantUserJWT(h.tokenSignKey, h.globalInfosDBConn))
 	{
 		userGroup.GET("/", h.getUser)
 		userGroup.POST("/profiles", mw.RequirePayload(), h.addNewProfileHandl)
