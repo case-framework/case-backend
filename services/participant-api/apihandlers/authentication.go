@@ -1,6 +1,8 @@
 package apihandlers
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -64,6 +66,15 @@ type LoginWithEmailReq struct {
 	InstanceID string `json:"instanceId"`
 }
 
+// generateSessionID creates a unique session ID using crypto/rand
+func generateSessionID() (string, error) {
+	bytes := make([]byte, 16) // 32 character hex string
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
+}
+
 func (h *HttpEndpoints) loginWithEmail(c *gin.Context) {
 	var req LoginWithEmailReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -120,6 +131,13 @@ func (h *HttpEndpoints) loginWithEmail(c *gin.Context) {
 	}
 
 	// generate jwt
+	sessionID, err := generateSessionID()
+	if err != nil {
+		slog.Error("failed to generate session ID", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
 	mainProfileID, otherProfileIDs := umUtils.GetMainAndOtherProfiles(user)
 
 	token, err := jwthandling.GenerateNewParticipantUserToken(
@@ -133,6 +151,7 @@ func (h *HttpEndpoints) loginWithEmail(c *gin.Context) {
 		otherProfileIDs,
 		h.tokenSignKey,
 		nil,
+		sessionID,
 	)
 	if err != nil {
 		slog.Error("failed to generate token", slog.String("error", err.Error()))
@@ -148,7 +167,7 @@ func (h *HttpEndpoints) loginWithEmail(c *gin.Context) {
 		return
 	}
 
-	err = h.userDBConn.CreateRenewToken(req.InstanceID, user.ID.Hex(), renewToken, 0)
+	err = h.userDBConn.CreateRenewToken(req.InstanceID, user.ID.Hex(), renewToken, 0, sessionID)
 	if err != nil {
 		slog.Error("failed to save renew token", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -302,6 +321,13 @@ func (h *HttpEndpoints) signupWithEmail(c *gin.Context) {
 	// generate jwt
 	mainProfileID, otherProfileIDs := umUtils.GetMainAndOtherProfiles(newUser)
 
+	sessionID, err := generateSessionID()
+	if err != nil {
+		slog.Error("failed to generate session ID", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
 	token, err := jwthandling.GenerateNewParticipantUserToken(
 		h.ttls.AccessToken,
 		newUser.ID.Hex(),
@@ -313,6 +339,7 @@ func (h *HttpEndpoints) signupWithEmail(c *gin.Context) {
 		otherProfileIDs,
 		h.tokenSignKey,
 		nil,
+		sessionID,
 	)
 	if err != nil {
 		slog.Error("failed to generate token", slog.String("error", err.Error()))
@@ -329,7 +356,7 @@ func (h *HttpEndpoints) signupWithEmail(c *gin.Context) {
 	}
 
 	// generate refresh token
-	err = h.userDBConn.CreateRenewToken(req.InstanceID, newUser.ID.Hex(), renewToken, 0)
+	err = h.userDBConn.CreateRenewToken(req.InstanceID, newUser.ID.Hex(), renewToken, 0, sessionID)
 	if err != nil {
 		slog.Error("failed to save renew token", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -468,6 +495,13 @@ func (h *HttpEndpoints) loginWithTempToken(c *gin.Context) {
 		"email": time.Now().Unix(),
 	}
 
+	sessionID, err := generateSessionID()
+	if err != nil {
+		slog.Error("failed to generate session ID", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
 	token, err := jwthandling.GenerateNewParticipantUserToken(
 		h.ttls.AccessToken,
 		user.ID.Hex(),
@@ -479,6 +513,7 @@ func (h *HttpEndpoints) loginWithTempToken(c *gin.Context) {
 		otherProfileIDs,
 		h.tokenSignKey,
 		lastOTP,
+		sessionID,
 	)
 	if err != nil {
 		slog.Error("failed to generate token", slog.String("error", err.Error()))
@@ -495,7 +530,7 @@ func (h *HttpEndpoints) loginWithTempToken(c *gin.Context) {
 	}
 
 	// generate refresh token
-	err = h.userDBConn.CreateRenewToken(tokenInfos.InstanceID, user.ID.Hex(), renewToken, 0)
+	err = h.userDBConn.CreateRenewToken(tokenInfos.InstanceID, user.ID.Hex(), renewToken, 0, sessionID)
 	if err != nil {
 		slog.Error("failed to save renew token", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -579,7 +614,7 @@ func (h *HttpEndpoints) refreshToken(c *gin.Context) {
 
 	if rt.NextToken == newRenewToken {
 		// this is the first time the refresh token is used
-		err := h.userDBConn.CreateRenewToken(token.InstanceID, token.Subject, newRenewToken, 0)
+		err = h.userDBConn.CreateRenewToken(token.InstanceID, token.Subject, newRenewToken, 0, token.SessionID)
 		if err != nil {
 			slog.Error("failed to save renew token", slog.String("error", err.Error()))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -616,6 +651,7 @@ func (h *HttpEndpoints) refreshToken(c *gin.Context) {
 		otherProfileIDs,
 		h.tokenSignKey,
 		token.LastOTPProvided,
+		token.SessionID,
 	)
 	if err != nil {
 		slog.Error("failed to generate token", slog.String("error", err.Error()))
@@ -726,33 +762,11 @@ func (h *HttpEndpoints) revokeRefreshTokens(c *gin.Context) {
 func (h *HttpEndpoints) logout(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
 
-	// Check if request has a body with specific refresh token
-	var req struct {
-		RefreshToken string `json:"refreshToken,omitempty"`
-	}
-	// Parse request body - it's optional, so ignore errors
-	_ = c.ShouldBindJSON(&req)
-
-	var count int64
-	var err error
-
-	if req.RefreshToken != "" {
-		// Revoke specific refresh token
-		err = h.userDBConn.DeleteRenewTokenByToken(token.InstanceID, req.RefreshToken)
-		if err != nil {
-			slog.Error("failed to delete specific renew token during logout", slog.String("error", err.Error()))
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-			return
-		}
-		count = 1 // Only one token was deleted
-	} else {
-		// Revoke all refresh tokens for the user
-		count, err = h.userDBConn.DeleteRenewTokensForUser(token.InstanceID, token.Subject)
-		if err != nil {
-			slog.Error("failed to delete renew tokens during logout", slog.String("error", err.Error()))
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-			return
-		}
+	count, err := h.userDBConn.DeleteRenewTokensForSession(token.InstanceID, token.Subject, token.SessionID)
+	if err != nil {
+		slog.Error("failed to delete specific renew token during logout", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
 	}
 
 	// TODO: Add the JWT access token to a block list to prevent further use
@@ -997,6 +1011,7 @@ func (h *HttpEndpoints) verifyOTP(c *gin.Context) {
 		otherProfileIDs,
 		h.tokenSignKey,
 		token.LastOTPProvided,
+		token.SessionID,
 	)
 	if err != nil {
 		slog.Error("failed to generate token", slog.String("error", err.Error()))
@@ -1013,7 +1028,7 @@ func (h *HttpEndpoints) verifyOTP(c *gin.Context) {
 	}
 
 	// generate refresh token
-	err = h.userDBConn.CreateRenewToken(token.InstanceID, user.ID.Hex(), renewToken, 0)
+	err = h.userDBConn.CreateRenewToken(token.InstanceID, user.ID.Hex(), renewToken, 0, token.SessionID)
 	if err != nil {
 		slog.Error("failed to save renew token", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
