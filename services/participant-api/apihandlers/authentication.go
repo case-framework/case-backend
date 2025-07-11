@@ -761,6 +761,7 @@ func (h *HttpEndpoints) revokeRefreshTokens(c *gin.Context) {
 
 func (h *HttpEndpoints) logout(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+	tokenString := c.MustGet("token").(string)
 
 	count, err := h.userDBConn.DeleteRenewTokensForSession(token.InstanceID, token.Subject, token.SessionID)
 	if err != nil {
@@ -769,8 +770,13 @@ func (h *HttpEndpoints) logout(c *gin.Context) {
 		return
 	}
 
-	// TODO: Add the JWT access token to a block list to prevent further use
-	// This will require implementing a JWT blacklist/blocklist mechanism
+	err = h.globalInfosDBConn.AddBlockedJwt(
+		tokenString,
+		token.ExpiresAt.Time,
+	)
+	if err != nil {
+		slog.Error("failed to add blocked JWT", slog.String("error", err.Error()))
+	}
 
 	slog.Info("user logged out", slog.String("subject", token.Subject), slog.String("instanceID", token.InstanceID), slog.Int64("tokensRevoked", count))
 	c.JSON(http.StatusOK, gin.H{

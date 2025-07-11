@@ -28,6 +28,7 @@ func extractAndValidateParticipantJWT(c *gin.Context, tokenSignKey string) {
 		c.Abort()
 		return
 	}
+	c.Set("token", token)
 	c.Set("validatedToken", parsedToken)
 }
 
