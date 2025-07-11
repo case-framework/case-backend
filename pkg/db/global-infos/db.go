@@ -12,7 +12,8 @@ import (
 
 // collection names
 const (
-	COLLECTION_NAME_TEMPTOKENS = "temp-tokens"
+	COLLECTION_NAME_TEMPTOKENS   = "temp-tokens"
+	COLLECTION_NAME_BLOCKED_JWTS = "blockedJwts"
 )
 
 type GlobalInfosDBService struct {
@@ -71,6 +72,10 @@ func (dbService *GlobalInfosDBService) collectionTemptokens() *mongo.Collection 
 	return dbService.DBClient.Database(dbService.getDBName()).Collection(COLLECTION_NAME_TEMPTOKENS)
 }
 
+func (dbService *GlobalInfosDBService) collectionBlockedJwts() *mongo.Collection {
+	return dbService.DBClient.Database(dbService.getDBName()).Collection(COLLECTION_NAME_BLOCKED_JWTS)
+}
+
 func (dbService *GlobalInfosDBService) ensureIndexes() {
 	slog.Debug("Ensuring indexes for global infos DB")
 
@@ -79,4 +84,8 @@ func (dbService *GlobalInfosDBService) ensureIndexes() {
 		slog.Debug("Error creating indexes for temp tokens: ", slog.String("error", err.Error()))
 	}
 
+	err = dbService.CreateIndexForBlockedJwts()
+	if err != nil {
+		slog.Debug("Error creating indexes for blocked jwts: ", slog.String("error", err.Error()))
+	}
 }
