@@ -140,3 +140,43 @@ func TestGenerateConfidentialResponseExportSecretEnvVarName(t *testing.T) {
 		})
 	}
 }
+
+func TestGenerateSmtpServerUsernameEnvVarName(t *testing.T) {
+	tests := []struct {
+		hostname string
+		port     string
+		expected string
+	}{
+		{"smtp.gmail.com", "587", "SMTP_SERVER_USERNAME_FOR_SMTP_GMAIL_COM_587"},
+		{"mail.example.org", "25", "SMTP_SERVER_USERNAME_FOR_MAIL_EXAMPLE_ORG_25"},
+		{"test-server.local", "2525", "SMTP_SERVER_USERNAME_FOR_TEST_SERVER_LOCAL_2525"},
+		{"smtp-relay", "465", "SMTP_SERVER_USERNAME_FOR_SMTP_RELAY_465"},
+	}
+
+	for _, test := range tests {
+		result := GenerateSmtpServerUsernameEnvVarName(test.hostname, test.port)
+		if result != test.expected {
+			t.Errorf("GenerateSmtpServerUsernameEnvVarName(%q, %q) = %q, expected %q", test.hostname, test.port, result, test.expected)
+		}
+	}
+}
+
+func TestGenerateSmtpServerPasswordEnvVarName(t *testing.T) {
+	tests := []struct {
+		hostname string
+		port     string
+		expected string
+	}{
+		{"smtp.gmail.com", "587", "SMTP_SERVER_PASSWORD_FOR_SMTP_GMAIL_COM_587"},
+		{"mail.example.org", "25", "SMTP_SERVER_PASSWORD_FOR_MAIL_EXAMPLE_ORG_25"},
+		{"test-server.local", "2525", "SMTP_SERVER_PASSWORD_FOR_TEST_SERVER_LOCAL_2525"},
+		{"smtp-relay", "465", "SMTP_SERVER_PASSWORD_FOR_SMTP_RELAY_465"},
+	}
+
+	for _, test := range tests {
+		result := GenerateSmtpServerPasswordEnvVarName(test.hostname, test.port)
+		if result != test.expected {
+			t.Errorf("GenerateSmtpServerPasswordEnvVarName(%q, %q) = %q, expected %q", test.hostname, test.port, result, test.expected)
+		}
+	}
+}
