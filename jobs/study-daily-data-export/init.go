@@ -36,7 +36,7 @@ type ConfidentialResponsesExportTask struct {
 	InstanceID        string   `json:"instance_id" yaml:"instance_id"`
 	StudyKey          string   `json:"study_key" yaml:"study_key"`
 	StudyGlobalSecret string   `json:"study_global_secret" yaml:"study_global_secret"`
-	Name              string   `json:"name" yaml:"name"`                       // optional name for the export file (used as "survey_key")
+	Name              string   `json:"name" yaml:"name"`                       // name for the export file (used as "survey_key")
 	RespKeyFilter     []string `json:"resp_key_filter" yaml:"resp_key_filter"` // optional filter for response keys to inlcude only these
 	ExportFormat      string   `json:"export_format" yaml:"export_format"`     // csv or json
 }
