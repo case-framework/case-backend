@@ -33,6 +33,9 @@ const (
 	ENV_GLOBAL_INFOS_DB_PASSWORD     = "GLOBAL_INFOS_DB_PASSWORD"
 	ENV_MESSAGING_DB_USERNAME        = "MESSAGING_DB_USERNAME"
 	ENV_MESSAGING_DB_PASSWORD        = "MESSAGING_DB_PASSWORD"
+
+	ENV_SMTP_BRIDGE_API_KEY = "SMTP_BRIDGE_API_KEY"
+	ENV_STUDY_GLOBAL_SECRET = "STUDY_GLOBAL_SECRET"
 )
 
 type config struct {
@@ -150,6 +153,14 @@ func secretsOverride() {
 
 	if dbPassword := os.Getenv(ENV_MESSAGING_DB_PASSWORD); dbPassword != "" {
 		conf.DBConfigs.MessagingDB.Password = dbPassword
+	}
+
+	if apiKey := os.Getenv(ENV_SMTP_BRIDGE_API_KEY); apiKey != "" {
+		conf.MessagingConfigs.SmtpBridgeConfig.APIKey = apiKey
+	}
+
+	if globalSecret := os.Getenv(ENV_STUDY_GLOBAL_SECRET); globalSecret != "" {
+		conf.StudyConfigs.GlobalSecret = globalSecret
 	}
 }
 

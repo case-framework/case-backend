@@ -84,4 +84,17 @@ func overrideFromEnv() {
 			}
 		}
 	}
+
+	// Override SMTP server credentials from environment variables
+	overrideSmtpCredentials(&conf.SMTPServerConfig.HighPrio)
+	overrideSmtpCredentials(&conf.SMTPServerConfig.LowPrio)
+}
+
+// overrideSmtpCredentials overrides SMTP server credentials from environment variables
+func overrideSmtpCredentials(serverList *smtp_client.SmtpServerList) {
+	servers := make([]utils.SmtpServerCredentialsOverride, len(serverList.Servers))
+	for i := range serverList.Servers {
+		servers[i] = &serverList.Servers[i]
+	}
+	utils.OverrideSmtpServerCredentialsFromEnv(servers)
 }

@@ -33,7 +33,6 @@ const (
 	ENV_CONFIG_FILE_PATH = "CONFIG_FILE_PATH"
 
 	// Variables to override "secrets" in the config file
-	ENV_SMTP_BRIDGE_API_KEY          = "SMTP_BRIDGE_API_KEY"
 	ENV_STUDY_DB_USERNAME            = "STUDY_DB_USERNAME"
 	ENV_STUDY_DB_PASSWORD            = "STUDY_DB_PASSWORD"
 	ENV_PARTICIPANT_USER_DB_USERNAME = "PARTICIPANT_USER_DB_USERNAME"
@@ -42,7 +41,12 @@ const (
 	ENV_GLOBAL_INFOS_DB_PASSWORD     = "GLOBAL_INFOS_DB_PASSWORD"
 	ENV_MESSAGING_DB_USERNAME        = "MESSAGING_DB_USERNAME"
 	ENV_MESSAGING_DB_PASSWORD        = "MESSAGING_DB_PASSWORD"
-	ENV_SMS_GATEWAY_API_KEY          = "SMS_GATEWAY_API_KEY"
+
+	ENV_SMTP_BRIDGE_API_KEY = "SMTP_BRIDGE_API_KEY"
+	ENV_SMS_GATEWAY_API_KEY = "SMS_GATEWAY_API_KEY"
+
+	ENV_STUDY_GLOBAL_SECRET           = "STUDY_GLOBAL_SECRET"
+	ENV_PARTICIPANT_USER_JWT_SIGN_KEY = "PARTICIPANT_USER_JWT_SIGN_KEY"
 )
 
 type ParticipantApiConfig struct {
@@ -213,6 +217,32 @@ func secretsOverride() {
 			conf.MessagingConfigs.SMSConfig = &messagingTypes.SMSGatewayConfig{}
 		}
 		conf.MessagingConfigs.SMSConfig.APIKey = smsGatewayAPIKey
+	}
+
+	if studyGlobalSecret := os.Getenv(ENV_STUDY_GLOBAL_SECRET); studyGlobalSecret != "" {
+		conf.StudyConfigs.GlobalSecret = studyGlobalSecret
+	}
+
+	if participantUserJwtSignKey := os.Getenv(ENV_PARTICIPANT_USER_JWT_SIGN_KEY); participantUserJwtSignKey != "" {
+		conf.UserManagementConfig.ParticipantUserJWTConfig.SignKey = participantUserJwtSignKey
+	}
+
+	// Override API keys for external services
+	for i := range conf.StudyConfigs.ExternalServices {
+		service := &conf.StudyConfigs.ExternalServices[i]
+
+		// Skip if name is not defined
+		if service.Name == "" {
+			continue
+		}
+
+		// Generate environment variable name from service name
+		envVarName := utils.GenerateExternalServiceAPIKeyEnvVarName(service.Name)
+
+		// Override if environment variable exists
+		if apiKey := os.Getenv(envVarName); apiKey != "" {
+			service.APIKey = apiKey
+		}
 	}
 }
 

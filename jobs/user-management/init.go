@@ -33,6 +33,8 @@ const (
 	ENV_GLOBAL_INFOS_DB_PASSWORD     = "GLOBAL_INFOS_DB_PASSWORD"
 	ENV_MESSAGING_DB_USERNAME        = "MESSAGING_DB_USERNAME"
 	ENV_MESSAGING_DB_PASSWORD        = "MESSAGING_DB_PASSWORD"
+	ENV_SMTP_BRIDGE_API_KEY          = "SMTP_BRIDGE_API_KEY"
+	ENV_STUDY_GLOBAL_SECRET          = "STUDY_GLOBAL_SECRET"
 )
 
 type config struct {
@@ -169,6 +171,32 @@ func secretsOverride() {
 
 	if dbPassword := os.Getenv(ENV_MESSAGING_DB_PASSWORD); dbPassword != "" {
 		conf.DBConfigs.MessagingDB.Password = dbPassword
+	}
+
+	if apiKey := os.Getenv(ENV_SMTP_BRIDGE_API_KEY); apiKey != "" {
+		conf.MessagingConfigs.SmtpBridgeConfig.APIKey = apiKey
+	}
+
+	if globalSecret := os.Getenv(ENV_STUDY_GLOBAL_SECRET); globalSecret != "" {
+		conf.StudyConfigs.GlobalSecret = globalSecret
+	}
+
+	// Override API keys for external services
+	for i := range conf.StudyConfigs.ExternalServices {
+		service := &conf.StudyConfigs.ExternalServices[i]
+
+		// Skip if name is not defined
+		if service.Name == "" {
+			continue
+		}
+
+		// Generate environment variable name from service name
+		envVarName := utils.GenerateExternalServiceAPIKeyEnvVarName(service.Name)
+
+		// Override if environment variable exists
+		if apiKey := os.Getenv(envVarName); apiKey != "" {
+			service.APIKey = apiKey
+		}
 	}
 }
 

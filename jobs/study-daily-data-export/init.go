@@ -36,7 +36,7 @@ type ConfidentialResponsesExportTask struct {
 	InstanceID        string   `json:"instance_id" yaml:"instance_id"`
 	StudyKey          string   `json:"study_key" yaml:"study_key"`
 	StudyGlobalSecret string   `json:"study_global_secret" yaml:"study_global_secret"`
-	Name              string   `json:"name" yaml:"name"`                       // optional name for the export file (used as "survey_key")
+	Name              string   `json:"name" yaml:"name"`                       // name for the export file (used as "survey_key")
 	RespKeyFilter     []string `json:"resp_key_filter" yaml:"resp_key_filter"` // optional filter for response keys to inlcude only these
 	ExportFormat      string   `json:"export_format" yaml:"export_format"`     // csv or json
 }
@@ -141,6 +141,23 @@ func secretsOverride() {
 		conf.DBConfigs.StudyDB.Password = dbPassword
 	}
 
+	// Override study global secrets for confidential export tasks
+	for i := range conf.ConfidentialResponsesExports.ExportTasks {
+		task := &conf.ConfidentialResponsesExports.ExportTasks[i]
+
+		// Skip if name is not defined
+		if task.Name == "" {
+			continue
+		}
+
+		// Generate environment variable name from task name
+		envVarName := utils.GenerateConfidentialResponseExportSecretEnvVarName(task.Name)
+
+		// Override if environment variable exists
+		if secret := os.Getenv(envVarName); secret != "" {
+			task.StudyGlobalSecret = secret
+		}
+	}
 }
 
 func initDBs() {
