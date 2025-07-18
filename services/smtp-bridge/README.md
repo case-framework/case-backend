@@ -1,6 +1,6 @@
 # SMTP Bridge Service
 
-This service provides a secure SMTP bridge for sending emails through configured SMTP servers with high and low priority queues. It serves as an intermediary between other services and external SMTP providers, offering load balancing and failover capabilities.
+This service provides a secure SMTP bridge for sending emails through configured SMTP servers with high- and low-priority queues. It serves as an intermediary between other services and external SMTP providers, offering load balancing and failover capabilities.
 
 ## Configuration
 

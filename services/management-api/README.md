@@ -40,7 +40,7 @@ allowed_instance_ids:
 
 db_configs:
   participant_user_db:
-   connection_str: "<connection_str>"
+    connection_str: "<connection_str>"
     username: "<env var PARTICIPANT_USER_DB_USERNAME>"
     password: "<env var PARTICIPANT_USER_DB_PASSWORD>"
     connection_prefix: ""
@@ -73,7 +73,7 @@ db_configs:
     db_name_prefix: ""
     run_index_creation: false
   messaging_db:
-     connection_str: "<connection_str>"
+    connection_str: "<connection_str>"
     username: "<env var MESSAGING_DB_USERNAME>"
     password: "<env var MESSAGING_DB_PASSWORD>"
     connection_prefix: ""
