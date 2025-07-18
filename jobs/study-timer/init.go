@@ -20,6 +20,8 @@ const (
 	// Variables to override "secrets" in the config file
 	ENV_STUDY_DB_USERNAME = "STUDY_DB_USERNAME"
 	ENV_STUDY_DB_PASSWORD = "STUDY_DB_PASSWORD"
+
+	ENV_STUDY_GLOBAL_SECRET = "STUDY_GLOBAL_SECRET"
 )
 
 type config struct {
@@ -98,6 +100,27 @@ func secretsOverride() {
 		conf.DBConfigs.StudyDB.Password = dbPassword
 	}
 
+	if studyGlobalSecret := os.Getenv(ENV_STUDY_GLOBAL_SECRET); studyGlobalSecret != "" {
+		conf.StudyConfigs.GlobalSecret = studyGlobalSecret
+	}
+
+	// Override API keys for external services
+	for i := range conf.StudyConfigs.ExternalServices {
+		service := &conf.StudyConfigs.ExternalServices[i]
+
+		// Skip if name is not defined
+		if service.Name == "" {
+			continue
+		}
+
+		// Generate environment variable name from service name
+		envVarName := utils.GenerateExternalServiceAPIKeyEnvVarName(service.Name)
+
+		// Override if environment variable exists
+		if apiKey := os.Getenv(envVarName); apiKey != "" {
+			service.APIKey = apiKey
+		}
+	}
 }
 
 func initDBs() {

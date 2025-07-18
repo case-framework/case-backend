@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"regexp"
-	"strings"
 
 	"github.com/case-framework/case-backend/pkg/db"
 	"github.com/case-framework/case-backend/pkg/utils"
@@ -153,29 +151,13 @@ func secretsOverride() {
 		}
 
 		// Generate environment variable name from task name
-		envVarName := generateSecretEnvVarName(task.Name)
+		envVarName := utils.GenerateConfidentialResponseExportSecretEnvVarName(task.Name)
 
 		// Override if environment variable exists
 		if secret := os.Getenv(envVarName); secret != "" {
 			task.StudyGlobalSecret = secret
 		}
 	}
-}
-
-// generateSecretEnvVarName generates an environment variable name for a confidential export task
-// based on its name. Format: CONF_RESP_EXPORT_STUDY_GLOBAL_SECRET_FOR_{NORMALIZED_NAME}
-func generateSecretEnvVarName(taskName string) string {
-	// Convert to uppercase
-	normalized := strings.ToUpper(taskName)
-
-	// Replace any non-alphanumeric characters with underscores
-	reg := regexp.MustCompile(`[^A-Z0-9]+`)
-	normalized = reg.ReplaceAllString(normalized, "_")
-
-	// Remove leading/trailing underscores
-	normalized = strings.Trim(normalized, "_")
-
-	return "CONF_RESP_EXPORT_STUDY_GLOBAL_SECRET_FOR_" + normalized
 }
 
 func initDBs() {

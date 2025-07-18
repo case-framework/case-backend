@@ -259,12 +259,12 @@ func checkFilestorePath(conf Config) {
 
 func secretsOverride() {
 	// Override secrets from environment variables
-	if dbUsername := os.Getenv(ENV_MANAGEMENT_USER_DB_USERNAME); dbUsername != "" {
-		conf.DBConfigs.ManagementUserDB.Username = dbUsername
+	if dbUsername := os.Getenv(ENV_STUDY_DB_USERNAME); dbUsername != "" {
+		conf.DBConfigs.StudyDB.Username = dbUsername
 	}
 
-	if dbPassword := os.Getenv(ENV_MANAGEMENT_USER_DB_PASSWORD); dbPassword != "" {
-		conf.DBConfigs.ManagementUserDB.Password = dbPassword
+	if dbPassword := os.Getenv(ENV_STUDY_DB_PASSWORD); dbPassword != "" {
+		conf.DBConfigs.StudyDB.Password = dbPassword
 	}
 
 	if dbUsername := os.Getenv(ENV_PARTICIPANT_USER_DB_USERNAME); dbUsername != "" {
@@ -291,12 +291,29 @@ func secretsOverride() {
 		conf.DBConfigs.MessagingDB.Password = dbPassword
 	}
 
-	if dbUsername := os.Getenv(ENV_STUDY_DB_USERNAME); dbUsername != "" {
-		conf.DBConfigs.StudyDB.Username = dbUsername
+	if dbUsername := os.Getenv(ENV_MANAGEMENT_USER_DB_USERNAME); dbUsername != "" {
+		conf.DBConfigs.ManagementUserDB.Username = dbUsername
 	}
 
-	if dbPassword := os.Getenv(ENV_STUDY_DB_PASSWORD); dbPassword != "" {
-		conf.DBConfigs.StudyDB.Password = dbPassword
+	if dbPassword := os.Getenv(ENV_MANAGEMENT_USER_DB_PASSWORD); dbPassword != "" {
+		conf.DBConfigs.ManagementUserDB.Password = dbPassword
 	}
 
+	// Override API keys for external services
+	for i := range conf.StudyConfigs.ExternalServices {
+		service := &conf.StudyConfigs.ExternalServices[i]
+
+		// Skip if name is not defined
+		if service.Name == "" {
+			continue
+		}
+
+		// Generate environment variable name from service name
+		envVarName := utils.GenerateExternalServiceAPIKeyEnvVarName(service.Name)
+
+		// Override if environment variable exists
+		if apiKey := os.Getenv(envVarName); apiKey != "" {
+			service.APIKey = apiKey
+		}
+	}
 }

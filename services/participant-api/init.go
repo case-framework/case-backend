@@ -214,6 +214,24 @@ func secretsOverride() {
 		}
 		conf.MessagingConfigs.SMSConfig.APIKey = smsGatewayAPIKey
 	}
+
+	// Override API keys for external services
+	for i := range conf.StudyConfigs.ExternalServices {
+		service := &conf.StudyConfigs.ExternalServices[i]
+
+		// Skip if name is not defined
+		if service.Name == "" {
+			continue
+		}
+
+		// Generate environment variable name from service name
+		envVarName := utils.GenerateExternalServiceAPIKeyEnvVarName(service.Name)
+
+		// Override if environment variable exists
+		if apiKey := os.Getenv(envVarName); apiKey != "" {
+			service.APIKey = apiKey
+		}
+	}
 }
 
 func checkParticipantFilestorePath() {
