@@ -103,10 +103,6 @@ func secretsOverride() {
 	if studyGlobalSecret := os.Getenv(ENV_STUDY_GLOBAL_SECRET); studyGlobalSecret != "" {
 		conf.StudyConfigs.GlobalSecret = studyGlobalSecret
 	}
-	if conf.StudyConfigs.GlobalSecret == "" {
-		slog.Error("Study global secret must not be empty, use the config file or the env variable STUDY_GLOBAL_SECRET")
-		panic("Study global secret must not be empty")
-	}
 
 	// Override API keys for external services
 	for i := range conf.StudyConfigs.ExternalServices {

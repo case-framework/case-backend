@@ -222,10 +222,6 @@ func secretsOverride() {
 	if studyGlobalSecret := os.Getenv(ENV_STUDY_GLOBAL_SECRET); studyGlobalSecret != "" {
 		conf.StudyConfigs.GlobalSecret = studyGlobalSecret
 	}
-	if conf.StudyConfigs.GlobalSecret == "" {
-		slog.Error("Study global secret must not be empty, use the config file or the env variable STUDY_GLOBAL_SECRET")
-		panic("Study global secret must not be empty")
-	}
 
 	if participantUserJwtSignKey := os.Getenv(ENV_PARTICIPANT_USER_JWT_SIGN_KEY); participantUserJwtSignKey != "" {
 		conf.UserManagementConfig.ParticipantUserJWTConfig.SignKey = participantUserJwtSignKey
