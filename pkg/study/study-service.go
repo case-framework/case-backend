@@ -30,6 +30,11 @@ func Init(
 	gSecret string,
 	externalServices []studyengine.ExternalService,
 ) {
+	if gSecret == "" {
+		slog.Error("Study global secret must not be empty, use the config file or the env variable to set it")
+		panic("Study global secret must not be empty")
+	}
+
 	studyDBService = studyDB
 	globalSecret = gSecret
 	studyengine.InitStudyEngine(studyDB, externalServices)
