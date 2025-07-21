@@ -135,7 +135,13 @@ func init() {
 	initUserManagement()
 
 	// init study service
-	initStudyService()
+	if shouldInitStudyService() {
+		initStudyService()
+	}
+}
+
+func shouldInitStudyService() bool {
+	return conf.RunTasks.GenerateProfileIDLookup || conf.RunTasks.HandleInactiveUsers || conf.RunTasks.SendReminderToConfirmAccounts
 }
 
 func secretsOverride() {

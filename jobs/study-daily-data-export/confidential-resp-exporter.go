@@ -16,6 +16,11 @@ import (
 )
 
 func runConfidentialResponsesExportsForTask(rExpTask ConfidentialResponsesExportTask) {
+	if rExpTask.StudyGlobalSecret == "" {
+		slog.Error("Study global secret must not be empty - skipping task", slog.String("task_name", rExpTask.Name))
+		return
+	}
+
 	// ensure there is a folder path for the source (export_path/instance_id/study_key)
 	relativeFolderPath := path.Join(rExpTask.InstanceID, rExpTask.StudyKey)
 	exportFolderPathForTask := path.Join(conf.ExportPath, relativeFolderPath)

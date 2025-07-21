@@ -117,7 +117,13 @@ func init() {
 	initMessageSendingConfig()
 
 	// init study service
-	initStudyService()
+	if shouldInitStudyService() {
+		initStudyService()
+	}
+}
+
+func shouldInitStudyService() bool {
+	return conf.RunTasks.ScheduleHandler || conf.RunTasks.StudyMessagesHandler || conf.RunTasks.ResearcherMessagesHandler
 }
 
 func secretsOverride() {
