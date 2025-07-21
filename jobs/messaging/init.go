@@ -162,6 +162,11 @@ func secretsOverride() {
 	if globalSecret := os.Getenv(ENV_STUDY_GLOBAL_SECRET); globalSecret != "" {
 		conf.StudyConfigs.GlobalSecret = globalSecret
 	}
+	// Only check study global secret if StudyMessagesHandler is enabled (it uses study service)
+	if conf.RunTasks.StudyMessagesHandler && conf.StudyConfigs.GlobalSecret == "" {
+		slog.Error("Study global secret must not be empty, use the config file or the env variable STUDY_GLOBAL_SECRET")
+		panic("Study global secret must not be empty")
+	}
 }
 
 func initDBs() {

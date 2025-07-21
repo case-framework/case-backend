@@ -218,8 +218,8 @@ func initConfig() Config {
 		conf.StudyConfigs.GlobalSecret = studyGlobalSecret
 	}
 	if conf.StudyConfigs.GlobalSecret == "" {
-		slog.Error("Study global secret not set - configure STUDY_GLOBAL_SECRET env variable.")
-		panic("Study global secret not set")
+		slog.Error("Study global secret must not be empty, use the config file or the env variable STUDY_GLOBAL_SECRET")
+		panic("Study global secret must not be empty")
 	}
 
 	// Allowed instance IDs
