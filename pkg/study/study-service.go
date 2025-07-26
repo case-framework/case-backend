@@ -370,8 +370,6 @@ func OnMergeTempParticipant(instanceID string, studyKey string, profileID string
 }
 
 func OnSubmitResponse(instanceID string, studyKey string, profileID string, response studyTypes.SurveyResponse) (result []studyTypes.AssignedSurvey, err error) {
-	response.ArrivedAt = time.Now().Unix()
-
 	study, err := getStudyIfActive(instanceID, studyKey)
 	if err != nil {
 		slog.Error("error getting study", slog.String("error", err.Error()))
@@ -384,16 +382,49 @@ func OnSubmitResponse(instanceID string, studyKey string, profileID string, resp
 		return
 	}
 
+	statusFilter := studyTypes.PARTICIPANT_STUDY_STATUS_ACTIVE
+
+	result, err = onSubmitResponseHandler(
+		instanceID,
+		studyKey,
+		participantID,
+		confidentialID,
+		response,
+		&statusFilter,
+	)
+	if err != nil {
+		slog.Error("Error submitting response", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+		return
+	}
+
+	for i := range result {
+		result[i].ProfileID = profileID
+	}
+	return
+}
+
+func onSubmitResponseHandler(
+	instanceID string,
+	studyKey string,
+	participantID string,
+	confidentialID string,
+	response studyTypes.SurveyResponse,
+	statusFilter *string,
+) (result []studyTypes.AssignedSurvey, err error) {
+	response.ArrivedAt = time.Now().Unix()
+
 	pState, err := studyDBService.GetParticipantByID(instanceID, studyKey, participantID)
 	if err != nil {
 		slog.Error("error getting participant state", slog.String("error", err.Error()))
 		return
 	}
 
-	if pState.StudyStatus != studyTypes.PARTICIPANT_STUDY_STATUS_ACTIVE {
-		slog.Error("participant is not active", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID))
-		err = errors.New("participant is not active")
-		return
+	if statusFilter != nil {
+		if pState.StudyStatus != *statusFilter {
+			slog.Error("participant is not in the correct status", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("status", pState.StudyStatus), slog.String("expectedStatus", *statusFilter))
+			err = errors.New("participant is not in the correct status")
+			return
+		}
 	}
 
 	currentEvent := studyengine.StudyEvent{
@@ -428,10 +459,40 @@ func OnSubmitResponse(instanceID string, studyKey string, profileID string, resp
 	result = make([]studyTypes.AssignedSurvey, len(actionResult.PState.AssignedSurveys))
 	for i, survey := range actionResult.PState.AssignedSurveys {
 		result[i] = survey
-		result[i].ProfileID = profileID
 		result[i].StudyKey = studyKey
 	}
 	return
+}
+
+func OnSubmitResponseOnBehalfOfParticipant(instanceID string, studyKey string, participantID string, response studyTypes.SurveyResponse, by string) (result []studyTypes.AssignedSurvey, err error) {
+	response.Context["submittedBy"] = by
+
+	study, err := getStudyIfActive(instanceID, studyKey)
+	if err != nil {
+		slog.Error("error getting study", slog.String("error", err.Error()))
+		return
+	}
+
+	confidentialID, err := ComputeConfidentialIDForParticipant(study, participantID)
+	if err != nil {
+		slog.Error("Error computing confidential ID", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+		return
+	}
+
+	result, err = onSubmitResponseHandler(
+		instanceID,
+		studyKey,
+		participantID,
+		confidentialID,
+		response,
+		nil,
+	)
+	if err != nil {
+		slog.Error("Error submitting response", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+		return
+	}
+	return
+
 }
 
 func OnSubmitResponseForTempParticipant(instanceID string, studyKey string, participantID string, response studyTypes.SurveyResponse) (result []studyTypes.AssignedSurvey, err error) {

@@ -26,6 +26,17 @@ func (h *HttpEndpoints) addParticipantManagementEndpoints(rg *gin.RouterGroup) {
 		h.createVirtualParticipant,
 	))
 
+	participantGroup.POST("/:participantID/responses", h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType:        pc.RESOURCE_TYPE_STUDY,
+			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+			ExtractResourceKeys: getStudyKeyFromParams,
+			Action:              pc.ACTION_EDIT_PARTICIPANT_DATA,
+		},
+		nil,
+		h.submitParticipantResponse,
+	))
+
 	/*
 		Submit survey responses for participant
 		POST /v1/studies/:studyKey/participants/:participantID/responses/
@@ -42,7 +53,7 @@ func (h *HttpEndpoints) addParticipantManagementEndpoints(rg *gin.RouterGroup) {
 			ResourceType:        pc.RESOURCE_TYPE_STUDY,
 			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
 			ExtractResourceKeys: getStudyKeyFromParams,
-			Action:              pc.ACTION_EDIT_PARTICIPANT_STATES,
+			Action:              pc.ACTION_EDIT_PARTICIPANT_DATA,
 		},
 		nil,
 		h.editStudyParticipant,
@@ -67,6 +78,33 @@ func (h *HttpEndpoints) createVirtualParticipant(c *gin.Context) {
 		"message":     "virtual participant created",
 		"participant": pState,
 	})
+}
+
+func (h *HttpEndpoints) submitParticipantResponse(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	participantID := c.Param("participantID")
+
+	var req studyTypes.SurveyResponse
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	slog.Info("submitting response for participant", slog.String("participantID", participantID), slog.String("studyKey", studyKey), slog.String("userID", token.Subject), slog.String("instanceID", token.InstanceID),
+		slog.String("forSurveyKey", req.Key),
+	)
+
+	result, err := studyService.OnSubmitResponseOnBehalfOfParticipant(token.InstanceID, studyKey, participantID, req, token.Subject)
+	if err != nil {
+		slog.Error("failed to submit response", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "response submitted", "result": result})
 }
 
 func (h *HttpEndpoints) editStudyParticipant(c *gin.Context) {
