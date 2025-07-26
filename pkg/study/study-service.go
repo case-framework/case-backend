@@ -161,6 +161,49 @@ func OnRegisterTempParticipant(instanceID string, studyKey string) (pState *stud
 	return
 }
 
+func OnRegisterVirtualParticipant(instanceID string, studyKey string) (pState *studyTypes.Participant, err error) {
+	study, err := getStudyIfActive(instanceID, studyKey)
+	if err != nil {
+		slog.Error("error getting study", slog.String("error", err.Error()))
+		return
+	}
+
+	virtualProfileID := primitive.NewObjectID().Hex()
+	participantID, _, err := ComputeParticipantIDs(study, virtualProfileID)
+	if err != nil {
+		slog.Error("Error computing participant IDs", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+		return
+	}
+
+	pState = &studyTypes.Participant{
+		ParticipantID: participantID,
+		StudyStatus:   studyTypes.PARTICIPANT_STUDY_STATUS_VIRTUAL,
+		EnteredAt:     time.Now().Unix(),
+	}
+
+	currentEvent := studyengine.StudyEvent{
+		Type:       studyengine.STUDY_EVENT_TYPE_ENTER,
+		InstanceID: instanceID,
+		StudyKey:   studyKey,
+	}
+
+	actionResult, err := getAndPerformStudyRules(instanceID, studyKey, *pState, currentEvent)
+	if err != nil {
+		slog.Error("Error getting and performing study rules", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+		return
+	}
+
+	// save participant state
+	_, err = studyDBService.SaveParticipantState(instanceID, studyKey, actionResult.PState)
+	if err != nil {
+		slog.Error("Error saving participant state", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+		return
+	}
+
+	saveReports(instanceID, studyKey, actionResult.ReportsToCreate, studyengine.STUDY_EVENT_TYPE_ENTER)
+	return
+}
+
 func OnCustomStudyEvent(instanceID string, studyKey string, profileID string, eventKey string, payload map[string]interface{}) (result []studyTypes.AssignedSurvey, err error) {
 	study, err := getStudyIfActive(instanceID, studyKey)
 	if err != nil {

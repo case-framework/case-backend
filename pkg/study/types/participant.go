@@ -5,6 +5,7 @@ import "go.mongodb.org/mongo-driver/bson/primitive"
 const (
 	PARTICIPANT_STUDY_STATUS_ACTIVE          = "active"
 	PARTICIPANT_STUDY_STATUS_TEMPORARY       = "temporary" // for participants without a registered account
+	PARTICIPANT_STUDY_STATUS_VIRTUAL         = "virtual"   // for participants created by study managers
 	PARTICIPANT_STUDY_STATUS_EXITED          = "exited"
 	PARTICIPANT_STUDY_STATUS_ACCOUNT_DELETED = "accountDeleted"
 )
