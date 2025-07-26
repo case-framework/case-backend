@@ -37,12 +37,21 @@ func (h *HttpEndpoints) addParticipantManagementEndpoints(rg *gin.RouterGroup) {
 		h.submitParticipantResponse,
 	))
 
-	/*
-		Submit survey responses for participant
-		POST /v1/studies/:studyKey/participants/:participantID/responses/
+	participantGroup.POST("/:participantID/events", h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType:        pc.RESOURCE_TYPE_STUDY,
+			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+			ExtractResourceKeys: getStudyKeyFromParams,
+			Action:              pc.ACTION_EDIT_PARTICIPANT_DATA,
+		},
+		nil,
+		h.submitParticipantEvent,
+	))
 
-		Submit custom study event for participant
-		POST /v1/studies/:studyKey/participants/:participantID/events/
+	/*
+
+		Add report for participant
+		POST /v1/studies/:studyKey/participants/:participantID/reports/
 
 		Merge participants
 		POST /v1/studies/:studyKey/participants/merge/
@@ -105,6 +114,36 @@ func (h *HttpEndpoints) submitParticipantResponse(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "response submitted", "result": result})
+}
+
+type ParticipantEventRequest struct {
+	EventKey string         `json:"eventKey"`
+	Payload  map[string]any `json:"payload"`
+}
+
+func (h *HttpEndpoints) submitParticipantEvent(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	participantID := c.Param("participantID")
+	var req struct {
+		EventKey string         `json:"eventKey"`
+		Payload  map[string]any `json:"payload"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	result, err := studyService.OnCustomStudyEventOnBehalfOfParticipant(token.InstanceID, studyKey, participantID, req.EventKey, req.Payload)
+	if err != nil {
+		slog.Error("failed to submit event", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "event submitted", "result": result})
 }
 
 func (h *HttpEndpoints) editStudyParticipant(c *gin.Context) {

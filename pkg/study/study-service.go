@@ -217,6 +217,59 @@ func OnCustomStudyEvent(instanceID string, studyKey string, profileID string, ev
 		return
 	}
 
+	result, err = onCustomStudyEventHandler(
+		instanceID,
+		studyKey,
+		participantID,
+		confidentialID,
+		eventKey,
+		payload,
+	)
+	if err != nil {
+		slog.Error("Error handling custom study event", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+		return
+	}
+
+	return
+}
+
+func OnCustomStudyEventOnBehalfOfParticipant(instanceID string, studyKey string, participantID string, eventKey string, payload map[string]any) (result []studyTypes.AssignedSurvey, err error) {
+	study, err := getStudyIfActive(instanceID, studyKey)
+	if err != nil {
+		slog.Error("error getting study", slog.String("error", err.Error()))
+		return
+	}
+
+	confidentialID, err := ComputeConfidentialIDForParticipant(study, participantID)
+	if err != nil {
+		slog.Error("Error computing confidential ID", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+		return
+	}
+
+	result, err = onCustomStudyEventHandler(
+		instanceID,
+		studyKey,
+		participantID,
+		confidentialID,
+		eventKey,
+		payload,
+	)
+	if err != nil {
+		slog.Error("Error handling custom study event", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
+		return
+	}
+
+	return
+}
+
+func onCustomStudyEventHandler(
+	instanceID string,
+	studyKey string,
+	participantID string,
+	confidentialID string,
+	eventKey string,
+	payload map[string]any,
+) (result []studyTypes.AssignedSurvey, err error) {
 	pState, err := studyDBService.GetParticipantByID(instanceID, studyKey, participantID)
 	if err != nil {
 		slog.Error("Error getting participant state", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.String("error", err.Error()))
