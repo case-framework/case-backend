@@ -93,11 +93,9 @@ var dateFnsTokenMap = map[string]string{
 
 	// Hour tokens (24-hour format)
 	"HH": "15", // 2-digit hour (00-23)
-	"H":  "15", // 1-digit hour (0-23)
 
 	// Hour tokens (12-hour format)
 	"hh": "03", // 2-digit hour (01-12)
-	"h":  "3",  // 1-digit hour (1-12)
 
 	// Minute tokens
 	"mm": "04", // 2-digit minute (00-59)
@@ -110,11 +108,6 @@ var dateFnsTokenMap = map[string]string{
 	// AM/PM tokens
 	"a":  "PM", // AM/PM
 	"aa": "PM", // AM/PM (alternative)
-
-	// Additional tokens for extensibility
-	"SSS": "000", // milliseconds
-	"SS":  "00",  // 2-digit milliseconds
-	"S":   "0",   // 1-digit milliseconds
 }
 
 // FormatTimeWithDateFns formats a time.Time value using date-fns style tokens
@@ -136,9 +129,7 @@ var dateFnsTokenMap = map[string]string{
 //   - dd: 2-digit day (01-31)
 //   - d: 1-digit day (1-31)
 //   - HH: 2-digit hour 24h (00-23)
-//   - H: 1-digit hour 24h (0-23)
 //   - hh: 2-digit hour 12h (01-12)
-//   - h: 1-digit hour 12h (1-12)
 //   - mm: 2-digit minute (00-59)
 //   - m: 1-digit minute (0-59)
 //   - ss: 2-digit second (00-59)

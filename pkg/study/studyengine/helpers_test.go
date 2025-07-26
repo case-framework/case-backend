@@ -192,11 +192,6 @@ func TestFormatTimeWithDateFns(t *testing.T) {
 			expected: "2023-12-25T14:30:45",
 		},
 		{
-			name:     "Single digit tokens",
-			format:   "M/d/yy h:m:s a",
-			expected: "12/25/23 2:30:45 PM",
-		},
-		{
 			name:     "Mixed format",
 			format:   "yyyy-MM-dd hh:mm a",
 			expected: "2023-12-25 02:30 PM",
@@ -238,12 +233,6 @@ func TestFormatTimeWithDateFnsEdgeCases(t *testing.T) {
 			time:     time.Date(2023, 1, 1, 14, 30, 45, 0, time.UTC),
 			format:   "M/d/yyyy",
 			expected: "1/1/2023",
-		},
-		{
-			name:     "Milliseconds",
-			time:     time.Date(2023, 1, 1, 14, 30, 45, 123000000, time.UTC),
-			format:   "HH:mm:ss.SSS",
-			expected: "14:30:45.123",
 		},
 	}
 
