@@ -17,7 +17,7 @@ type Participant struct {
 	CurrentStudySession string               `bson:"currentStudySession" json:"currentStudySession"`
 	ModifiedAt          int64                `bson:"modifiedAt" json:"modifiedAt"`
 	EnteredAt           int64                `bson:"enteredAt" json:"enteredAt"`
-	StudyStatus         string               `bson:"studyStatus" json:"studyStatus"` // shows if participant is active in the study - possible values: "active", "temporary", "exited". Other values are possible and are handled like "exited" on the server.
+	StudyStatus         string               `bson:"studyStatus" json:"studyStatus"`
 	Flags               map[string]string    `bson:"flags" json:"flags"`
 	LinkingCodes        map[string]string    `bson:"linkingCodes" json:"linkingCodes"`
 	AssignedSurveys     []AssignedSurvey     `bson:"assignedSurveys" json:"assignedSurveys"`

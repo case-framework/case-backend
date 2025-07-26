@@ -133,10 +133,8 @@ func (h *HttpEndpoints) submitParticipantEvent(c *gin.Context) {
 
 	studyKey := c.Param("studyKey")
 	participantID := c.Param("participantID")
-	var req struct {
-		EventKey string         `json:"eventKey"`
-		Payload  map[string]any `json:"payload"`
-	}
+
+	var req ParticipantEventRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		slog.Error("failed to bind request", slog.String("error", err.Error()))
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
