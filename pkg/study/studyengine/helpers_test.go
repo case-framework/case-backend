@@ -2,6 +2,7 @@ package studyengine
 
 import (
 	"testing"
+	"time"
 
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
@@ -144,4 +145,103 @@ func TestGetExternalServicesConfigByName(t *testing.T) {
 			t.Errorf("unexpected values %v", conf)
 		}
 	})
+}
+
+func TestFormatTimeWithDateFns(t *testing.T) {
+	// Test time: December 25, 2023 at 14:30:45 UTC
+	testTime := time.Date(2023, 12, 25, 14, 30, 45, 0, time.UTC)
+
+	tests := []struct {
+		name     string
+		format   string
+		expected string
+	}{
+		{
+			name:     "Full datetime with 24h format",
+			format:   "yyyy-MM-dd HH:mm:ss",
+			expected: "2023-12-25 14:30:45",
+		},
+		{
+			name:     "Date only",
+			format:   "yyyy-MM-dd",
+			expected: "2023-12-25",
+		},
+		{
+			name:     "Time only with 24h format",
+			format:   "HH:mm:ss",
+			expected: "14:30:45",
+		},
+		{
+			name:     "Time with 12h format and AM/PM",
+			format:   "hh:mm:ss a",
+			expected: "02:30:45 PM",
+		},
+		{
+			name:     "US date format",
+			format:   "MM/dd/yy",
+			expected: "12/25/23",
+		},
+		{
+			name:     "European date format",
+			format:   "dd.MM.yyyy",
+			expected: "25.12.2023",
+		},
+		{
+			name:     "ISO format",
+			format:   "yyyy-MM-ddTHH:mm:ss",
+			expected: "2023-12-25T14:30:45",
+		},
+		{
+			name:     "Mixed format",
+			format:   "yyyy-MM-dd hh:mm a",
+			expected: "2023-12-25 02:30 PM",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := FormatTimeWithDateFns(testTime, tt.format)
+			if result != tt.expected {
+				t.Errorf("FormatTimeWithDateFns() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestFormatTimeWithDateFnsEdgeCases(t *testing.T) {
+	// Test edge cases
+	tests := []struct {
+		name     string
+		time     time.Time
+		format   string
+		expected string
+	}{
+		{
+			name:     "Midnight",
+			time:     time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
+			format:   "hh:mm a",
+			expected: "12:00 AM",
+		},
+		{
+			name:     "Noon",
+			time:     time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			format:   "hh:mm a",
+			expected: "12:00 PM",
+		},
+		{
+			name:     "Single digit month and day",
+			time:     time.Date(2023, 1, 1, 14, 30, 45, 0, time.UTC),
+			format:   "M/d/yyyy",
+			expected: "1/1/2023",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := FormatTimeWithDateFns(tt.time, tt.format)
+			if result != tt.expected {
+				t.Errorf("FormatTimeWithDateFns() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
 }
