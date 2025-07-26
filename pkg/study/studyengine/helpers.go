@@ -74,3 +74,113 @@ type ExternalEventPayload struct {
 	EventKey         string                    `json:"eventKey"`
 	Payload          map[string]interface{}    `json:"payload"`
 }
+
+// Helper function to convert a date to a string
+
+// dateFnsTokenMap maps date-fns style tokens to Go's layout string equivalents
+var dateFnsTokenMap = map[string]string{
+	// Year tokens
+	"yyyy": "2006", // 4-digit year
+	"yy":   "06",   // 2-digit year
+
+	// Month tokens
+	"MM": "01", // 2-digit month (01-12)
+	"M":  "1",  // 1-digit month (1-12)
+
+	// Day tokens
+	"dd": "02", // 2-digit day (01-31)
+	"d":  "2",  // 1-digit day (1-31)
+
+	// Hour tokens (24-hour format)
+	"HH": "15", // 2-digit hour (00-23)
+	"H":  "15", // 1-digit hour (0-23)
+
+	// Hour tokens (12-hour format)
+	"hh": "03", // 2-digit hour (01-12)
+	"h":  "3",  // 1-digit hour (1-12)
+
+	// Minute tokens
+	"mm": "04", // 2-digit minute (00-59)
+	"m":  "4",  // 1-digit minute (0-59)
+
+	// Second tokens
+	"ss": "05", // 2-digit second (00-59)
+	"s":  "5",  // 1-digit second (0-59)
+
+	// AM/PM tokens
+	"a":  "PM", // AM/PM
+	"aa": "PM", // AM/PM (alternative)
+
+	// Additional tokens for extensibility
+	"SSS": "000", // milliseconds
+	"SS":  "00",  // 2-digit milliseconds
+	"S":   "0",   // 1-digit milliseconds
+}
+
+// FormatTimeWithDateFns formats a time.Time value using date-fns style tokens
+//
+// Usage example:
+//
+//	t := time.Date(2023, 12, 25, 14, 30, 45, 0, time.UTC)
+//	formatted := FormatTimeWithDateFns(t, "yyyy-MM-dd HH:mm:ss")
+//	// Result: "2023-12-25 14:30:45"
+//
+//	formatted2 := FormatTimeWithDateFns(t, "MM/dd/yy hh:mm a")
+//	// Result: "12/25/23 02:30 PM"
+//
+// Supported tokens:
+//   - yyyy: 4-digit year (2006)
+//   - yy: 2-digit year (06)
+//   - MM: 2-digit month (01-12)
+//   - M: 1-digit month (1-12)
+//   - dd: 2-digit day (01-31)
+//   - d: 1-digit day (1-31)
+//   - HH: 2-digit hour 24h (00-23)
+//   - H: 1-digit hour 24h (0-23)
+//   - hh: 2-digit hour 12h (01-12)
+//   - h: 1-digit hour 12h (1-12)
+//   - mm: 2-digit minute (00-59)
+//   - m: 1-digit minute (0-59)
+//   - ss: 2-digit second (00-59)
+//   - s: 1-digit second (0-59)
+//   - a: AM/PM indicator
+func FormatTimeWithDateFns(t time.Time, format string) string {
+	result := format
+
+	// Replace tokens in order of length (longest first) to avoid conflicts
+	tokens := []string{
+		"yyyy", "yy",
+		"SSS", "SS", "S",
+		"MM", "M",
+		"dd", "d",
+		"HH", "H",
+		"hh", "h",
+		"mm", "m",
+		"ss", "s",
+		"aa", "a",
+	}
+
+	// Process predefined tokens first
+	for _, token := range tokens {
+		if goLayout, exists := dateFnsTokenMap[token]; exists {
+			result = strings.ReplaceAll(result, token, goLayout)
+		}
+	}
+
+	// Process any custom tokens that might have been added
+	for token, goLayout := range dateFnsTokenMap {
+		// Skip predefined tokens that were already processed
+		found := false
+		for _, predefinedToken := range tokens {
+			if token == predefinedToken {
+				found = true
+				break
+			}
+		}
+		if !found {
+			result = strings.ReplaceAll(result, token, goLayout)
+		}
+	}
+
+	return t.Format(result)
+}

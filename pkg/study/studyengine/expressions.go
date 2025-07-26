@@ -147,6 +147,8 @@ func ExpressionEval(expression studyTypes.Expression, evalCtx EvalContext) (val 
 		val, err = evalCtx.getISOWeekForTs(expression)
 	case "getTsForNextISOWeek":
 		val, err = evalCtx.getTsForNextISOWeek(expression)
+	case "dateToStr":
+		val, err = evalCtx.dateToStr(expression)
 	case "parseValueAsNum":
 		val, err = evalCtx.parseValueAsNum(expression)
 	case "generateRandomNumber":
@@ -1678,6 +1680,45 @@ func (ctx EvalContext) getISOWeekForTs(exp studyTypes.Expression) (t float64, er
 	ts := int64(arg1.(float64))
 	_, iw := time.Unix(ts, 0).ISOWeek()
 	t = float64(iw)
+	return
+}
+
+func (ctx EvalContext) dateToStr(exp studyTypes.Expression) (val string, err error) {
+	if len(exp.Data) != 2 {
+		return val, errors.New("dateToStr: expected exactly two arguments")
+	}
+
+	// Get the timestamp to convert
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+
+	var timestamp float64
+	switch v := arg1.(type) {
+	case float64:
+		timestamp = v
+	case int64:
+		timestamp = float64(v)
+	default:
+		return val, errors.New("dateToStr: first argument must be a number (timestamp)")
+	}
+
+	// Get the format string
+	arg2, err := ctx.ExpressionArgResolver(exp.Data[1])
+	if err != nil {
+		return val, err
+	}
+	format, ok := arg2.(string)
+	if !ok {
+		return val, errors.New("dateToStr: second argument must be a string (format)")
+	}
+
+	// Convert timestamp to time.Time
+	t := time.Unix(int64(timestamp), 0)
+
+	// Use our date-fns style formatter
+	val = FormatTimeWithDateFns(t, format)
 	return
 }
 
