@@ -48,11 +48,18 @@ func (h *HttpEndpoints) addParticipantManagementEndpoints(rg *gin.RouterGroup) {
 		h.submitParticipantEvent,
 	))
 
+	participantGroup.POST("/:participantID/reports", h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType:        pc.RESOURCE_TYPE_STUDY,
+			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+			ExtractResourceKeys: getStudyKeyFromParams,
+			Action:              pc.ACTION_EDIT_PARTICIPANT_DATA,
+		},
+		nil,
+		h.submitParticipantReport,
+	))
+
 	/*
-
-		Add report for participant
-		POST /v1/studies/:studyKey/participants/:participantID/reports/
-
 		Merge participants
 		POST /v1/studies/:studyKey/participants/merge/
 	*/
@@ -144,6 +151,37 @@ func (h *HttpEndpoints) submitParticipantEvent(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "event submitted", "result": result})
+}
+
+func (h *HttpEndpoints) submitParticipantReport(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	participantID := c.Param("participantID")
+
+	var report studyTypes.Report
+	if err := c.ShouldBindJSON(&report); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if report.ParticipantID != participantID {
+		slog.Error("participant ID in request does not match participant ID in path", slog.String("requestParticipantID", report.ParticipantID), slog.String("pathParticipantID", participantID))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	slog.Info("submitting report for participant", slog.String("participantID", participantID), slog.String("studyKey", studyKey), slog.String("userID", token.Subject), slog.String("instanceID", token.InstanceID), slog.String("reportKey", report.Key))
+
+	err := h.studyDBConn.SaveReport(token.InstanceID, studyKey, report)
+	if err != nil {
+		slog.Error("failed to save report", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "report submitted"})
 }
 
 func (h *HttpEndpoints) editStudyParticipant(c *gin.Context) {
