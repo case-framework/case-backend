@@ -86,7 +86,7 @@ func (h *HttpEndpoints) createVirtualParticipant(c *gin.Context) {
 	pState, err := studyService.OnRegisterVirtualParticipant(token.InstanceID, studyKey)
 	if err != nil {
 		slog.Error("failed to create virtual participant", slog.String("error", err.Error()))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create virtual participant"})
 		return
 	}
 
@@ -116,7 +116,7 @@ func (h *HttpEndpoints) submitParticipantResponse(c *gin.Context) {
 	result, err := studyService.OnSubmitResponseOnBehalfOfParticipant(token.InstanceID, studyKey, participantID, req, token.Subject)
 	if err != nil {
 		slog.Error("failed to submit response", slog.String("error", err.Error()))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to submit response"})
 		return
 	}
 
@@ -175,7 +175,7 @@ func (h *HttpEndpoints) submitParticipantReport(c *gin.Context) {
 	err := h.studyDBConn.SaveReport(token.InstanceID, studyKey, report)
 	if err != nil {
 		slog.Error("failed to save report", slog.String("error", err.Error()))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to submit report"})
 		return
 	}
 
@@ -193,7 +193,7 @@ func (h *HttpEndpoints) editStudyParticipant(c *gin.Context) {
 	var req studyTypes.Participant
 	if err := c.ShouldBindJSON(&req); err != nil {
 		slog.Error("failed to bind request", slog.String("error", err.Error()))
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -206,7 +206,7 @@ func (h *HttpEndpoints) editStudyParticipant(c *gin.Context) {
 	updatedParticipant, err := h.studyDBConn.UpdateParticipantIfNotModified(token.InstanceID, studyKey, req)
 	if err != nil {
 		slog.Error("failed to update participant", slog.String("error", err.Error()))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update participant"})
 		return
 	}
 
