@@ -273,9 +273,9 @@ func (h *HttpEndpoints) customStudyEvent(c *gin.Context) {
 	studyKey := c.Param("studyKey")
 
 	var req struct {
-		EventKey  string                 `json:"eventKey"`
-		ProfileID string                 `json:"profileID"`
-		Payload   map[string]interface{} `json:"payload"`
+		EventKey  string         `json:"eventKey"`
+		ProfileID string         `json:"profileID"`
+		Payload   map[string]any `json:"payload"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		slog.Error("failed to bind request", slog.String("error", err.Error()))

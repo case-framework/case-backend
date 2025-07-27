@@ -5,6 +5,7 @@ import "go.mongodb.org/mongo-driver/bson/primitive"
 const (
 	PARTICIPANT_STUDY_STATUS_ACTIVE          = "active"
 	PARTICIPANT_STUDY_STATUS_TEMPORARY       = "temporary" // for participants without a registered account
+	PARTICIPANT_STUDY_STATUS_VIRTUAL         = "virtual"   // for participants created by study managers
 	PARTICIPANT_STUDY_STATUS_EXITED          = "exited"
 	PARTICIPANT_STUDY_STATUS_ACCOUNT_DELETED = "accountDeleted"
 )
@@ -16,7 +17,7 @@ type Participant struct {
 	CurrentStudySession string               `bson:"currentStudySession" json:"currentStudySession"`
 	ModifiedAt          int64                `bson:"modifiedAt" json:"modifiedAt"`
 	EnteredAt           int64                `bson:"enteredAt" json:"enteredAt"`
-	StudyStatus         string               `bson:"studyStatus" json:"studyStatus"` // shows if participant is active in the study - possible values: "active", "temporary", "exited". Other values are possible and are handled like "exited" on the server.
+	StudyStatus         string               `bson:"studyStatus" json:"studyStatus"`
 	Flags               map[string]string    `bson:"flags" json:"flags"`
 	LinkingCodes        map[string]string    `bson:"linkingCodes" json:"linkingCodes"`
 	AssignedSurveys     []AssignedSurvey     `bson:"assignedSurveys" json:"assignedSurveys"`
