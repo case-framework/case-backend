@@ -518,6 +518,9 @@ func onSubmitResponseHandler(
 }
 
 func OnSubmitResponseOnBehalfOfParticipant(instanceID string, studyKey string, participantID string, response studyTypes.SurveyResponse, by string) (result []studyTypes.AssignedSurvey, err error) {
+	if response.Context == nil {
+		response.Context = make(map[string]string)
+	}
 	response.Context["submittedBy"] = by
 
 	study, err := getStudyIfActive(instanceID, studyKey)
