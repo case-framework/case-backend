@@ -120,7 +120,14 @@ func (h *HttpEndpoints) submitParticipantResponse(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "response submitted", "result": result})
+	participant, err := h.studyDBConn.GetParticipantByID(token.InstanceID, studyKey, participantID)
+	if err != nil {
+		slog.Error("failed to get participant", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get participant"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "response submitted", "result": result, "participant": participant})
 }
 
 type ParticipantEventRequest struct {
