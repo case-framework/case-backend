@@ -1,6 +1,7 @@
 package apihandlers
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson"
 
 	studyService "github.com/case-framework/case-backend/pkg/study"
 	surveydefinition "github.com/case-framework/case-backend/pkg/study/exporter/survey-definition"
@@ -39,6 +41,7 @@ func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
 		eventsGroup.POST("/submit", h.submitSurveyEvent)
 		eventsGroup.POST("/leave", h.leaveStudyEvent)
 		eventsGroup.POST("/merge-temporary-participant", h.mergeTempParticipant)
+		eventsGroup.POST("/merge-virtual-participant", h.mergeVirtualParticipant) // requires profile id, virtual participant id, linking code key, linking code value
 	}
 
 	participantInfoGroup := studyServiceGroup.Group("/participant-data/:studyKey")
@@ -66,6 +69,13 @@ func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
 		tempParticipantGroup.GET("/surveys", h.getTempParticipantSurveys)          // ?pid=profileID&instanceID=instanceID&studyKey=studyKey
 		tempParticipantGroup.GET("/survey", h.getTempParticipantSurveyWithContext) // ?pid=profileID&instanceID=instanceID&studyKey=studyKey&surveyKey=surveyKey
 		tempParticipantGroup.POST("/submit-response", mw.RequirePayload(), h.submitTempParticipantResponse)
+	}
+
+	virtualParticipantGroup := studyServiceGroup.Group("/virtual-participants/:studyKey")
+	virtualParticipantGroup.Use(mw.GetAndValidateParticipantUserJWT(h.tokenSignKey, h.globalInfosDBConn))
+	{
+		// to be able to do extra checks on the virtual participant
+		virtualParticipantGroup.GET("/", h.getVirtualParticipantsByLinkingCode) // ?key=linkingCodeKey&value=linkingCodeValue
 	}
 }
 
@@ -409,6 +419,57 @@ func (h *HttpEndpoints) mergeTempParticipant(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"participant": result})
 }
 
+// requires profile id, virtual participant id, linking code key, linking code value
+type MergeVirtualParticipantRequest struct {
+	ProfileID            string `json:"profileID"`
+	VirtualParticipantID string `json:"virtualParticipantID"`
+	LinkingCodeKey       string `json:"linkingCodeKey"`
+	LinkingCodeValue     string `json:"linkingCodeValue"`
+}
+
+func (h *HttpEndpoints) mergeVirtualParticipant(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	var req MergeVirtualParticipantRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if !h.checkProfileBelongsToUser(token.InstanceID, token.Subject, req.ProfileID) {
+		slog.Warn("profile not found", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("profileID", req.ProfileID))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "profile not found"})
+		return
+	}
+
+	if req.LinkingCodeKey == "" || req.LinkingCodeValue == "" {
+		slog.Error("missing required fields", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("linkingCodeKey", req.LinkingCodeKey), slog.String("linkingCodeValue", req.LinkingCodeValue))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing required fields"})
+		return
+	}
+
+	slog.Info("merging virtual participants by linking code", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("linkingCodeKey", req.LinkingCodeKey))
+
+	result, err := studyService.OnMergeVirtualParticipant(
+		token.InstanceID,
+		studyKey,
+		req.ProfileID,
+		req.VirtualParticipantID,
+		req.LinkingCodeKey,
+		req.LinkingCodeValue,
+	)
+	if err != nil {
+		slog.Error("error merging temporary participant", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error merging temporary participant"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"participant": result})
+}
+
 func (h *HttpEndpoints) getAssignedSurveys(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
 
@@ -590,6 +651,36 @@ func (h *HttpEndpoints) submitTempParticipantResponse(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"assignedSurveys": result})
+}
+
+func (h *HttpEndpoints) getVirtualParticipantsByLinkingCode(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	studyKey := c.Param("studyKey")
+	linkingCodeKey := c.DefaultQuery("key", "")
+	linkingCodeValue := c.DefaultQuery("value", "")
+
+	if linkingCodeKey == "" || linkingCodeValue == "" {
+		slog.Error("missing required fields", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("linkingCodeKey", linkingCodeKey), slog.String("linkingCodeValue", linkingCodeValue))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing required fields"})
+		return
+	}
+
+	slog.Info("getting virtual participants by linking code", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("linkingCodeKey", linkingCodeKey))
+
+	key := fmt.Sprintf("linkingCodes.%s", linkingCodeKey)
+	filter := bson.M{
+		"studyStatus": studyTypes.PARTICIPANT_STUDY_STATUS_VIRTUAL,
+		key:           linkingCodeValue,
+	}
+	participants, _, err := h.studyDBConn.GetParticipants(token.InstanceID, studyKey, filter, nil, 1, 100)
+	if err != nil {
+		slog.Error("error getting virtual participants by linking code", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting virtual participants by linking code"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"participants": participants})
 }
 
 func (h *HttpEndpoints) getReports(c *gin.Context) {
