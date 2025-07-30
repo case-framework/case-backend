@@ -405,7 +405,7 @@ func OnMergeVirtualParticipant(
 	}
 
 	if linkingCodeValueFromDB != linkingCodeValue {
-		slog.Error("linking code value does not match", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", virtualParticipantID), slog.String("linkingCodeKey", linkingCodeKey), slog.String("linkingCodeValueFromDB", linkingCodeValueFromDB), slog.String("linkingCodeValue", linkingCodeValue))
+		slog.Error("linking code value does not match", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", virtualParticipantID), slog.String("linkingCodeKey", linkingCodeKey))
 		err = errors.New("linking code value does not match")
 		return
 	}
