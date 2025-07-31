@@ -5,7 +5,7 @@
 
 - management-api: [`v0.19.0`](https://github.com/case-framework/case-backend/releases/tag/management-api@v0.19.0)
 - messaging-job: [`v1.1.0`](https://github.com/case-framework/case-backend/releases/tag/messaging-job@v1.1.0)
-- participant-api: [`v0.19.0`](https://github.com/case-framework/case-backend/releases/tag/participant-api@v0.19.0)
+- participant-api: [`v0.20.0`](https://github.com/case-framework/case-backend/releases/tag/participant-api@v0.20.0)
 - smtp-bridge: [`v1.2.0`](https://github.com/case-framework/case-backend/releases/tag/smtp-bridge@v1.2.0)
 - smtp-bridge-emulator: [`v1.0.1`](https://github.com/case-framework/case-backend/releases/tag/smtp-bridge-emulator@v1.0.1)
 - study-daily-data-export-job: [`v1.3.0`](https://github.com/case-framework/case-backend/releases/tag/study-daily-data-export-job@v1.3.0)
