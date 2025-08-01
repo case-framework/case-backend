@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/case-framework/case-backend/pkg/apihelpers"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	pc "github.com/case-framework/case-backend/pkg/permission-checker"
 	studyService "github.com/case-framework/case-backend/pkg/study"
@@ -35,6 +36,17 @@ func (h *HttpEndpoints) addParticipantManagementEndpoints(rg *gin.RouterGroup) {
 		},
 		nil,
 		h.submitParticipantResponse,
+	))
+
+	participantGroup.GET("/:participantID/responses", h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType:        pc.RESOURCE_TYPE_STUDY,
+			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+			ExtractResourceKeys: getStudyKeyFromParams,
+			Action:              pc.ACTION_GET_RESPONSES,
+		},
+		nil,
+		h.getParticipantResponses,
 	))
 
 	participantGroup.POST("/:participantID/events", h.useAuthorisedHandler(
@@ -134,6 +146,33 @@ func (h *HttpEndpoints) submitParticipantResponse(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "response submitted", "result": result, "participant": participant})
+}
+
+func (h *HttpEndpoints) getParticipantResponses(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	participantID := c.Param("participantID")
+
+	query, err := apihelpers.ParsePaginatedQueryFromCtx(c)
+	if err != nil || query == nil {
+		slog.Error("failed to parse paginated query", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	query.Filter["participantID"] = participantID
+
+	slog.Info("getting responses for participant", slog.String("participantID", participantID), slog.String("studyKey", studyKey), slog.String("userID", token.Subject), slog.String("instanceID", token.InstanceID), slog.Any("query", query))
+
+	resps, paginationInfo, err := h.studyDBConn.GetResponses(token.InstanceID, studyKey, query.Filter, query.Sort, query.Page, query.Limit)
+	if err != nil {
+		slog.Error("failed to get responses", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get responses"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"responses": resps, "pagination": paginationInfo})
 }
 
 type ParticipantEventRequest struct {
