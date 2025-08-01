@@ -3542,6 +3542,10 @@ func (h *HttpEndpoints) getStudyReports(c *gin.Context) {
 	if reportKey != "" {
 		query.Filter["key"] = reportKey
 	}
+	pid := c.DefaultQuery("pid", "")
+	if pid != "" {
+		query.Filter["participantID"] = pid
+	}
 
 	reports, paginationInfo, err := h.studyDBConn.GetReports(
 		token.InstanceID,
