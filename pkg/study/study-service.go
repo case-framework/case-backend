@@ -443,6 +443,33 @@ func OnMergeVirtualParticipant(
 	return
 }
 
+func OnForceMergeParticipants(instanceID string, studyKey string, targetParticipantID string, withParticipantID string) (result studyTypes.Participant, err error) {
+	study, err := studyDBService.GetStudy(instanceID, studyKey)
+	if err != nil {
+		slog.Error("error getting study", slog.String("error", err.Error()))
+		return
+	}
+
+	targetParticipant, err := studyDBService.GetParticipantByID(instanceID, studyKey, targetParticipantID)
+	if err != nil {
+		slog.Error("error getting target participant", slog.String("error", err.Error()))
+		return
+	}
+
+	withParticipant, err := studyDBService.GetParticipantByID(instanceID, studyKey, withParticipantID)
+	if err != nil {
+		slog.Error("error getting with participant", slog.String("error", err.Error()))
+		return
+	}
+
+	result, err = mergeParticipants(instanceID, study, targetParticipant, withParticipant)
+	if err != nil {
+		slog.Error("error merging participants", slog.String("error", err.Error()))
+		return
+	}
+	return
+}
+
 func mergeParticipants(
 	instanceID string,
 	study studyTypes.Study,

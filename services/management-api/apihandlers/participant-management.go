@@ -59,10 +59,16 @@ func (h *HttpEndpoints) addParticipantManagementEndpoints(rg *gin.RouterGroup) {
 		h.submitParticipantReport,
 	))
 
-	/*
-		Merge participants
-		POST /v1/studies/:studyKey/participants/merge/
-	*/
+	participantGroup.POST("/merge", h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType:        pc.RESOURCE_TYPE_STUDY,
+			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+			ExtractResourceKeys: getStudyKeyFromParams,
+			Action:              pc.ACTION_MERGE_PARTICIPANTS,
+		},
+		nil,
+		h.mergeParticipants,
+	))
 
 	participantGroup.PUT("/:participantID", h.useAuthorisedHandler(
 		RequiredPermission{
@@ -187,6 +193,39 @@ func (h *HttpEndpoints) submitParticipantReport(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "report submitted"})
+}
+
+type MergeParticipantsRequest struct {
+	TargetParticipantID string `json:"targetParticipantID"`
+	WithParticipantID   string `json:"withParticipantID"`
+}
+
+func (h *HttpEndpoints) mergeParticipants(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	var req MergeParticipantsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if req.TargetParticipantID == req.WithParticipantID {
+		slog.Error("target participant ID and with participant ID are the same", slog.String("targetParticipantID", req.TargetParticipantID), slog.String("withParticipantID", req.WithParticipantID))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "target participant ID and with participant ID are the same"})
+		return
+	}
+
+	p, err := studyService.OnForceMergeParticipants(token.InstanceID, studyKey, req.TargetParticipantID, req.WithParticipantID)
+	if err != nil {
+		slog.Error("failed to merge participants", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to merge participants"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"participant": p})
 }
 
 func (h *HttpEndpoints) editStudyParticipant(c *gin.Context) {
