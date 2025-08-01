@@ -46,6 +46,7 @@ const (
 	ACTION_CREATE_VIRTUAL_PARTICIPANT = "create-virtual-participant"
 	ACTION_EDIT_PARTICIPANT_DATA      = "edit-participant-data"
 	ACTION_GET_PARTICIPANT_STATES     = "get-participant-states"
+	ACTION_MERGE_PARTICIPANTS         = "merge-participants"
 	ACTION_GET_REPORTS                = "get-reports"
 	ACTION_DELETE_REPORTS             = "delete-reports"
 
