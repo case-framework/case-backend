@@ -59,7 +59,11 @@ func (sc *SmtpClients) SendMail(
 	start := time.Now()
 	err := selectedServer.Send(e)
 	duration := time.Since(start)
-	slog.Debug("email sending/communication with SMTP server", slog.String("duration", duration.String()))
+	slog.Debug(
+		"email sending/communication with SMTP server",
+		slog.Duration("duration", duration),
+		slog.String("server", sc.servers.Servers[index].Host),
+	)
 
 	if err != nil {
 		// close and try to reconnect
