@@ -51,7 +51,7 @@ func handleScheduledMessages(wg *sync.WaitGroup) {
 				if err != nil {
 					slog.Error("Failed to delete scheduled email", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("messageID", message.ID.Hex()))
 				}
-				return
+				continue
 			}
 			_, err := messagingDBService.SaveScheduledEmail(instanceID, message)
 			if err != nil {
