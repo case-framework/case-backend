@@ -51,7 +51,7 @@ func handleScheduledMessages(wg *sync.WaitGroup) {
 				if err != nil {
 					slog.Error("Failed to delete scheduled email", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("messageID", message.ID.Hex()))
 				}
-				return
+				continue
 			}
 			_, err := messagingDBService.SaveScheduledEmail(instanceID, message)
 			if err != nil {
@@ -136,7 +136,7 @@ func generateScheduledEmailsForAllUsers(instanceID string, message messagingType
 		slog.Error("Failed to get users for sending scheduled email", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("messageID", message.ID.Hex()), slog.Int("generatedMessages", counters.Success), slog.Int("failedMessages", counters.Failed))
 		return
 	}
-	slog.Info("Generated messages for scheduled email", slog.String("instanceID", instanceID), slog.String("messageID", message.ID.Hex()), slog.Int("generatedMessages", counters.Success), slog.Int("failedMessages", counters.Failed))
+	slog.Info("Generated messages for scheduled email", slog.String("instanceID", instanceID), slog.String("messageID", message.ID.Hex()), slog.Int("generatedMessages", counters.Success), slog.Int("failedMessages", counters.Failed), slog.String("label", message.Label))
 }
 
 func generateScheduledEmailsForStudyParticipants(instanceID string, message messagingTypes.ScheduledEmail) {
@@ -198,7 +198,7 @@ func generateScheduledEmailsForStudyParticipants(instanceID string, message mess
 		slog.Error("Failed to get users for sending scheduled email", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("messageID", message.ID.Hex()), slog.Int("generatedMessages", counters.Success), slog.Int("failedMessages", counters.Failed))
 		return
 	}
-	slog.Info("Generated messages for scheduled email", slog.String("instanceID", instanceID), slog.String("messageID", message.ID.Hex()), slog.Int("generatedMessages", counters.Success), slog.Int("failedMessages", counters.Failed))
+	slog.Info("Generated messages for scheduled email", slog.String("instanceID", instanceID), slog.String("messageID", message.ID.Hex()), slog.Int("generatedMessages", counters.Success), slog.Int("failedMessages", counters.Failed), slog.String("label", message.Label))
 }
 
 func isSubscribed(user *umTypes.User, messageType string) bool {

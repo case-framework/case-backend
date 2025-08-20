@@ -4,6 +4,8 @@ import (
 	"errors"
 	"log/slog"
 	"net/textproto"
+	"sync/atomic"
+	"time"
 
 	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 	"github.com/knadh/smtppool"
@@ -15,7 +17,7 @@ func (sc *SmtpClients) SendMail(
 	htmlContent string,
 	overrides *messagingTypes.HeaderOverrides,
 ) error {
-	sc.counter += 1
+	n := atomic.AddUint64(&sc.counter, 1)
 	if len(sc.connectionPool) < 1 {
 		sc.connectionPool = initConnectionPool(sc.servers)
 		if len(sc.connectionPool) < 1 {
@@ -23,7 +25,7 @@ func (sc *SmtpClients) SendMail(
 		}
 	}
 
-	index := sc.counter % len(sc.connectionPool)
+	index := int(n % uint64(len(sc.connectionPool)))
 	selectedServer := sc.connectionPool[index]
 
 	From := sc.servers.From
@@ -54,7 +56,15 @@ func (sc *SmtpClients) SendMail(
 		HTML:    []byte(htmlContent),
 		Headers: textproto.MIMEHeader{},
 	}
+
+	start := time.Now()
 	err := selectedServer.Send(e)
+	duration := time.Since(start)
+	slog.Debug(
+		"email sending/communication with SMTP server",
+		slog.String("duration", duration.String()),
+		slog.String("server", sc.servers.Servers[index].Host),
+	)
 
 	if err != nil {
 		// close and try to reconnect

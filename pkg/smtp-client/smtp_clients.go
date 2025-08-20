@@ -13,7 +13,7 @@ import (
 type SmtpClients struct {
 	servers        SmtpServerList
 	connectionPool []*smtppool.Pool
-	counter        int
+	counter        uint64
 }
 
 func NewSmtpClients(config SmtpServerList) (*SmtpClients, error) {
