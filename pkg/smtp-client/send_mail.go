@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/textproto"
+	"time"
 
 	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 	"github.com/knadh/smtppool"
@@ -54,7 +55,11 @@ func (sc *SmtpClients) SendMail(
 		HTML:    []byte(htmlContent),
 		Headers: textproto.MIMEHeader{},
 	}
+
+	start := time.Now()
 	err := selectedServer.Send(e)
+	duration := time.Since(start)
+	slog.Debug("email sending/communication with SMTP server", slog.String("duration", duration.String()))
 
 	if err != nil {
 		// close and try to reconnect
