@@ -62,7 +62,7 @@ func (sc *SmtpClients) SendMail(
 	duration := time.Since(start)
 	slog.Debug(
 		"email sending/communication with SMTP server",
-		slog.Duration("duration", duration),
+		slog.String("duration", duration.String()),
 		slog.String("server", sc.servers.Servers[index].Host),
 	)
 
