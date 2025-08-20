@@ -8,7 +8,7 @@ import (
 	"time"
 
 	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
-	"github.com/knadh/smtppool"
+	"github.com/knadh/smtppool/v2"
 )
 
 func (sc *SmtpClients) SendMail(
