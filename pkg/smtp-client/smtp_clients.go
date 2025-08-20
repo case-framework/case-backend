@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/knadh/smtppool"
+	"github.com/knadh/smtppool/v2"
 )
 
 type SmtpClients struct {
@@ -74,6 +74,7 @@ func connectToPool(server SmtpServer) (*smtppool.Pool, error) {
 		PoolWaitTimeout: time.Duration(server.SendTimeout) * time.Second,
 		TLSConfig:       tlsOpts,
 		Auth:            auth,
+		SSL:             smtppool.SSLSTARTTLS,
 	})
 	// pool, err := email.NewPool(server.Address(), server.Connections, auth, tlsOpts)
 	return pool, err
