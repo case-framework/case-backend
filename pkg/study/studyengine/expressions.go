@@ -388,7 +388,7 @@ func (ctx EvalContext) checkConditionForOldResponses(exp studyTypes.Expression) 
 
 	counter := 0
 	result := false
-responsesLoop:
+
 	for _, resp := range responses {
 		oldEvalContext := EvalContext{
 			ParticipantState: ctx.ParticipantState,
@@ -409,19 +409,19 @@ responsesLoop:
 				result = true
 			} else {
 				result = false
-				break responsesLoop
+				return result, nil
 			}
 		case "any":
 			if val {
 				result = true
-				break responsesLoop
+				return result, nil
 			}
 		case "count":
 			if val {
 				counter += 1
 				if counter >= checkForCount {
 					result = true
-					break responsesLoop
+					return result, nil
 				}
 			}
 		}
