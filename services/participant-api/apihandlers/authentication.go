@@ -710,7 +710,10 @@ func (h *HttpEndpoints) resendEmailVerification(c *gin.Context) {
 		return
 	}
 
-	ci, found := user.FindContactInfoByTypeAndAddr("email", req.Email)
+	ci, found := user.FindContactInfoByTypeAndAddr(
+		userTypes.CONTACT_INFO_TYPE_EMAIL,
+		req.Email,
+	)
 	if !found {
 		slog.Warn("email not found", slog.String("email", req.Email))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "email not found"})
@@ -725,7 +728,10 @@ func (h *HttpEndpoints) resendEmailVerification(c *gin.Context) {
 	}
 
 	// update last verification email sent time:
-	user.SetContactInfoVerificationSent("email", req.Email)
+	user.SetContactInfoVerificationSent(
+		userTypes.CONTACT_INFO_TYPE_EMAIL,
+		req.Email,
+	)
 	_, err = h.userDBConn.ReplaceUser(token.InstanceID, user)
 	if err != nil {
 		slog.Error("failed to update user", slog.String("error", err.Error()))
