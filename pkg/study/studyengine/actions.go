@@ -700,7 +700,8 @@ func sendMessageNow(action studyTypes.Expression, oldState ActionData, event Stu
 	}
 
 	messageType, ok1 := arg1.(string)
-	if !ok1 {
+	messageType = strings.TrimSpace(messageType)
+	if !ok1 || messageType == "" {
 		return newState, errors.New("could not parse arguments")
 	}
 

@@ -104,11 +104,14 @@ func (s *StudyMessageSender) SendInstantStudyEmail(
 
 	maps.Copy(payload, s.globalEmailTemplateConstants)
 
-	loginToken, err := s.getTemploginToken(instanceID, user, studyKey)
-	if err != nil {
-		slog.Error("Error getting login token", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", confidentialPID), slog.String("error", err.Error()))
-	} else {
-		payload["loginToken"] = loginToken
+	// Only generate a login token if the globalInfosDB is configured and TTL is positive
+	if s.globalInfosDB != nil && s.loginTokenTTL > 0 {
+		loginToken, err := s.getTemploginToken(instanceID, user, studyKey)
+		if err != nil {
+			slog.Error("Error getting login token", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", confidentialPID), slog.String("error", err.Error()))
+		} else {
+			payload["loginToken"] = loginToken
+		}
 	}
 	// Merge extra payload (action-provided)
 	maps.Copy(payload, extraPayload)
