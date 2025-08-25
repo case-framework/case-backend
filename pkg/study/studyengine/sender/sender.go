@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log/slog"
 	"maps"
+	"time"
 
 	globalinfosDB "github.com/case-framework/case-backend/pkg/db/global-infos"
 	messagingDB "github.com/case-framework/case-backend/pkg/db/messaging"
@@ -11,14 +12,23 @@ import (
 	studydb "github.com/case-framework/case-backend/pkg/db/study"
 	emailsending "github.com/case-framework/case-backend/pkg/messaging/email-sending"
 	"github.com/case-framework/case-backend/pkg/study/studyengine"
+	umTypes "github.com/case-framework/case-backend/pkg/user-management/types"
+	umUtils "github.com/case-framework/case-backend/pkg/user-management/utils"
 )
 
 // StudyMessageSender implements studyengine.StudyMessageSender using the platform services.
 type StudyMessageSender struct {
-	studyDB           *studydb.StudyDBService
-	participantUserDB *participantuser.ParticipantUserDBService
-	messagingDB       *messagingDB.MessagingDBService
-	globalInfosDB     *globalinfosDB.GlobalInfosDBService
+	studyDB                      *studydb.StudyDBService
+	participantUserDB            *participantuser.ParticipantUserDBService
+	messagingDB                  *messagingDB.MessagingDBService
+	globalInfosDB                *globalinfosDB.GlobalInfosDBService
+	loginTokenTTL                time.Duration
+	globalEmailTemplateConstants map[string]string
+}
+
+type MessageSenderConfig struct {
+	LoginTokenTTL                time.Duration     `json:"login_token_ttl" yaml:"login_token_ttl"`
+	GlobalEmailTemplateConstants map[string]string `json:"global_email_template_constants" yaml:"global_email_template_constants"`
 }
 
 func NewStudyMessageSender(
@@ -26,12 +36,15 @@ func NewStudyMessageSender(
 	participantUserDB *participantuser.ParticipantUserDBService,
 	messagingDB *messagingDB.MessagingDBService,
 	globalInfosDB *globalinfosDB.GlobalInfosDBService,
+	messageSenderConfig MessageSenderConfig,
 ) *StudyMessageSender {
 	return &StudyMessageSender{
-		studyDB:           studyDB,
-		participantUserDB: participantUserDB,
-		messagingDB:       messagingDB,
-		globalInfosDB:     globalInfosDB,
+		studyDB:                      studyDB,
+		participantUserDB:            participantUserDB,
+		messagingDB:                  messagingDB,
+		globalInfosDB:                globalInfosDB,
+		loginTokenTTL:                messageSenderConfig.LoginTokenTTL,
+		globalEmailTemplateConstants: messageSenderConfig.GlobalEmailTemplateConstants,
 	}
 }
 
@@ -84,6 +97,15 @@ func (s *StudyMessageSender) SendInstantStudyEmail(
 		"profileAlias": currentProfile.Alias,
 		"profileId":    currentProfile.ID.Hex(),
 	}
+
+	maps.Copy(payload, s.globalEmailTemplateConstants)
+
+	loginToken, err := s.getTemploginToken(instanceID, user, studyKey)
+	if err != nil {
+		slog.Error("Error getting login token", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", confidentialPID), slog.String("error", err.Error()))
+	} else {
+		payload["loginToken"] = loginToken
+	}
 	// Merge extra payload (action-provided)
 	maps.Copy(payload, extraPayload)
 
@@ -109,4 +131,21 @@ func (s *StudyMessageSender) SendInstantStudyEmail(
 		return err
 	}
 	return nil
+}
+
+func (s *StudyMessageSender) getTemploginToken(instanceID string, user umTypes.User, studyKey string) (string, error) {
+	tempTokenInfos := umTypes.TempToken{
+		UserID:     user.ID.Hex(),
+		InstanceID: instanceID,
+		Purpose:    umTypes.TOKEN_PURPOSE_SURVEY_LOGIN,
+		Info:       map[string]string{"studyKey": studyKey},
+		Expiration: umUtils.GetExpirationTime(s.loginTokenTTL),
+	}
+	tempToken, err := s.globalInfosDB.AddTempToken(tempTokenInfos)
+	if err != nil {
+		slog.Error("failed to create login token", slog.String("error", err.Error()))
+		return "", err
+	}
+
+	return tempToken, nil
 }
