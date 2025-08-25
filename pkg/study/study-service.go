@@ -1109,7 +1109,7 @@ func OnLeaveStudy(instanceID string, studyKey string, profileID string) (result 
 		return
 	}
 
-	pState, err := studyDBService.GetParticipantByID(instanceID, studyKey, profileID)
+	pState, err := studyDBService.GetParticipantByID(instanceID, studyKey, participantID)
 	if err != nil {
 		slog.Error("error getting participant state", slog.String("error", err.Error()))
 		return
