@@ -9,8 +9,12 @@ import (
 
 const ACCOUNT_TYPE_EMAIL = "email"
 
-const CONTACT_INFO_TYPE_EMAIL = "email"
-const CONTACT_INFO_TYPE_PHONE = "phone"
+type ContactInfoType string
+
+const (
+	CONTACT_INFO_TYPE_EMAIL ContactInfoType = "email"
+	CONTACT_INFO_TYPE_PHONE ContactInfoType = "phone"
+)
 
 type User struct {
 	ID primitive.ObjectID `bson:"_id,omitempty" json:"id"`
@@ -94,7 +98,7 @@ func (u *User) GetPhoneNumber() (ContactInfo, error) {
 	return ContactInfo{}, errors.New("phone number not found")
 }
 
-func (u *User) ConfirmContactInfo(t string, addr string) error {
+func (u *User) ConfirmContactInfo(t ContactInfoType, addr string) error {
 	for i, ci := range u.ContactInfos {
 		if t == CONTACT_INFO_TYPE_EMAIL && ci.Type == CONTACT_INFO_TYPE_EMAIL && ci.Email == addr {
 			u.ContactInfos[i].ConfirmedAt = time.Now().Unix()
@@ -107,7 +111,7 @@ func (u *User) ConfirmContactInfo(t string, addr string) error {
 	return errors.New("contact not found")
 }
 
-func (u *User) SetContactInfoVerificationSent(t string, addr string) {
+func (u *User) SetContactInfoVerificationSent(t ContactInfoType, addr string) {
 	for i, ci := range u.ContactInfos {
 		if t == CONTACT_INFO_TYPE_EMAIL && ci.Type == CONTACT_INFO_TYPE_EMAIL && ci.Email == addr {
 			u.ContactInfos[i].ConfirmationLinkSentAt = time.Now().Unix()
@@ -119,7 +123,7 @@ func (u *User) SetContactInfoVerificationSent(t string, addr string) {
 	}
 }
 
-func (u User) FindContactInfoByTypeAndAddr(t string, addr string) (ContactInfo, bool) {
+func (u User) FindContactInfoByTypeAndAddr(t ContactInfoType, addr string) (ContactInfo, bool) {
 	for _, ci := range u.ContactInfos {
 		if t == CONTACT_INFO_TYPE_EMAIL && ci.Type == CONTACT_INFO_TYPE_EMAIL && ci.Email == addr {
 			return ci, true

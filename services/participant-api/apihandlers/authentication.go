@@ -828,7 +828,7 @@ func (h *HttpEndpoints) verifyEmail(c *gin.Context) {
 		return
 	}
 
-	if err := user.ConfirmContactInfo(cType, email); err != nil {
+	if err := user.ConfirmContactInfo(userTypes.ContactInfoType(cType), email); err != nil {
 		slog.Error("failed to confirm contact info", slog.String("error", err.Error()), slog.String("instanceID", tokenInfos.InstanceID), slog.String("userID", tokenInfos.UserID))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to confirm contact info"})
 		return

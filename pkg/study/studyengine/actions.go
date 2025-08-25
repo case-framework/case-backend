@@ -676,14 +676,19 @@ func getExtraPayload(pState studyTypes.Participant, event StudyEvent) map[string
 func sendMessageNow(action studyTypes.Expression, oldState ActionData, event StudyEvent) (newState ActionData, err error) {
 	newState = oldState
 
+	if event.ParticipantIDForConfidentialResponses == "" {
+		slog.Debug("SEND_MESSAGE_NOW: missing participantID for confidential responses")
+		return newState, errors.New("SEND_MESSAGE_NOW: missing participantID for confidential responses")
+	}
+
 	if CurrentStudyEngine.messageSender == nil {
 		slog.Error("message sender for study engine not registered")
 		return newState, errors.New("message sender for study engine not registered")
 	}
 
 	if len(action.Data) < 1 {
-		slog.Debug("sendMessageNow must have at least one argument")
-		return newState, errors.New("sendMessageNow must have at least one argument")
+		slog.Debug("SEND_MESSAGE_NOW: must have at least one argument")
+		return newState, errors.New("SEND_MESSAGE_NOW: must have at least one argument")
 	}
 	EvalContext := EvalContext{
 		Event:            event,
