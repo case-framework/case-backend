@@ -133,12 +133,11 @@ func (u *User) RemoveContactInfo(id string) error {
 			if u.Account.Type == ACCOUNT_TYPE_EMAIL && ci.Email == u.Account.AccountID {
 				return errors.New("cannot remove main address")
 			}
-
+			u.RemoveContactInfoFromContactPreferences(id)
 			u.ContactInfos = append(u.ContactInfos[:i], u.ContactInfos[i+1:]...)
 			return nil
 		}
 	}
-	u.RemoveContactInfoFromContactPreferences(id)
 	return errors.New("contact not found")
 }
 
