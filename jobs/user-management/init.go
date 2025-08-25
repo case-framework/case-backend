@@ -250,5 +250,6 @@ func initStudyService() {
 		studyDBService,
 		conf.StudyConfigs.GlobalSecret,
 		conf.StudyConfigs.ExternalServices,
+		nil, // study message sender is not used in this job for now
 	)
 }
