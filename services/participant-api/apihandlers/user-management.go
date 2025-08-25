@@ -296,7 +296,10 @@ func (h *HttpEndpoints) changeAccountEmailHandl(c *gin.Context) {
 		return
 	}
 
-	oldCI, oldFound := user.FindContactInfoByTypeAndAddr("email", user.Account.AccountID)
+	oldCI, oldFound := user.FindContactInfoByTypeAndAddr(
+		userTypes.CONTACT_INFO_TYPE_EMAIL,
+		user.Account.AccountID,
+	)
 	if !oldFound {
 		slog.Error("old contact info not found", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", "old contact info not found"))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "old contact info not found"})
@@ -327,7 +330,10 @@ func (h *HttpEndpoints) changeAccountEmailHandl(c *gin.Context) {
 	user.Account.AccountConfirmedAt = -1
 
 	// Add new address to contact list if necessary:
-	ci, found := user.FindContactInfoByTypeAndAddr("email", req.Email)
+	ci, found := user.FindContactInfoByTypeAndAddr(
+		userTypes.CONTACT_INFO_TYPE_EMAIL,
+		req.Email,
+	)
 	if found {
 		// new email already confirmed
 		if ci.ConfirmedAt > 0 {
@@ -337,7 +343,10 @@ func (h *HttpEndpoints) changeAccountEmailHandl(c *gin.Context) {
 		user.AddNewEmail(req.Email, false)
 	}
 
-	newCI, newFound := user.FindContactInfoByTypeAndAddr("email", req.Email)
+	newCI, newFound := user.FindContactInfoByTypeAndAddr(
+		userTypes.CONTACT_INFO_TYPE_EMAIL,
+		req.Email,
+	)
 	if !newFound {
 		slog.Error("new contact info not found", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", "new contact info not found"))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "new contact info not found"})

@@ -9,6 +9,13 @@ import (
 
 const ACCOUNT_TYPE_EMAIL = "email"
 
+type ContactInfoType string
+
+const (
+	CONTACT_INFO_TYPE_EMAIL ContactInfoType = "email"
+	CONTACT_INFO_TYPE_PHONE ContactInfoType = "phone"
+)
+
 type User struct {
 	ID primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 
@@ -23,7 +30,7 @@ type User struct {
 func (u *User) AddNewEmail(addr string, confirmed bool) {
 	contactInfo := ContactInfo{
 		ID:          primitive.NewObjectID(),
-		Type:        "email",
+		Type:        CONTACT_INFO_TYPE_EMAIL,
 		ConfirmedAt: 0,
 		Email:       addr,
 	}
@@ -33,17 +40,39 @@ func (u *User) AddNewEmail(addr string, confirmed bool) {
 	u.ContactInfos = append(u.ContactInfos, contactInfo)
 }
 
+func (u *User) GetEmail() (ContactInfo, error) {
+	// Prefer the main account email when account type is email
+	if u.Account.Type == ACCOUNT_TYPE_EMAIL {
+		if ci, ok := u.FindContactInfoByTypeAndAddr(CONTACT_INFO_TYPE_EMAIL, u.Account.AccountID); ok {
+			return ci, nil
+		}
+	}
+	// Fallback to the first confirmed email
+	for _, ci := range u.ContactInfos {
+		if ci.Type == CONTACT_INFO_TYPE_EMAIL && ci.ConfirmedAt > 0 {
+			return ci, nil
+		}
+	}
+	// Fallback to the first email
+	for _, ci := range u.ContactInfos {
+		if ci.Type == CONTACT_INFO_TYPE_EMAIL {
+			return ci, nil
+		}
+	}
+	return ContactInfo{}, errors.New("email not found")
+}
+
 func (u *User) SetPhoneNumber(phone string) {
 	var newContactInfos []ContactInfo
 	for _, ci := range u.ContactInfos {
-		if ci.Type == "phone" {
+		if ci.Type == CONTACT_INFO_TYPE_PHONE {
 			continue
 		}
 		newContactInfos = append(newContactInfos, ci)
 	}
 	contactInfo := ContactInfo{
 		ID:          primitive.NewObjectID(),
-		Type:        "phone",
+		Type:        CONTACT_INFO_TYPE_PHONE,
 		ConfirmedAt: 0,
 		Phone:       phone,
 	}
@@ -52,7 +81,7 @@ func (u *User) SetPhoneNumber(phone string) {
 
 func (u *User) ConfirmPhoneNumber() error {
 	for i, ci := range u.ContactInfos {
-		if ci.Type == "phone" {
+		if ci.Type == CONTACT_INFO_TYPE_PHONE {
 			u.ContactInfos[i].ConfirmedAt = time.Now().Unix()
 			return nil
 		}
@@ -62,19 +91,19 @@ func (u *User) ConfirmPhoneNumber() error {
 
 func (u *User) GetPhoneNumber() (ContactInfo, error) {
 	for _, ci := range u.ContactInfos {
-		if ci.Type == "phone" {
+		if ci.Type == CONTACT_INFO_TYPE_PHONE {
 			return ci, nil
 		}
 	}
 	return ContactInfo{}, errors.New("phone number not found")
 }
 
-func (u *User) ConfirmContactInfo(t string, addr string) error {
+func (u *User) ConfirmContactInfo(t ContactInfoType, addr string) error {
 	for i, ci := range u.ContactInfos {
-		if t == "email" && ci.Email == addr {
+		if t == CONTACT_INFO_TYPE_EMAIL && ci.Type == CONTACT_INFO_TYPE_EMAIL && ci.Email == addr {
 			u.ContactInfos[i].ConfirmedAt = time.Now().Unix()
 			return nil
-		} else if t == "phone" && ci.Phone == addr {
+		} else if t == CONTACT_INFO_TYPE_PHONE && ci.Type == CONTACT_INFO_TYPE_PHONE && ci.Phone == addr {
 			u.ContactInfos[i].ConfirmedAt = time.Now().Unix()
 			return nil
 		}
@@ -82,23 +111,23 @@ func (u *User) ConfirmContactInfo(t string, addr string) error {
 	return errors.New("contact not found")
 }
 
-func (u *User) SetContactInfoVerificationSent(t string, addr string) {
+func (u *User) SetContactInfoVerificationSent(t ContactInfoType, addr string) {
 	for i, ci := range u.ContactInfos {
-		if t == "email" && ci.Email == addr {
+		if t == CONTACT_INFO_TYPE_EMAIL && ci.Type == CONTACT_INFO_TYPE_EMAIL && ci.Email == addr {
 			u.ContactInfos[i].ConfirmationLinkSentAt = time.Now().Unix()
 			return
-		} else if t == "phone" && ci.Phone == addr {
+		} else if t == CONTACT_INFO_TYPE_PHONE && ci.Type == CONTACT_INFO_TYPE_PHONE && ci.Phone == addr {
 			u.ContactInfos[i].ConfirmationLinkSentAt = time.Now().Unix()
 			return
 		}
 	}
 }
 
-func (u User) FindContactInfoByTypeAndAddr(t string, addr string) (ContactInfo, bool) {
+func (u User) FindContactInfoByTypeAndAddr(t ContactInfoType, addr string) (ContactInfo, bool) {
 	for _, ci := range u.ContactInfos {
-		if t == "email" && ci.Email == addr {
+		if t == CONTACT_INFO_TYPE_EMAIL && ci.Type == CONTACT_INFO_TYPE_EMAIL && ci.Email == addr {
 			return ci, true
-		} else if t == "phone" && ci.Phone == addr {
+		} else if t == CONTACT_INFO_TYPE_PHONE && ci.Type == CONTACT_INFO_TYPE_PHONE && ci.Phone == addr {
 			return ci, true
 		}
 	}
@@ -118,15 +147,14 @@ func (u User) FindContactInfoById(id string) (ContactInfo, bool) {
 func (u *User) RemoveContactInfo(id string) error {
 	for i, ci := range u.ContactInfos {
 		if ci.ID.Hex() == id {
-			if u.Account.Type == "email" && ci.Email == u.Account.AccountID {
+			if u.Account.Type == ACCOUNT_TYPE_EMAIL && ci.Email == u.Account.AccountID {
 				return errors.New("cannot remove main address")
 			}
-
+			u.RemoveContactInfoFromContactPreferences(id)
 			u.ContactInfos = append(u.ContactInfos[:i], u.ContactInfos[i+1:]...)
 			return nil
 		}
 	}
-	u.RemoveContactInfoFromContactPreferences(id)
 	return errors.New("contact not found")
 }
 

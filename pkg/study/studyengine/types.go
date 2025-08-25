@@ -1,6 +1,8 @@
 package studyengine
 
 import (
+	"log/slog"
+
 	studyDB "github.com/case-framework/case-backend/pkg/db/study"
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 
@@ -19,6 +21,7 @@ const (
 type StudyEngine struct {
 	studyDBService   StudyDBService
 	externalServices []ExternalService
+	messageSender    StudyMessageSender
 }
 
 var (
@@ -29,6 +32,16 @@ func InitStudyEngine(dbService StudyDBService, externalServices []ExternalServic
 	CurrentStudyEngine = &StudyEngine{
 		studyDBService:   dbService,
 		externalServices: externalServices,
+	}
+}
+
+// RegisterStudyMessageSender allows to set a message sender implementation
+// that can be swapped for simulator/test mode.
+func (se *StudyEngine) RegisterStudyMessageSender(sender StudyMessageSender) {
+	if CurrentStudyEngine != nil {
+		CurrentStudyEngine.messageSender = sender
+	} else {
+		slog.Error("StudyEngine not initialized, cannot register message sender")
 	}
 }
 
@@ -75,4 +88,23 @@ type StudyEvent struct {
 type EvalContext struct {
 	Event            StudyEvent
 	ParticipantState studyTypes.Participant
+}
+
+// SendOptions defines optional parameters for sending study emails.
+type SendOptions struct {
+	ExpiresAt        int64 // if message could not sent until this time, it will be discarded
+	LanguageOverride string
+}
+
+// StudyMessageSender abstracts immediate message sending from the study engine.
+// Implementations may send via SMTP bridge or capture messages in tests/simulators.
+type StudyMessageSender interface {
+	SendInstantStudyEmail(
+		instanceID string,
+		studyKey string,
+		confidentialPID string,
+		messageType string,
+		extraPayload map[string]string,
+		opts SendOptions,
+	) error
 }

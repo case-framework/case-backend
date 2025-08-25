@@ -154,6 +154,7 @@ func initStudyService() {
 		studyDBService,
 		conf.StudyConfigs.GlobalSecret,
 		conf.StudyConfigs.ExternalServices,
+		nil, // sender is not used in this service for now
 	)
 }
 

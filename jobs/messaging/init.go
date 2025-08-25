@@ -210,6 +210,7 @@ func initStudyService() {
 		studyDBService,
 		conf.StudyConfigs.GlobalSecret,
 		[]studyengine.ExternalService{},
+		nil,
 	)
 }
 
