@@ -11,7 +11,6 @@ import (
 	"github.com/case-framework/case-backend/pkg/db"
 	"github.com/case-framework/case-backend/pkg/study"
 	"github.com/case-framework/case-backend/pkg/study/studyengine"
-	studySender "github.com/case-framework/case-backend/pkg/study/studyengine/sender"
 	"github.com/case-framework/case-backend/pkg/utils"
 	"gopkg.in/yaml.v2"
 
@@ -151,23 +150,11 @@ func initDBs() {
 }
 
 func initStudyService() {
-	// construct study message sender
-	sender := studySender.NewStudyMessageSender(
-		studyDBService,
-		participantUserDBService,
-		messagingDBService,
-		globalInfosDBService,
-		studySender.MessageSenderConfig{
-			LoginTokenTTL:                time.Hour * 24, // default, adjust if you have a config
-			GlobalEmailTemplateConstants: map[string]string{},
-		},
-	)
-
 	study.Init(
 		studyDBService,
 		conf.StudyConfigs.GlobalSecret,
 		conf.StudyConfigs.ExternalServices,
-		sender,
+		nil, // sender is not used in this service for now
 	)
 }
 

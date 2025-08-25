@@ -83,6 +83,11 @@ func (s *StudyMessageSender) SendInstantStudyEmail(
 	}
 	to := []string{email.Email}
 
+	if len(user.Profiles) == 0 {
+		slog.Error("user has no profiles", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("userID", user.ID.Hex()))
+		return errors.New("no profiles found for user")
+	}
+
 	currentProfile := user.Profiles[0]
 	for _, p := range user.Profiles {
 		if p.ID.Hex() == profileID {
@@ -93,7 +98,6 @@ func (s *StudyMessageSender) SendInstantStudyEmail(
 
 	// Build payload
 	payload := map[string]string{
-		"studyKey":     studyKey,
 		"profileAlias": currentProfile.Alias,
 		"profileId":    currentProfile.ID.Hex(),
 	}
@@ -115,6 +119,11 @@ func (s *StudyMessageSender) SendInstantStudyEmail(
 		lang = opts.LanguageOverride
 	}
 
+	expiresAt := opts.ExpiresAt
+	if expiresAt == 0 {
+		expiresAt = time.Now().Add(time.Hour * 24).Unix()
+	}
+
 	// Send immediately using the templating system; default to high priority
 	err = emailsending.SendInstantEmailByTemplate(
 		instanceID,
@@ -124,7 +133,7 @@ func (s *StudyMessageSender) SendInstantStudyEmail(
 		lang,
 		payload,
 		false, // useLowPrio
-		opts.ExpiresAt,
+		expiresAt,
 	)
 	if err != nil {
 		// The email-sending module already stores to outgoing on error
