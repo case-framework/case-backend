@@ -37,6 +37,19 @@ func (u *User) AddNewEmail(addr string, confirmed bool) {
 }
 
 func (u *User) GetEmail() (ContactInfo, error) {
+	// Prefer the main account email when account type is email
+	if u.Account.Type == ACCOUNT_TYPE_EMAIL {
+		if ci, ok := u.FindContactInfoByTypeAndAddr(CONTACT_INFO_TYPE_EMAIL, u.Account.AccountID); ok {
+			return ci, nil
+		}
+	}
+	// Fallback to the first confirmed email
+	for _, ci := range u.ContactInfos {
+		if ci.Type == CONTACT_INFO_TYPE_EMAIL && ci.ConfirmedAt > 0 {
+			return ci, nil
+		}
+	}
+	// Fallback to the first email
 	for _, ci := range u.ContactInfos {
 		if ci.Type == CONTACT_INFO_TYPE_EMAIL {
 			return ci, nil
@@ -83,10 +96,10 @@ func (u *User) GetPhoneNumber() (ContactInfo, error) {
 
 func (u *User) ConfirmContactInfo(t string, addr string) error {
 	for i, ci := range u.ContactInfos {
-		if t == CONTACT_INFO_TYPE_EMAIL && ci.Email == addr {
+		if t == CONTACT_INFO_TYPE_EMAIL && ci.Type == CONTACT_INFO_TYPE_EMAIL && ci.Email == addr {
 			u.ContactInfos[i].ConfirmedAt = time.Now().Unix()
 			return nil
-		} else if t == CONTACT_INFO_TYPE_PHONE && ci.Phone == addr {
+		} else if t == CONTACT_INFO_TYPE_PHONE && ci.Type == CONTACT_INFO_TYPE_PHONE && ci.Phone == addr {
 			u.ContactInfos[i].ConfirmedAt = time.Now().Unix()
 			return nil
 		}
@@ -96,10 +109,10 @@ func (u *User) ConfirmContactInfo(t string, addr string) error {
 
 func (u *User) SetContactInfoVerificationSent(t string, addr string) {
 	for i, ci := range u.ContactInfos {
-		if t == CONTACT_INFO_TYPE_EMAIL && ci.Email == addr {
+		if t == CONTACT_INFO_TYPE_EMAIL && ci.Type == CONTACT_INFO_TYPE_EMAIL && ci.Email == addr {
 			u.ContactInfos[i].ConfirmationLinkSentAt = time.Now().Unix()
 			return
-		} else if t == CONTACT_INFO_TYPE_PHONE && ci.Phone == addr {
+		} else if t == CONTACT_INFO_TYPE_PHONE && ci.Type == CONTACT_INFO_TYPE_PHONE && ci.Phone == addr {
 			u.ContactInfos[i].ConfirmationLinkSentAt = time.Now().Unix()
 			return
 		}
@@ -108,9 +121,9 @@ func (u *User) SetContactInfoVerificationSent(t string, addr string) {
 
 func (u User) FindContactInfoByTypeAndAddr(t string, addr string) (ContactInfo, bool) {
 	for _, ci := range u.ContactInfos {
-		if t == CONTACT_INFO_TYPE_EMAIL && ci.Email == addr {
+		if t == CONTACT_INFO_TYPE_EMAIL && ci.Type == CONTACT_INFO_TYPE_EMAIL && ci.Email == addr {
 			return ci, true
-		} else if t == CONTACT_INFO_TYPE_PHONE && ci.Phone == addr {
+		} else if t == CONTACT_INFO_TYPE_PHONE && ci.Type == CONTACT_INFO_TYPE_PHONE && ci.Phone == addr {
 			return ci, true
 		}
 	}
