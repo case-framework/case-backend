@@ -2,6 +2,7 @@ package emailsending
 
 import (
 	"encoding/base64"
+	"log/slog"
 
 	messageDB "github.com/case-framework/case-backend/pkg/db/messaging"
 	emailtemplates "github.com/case-framework/case-backend/pkg/messaging/email-templates"
@@ -27,9 +28,14 @@ func prepOutgoingEmail(
 	if studyKey == "" {
 		templateDef, err = messageDB.GetGlobalEmailTemplateByMessageType(instanceID, messageType)
 	} else {
-		templateDef, err = messageDB.GetStudyEmailTemplateByMessageType(instanceID, messageType, studyKey)
+		templateDef, err = messageDB.GetStudyEmailTemplateByMessageType(instanceID, studyKey, messageType)
 	}
 	if err != nil {
+		slog.Error("failed to fetch email template",
+			slog.String("instanceID", instanceID),
+			slog.String("messageType", messageType),
+			slog.String("studyKey", studyKey),
+			slog.String("error", err.Error()))
 		return nil, err
 	}
 
