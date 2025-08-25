@@ -21,7 +21,7 @@ const (
 type StudyEngine struct {
 	studyDBService   StudyDBService
 	externalServices []ExternalService
-	messageSender    *StudyMessageSender
+	messageSender    StudyMessageSender
 }
 
 var (
@@ -37,7 +37,7 @@ func InitStudyEngine(dbService StudyDBService, externalServices []ExternalServic
 
 // RegisterStudyMessageSender allows to set a message sender implementation
 // that can be swapped for simulator/test mode.
-func (se *StudyEngine) RegisterStudyMessageSender(sender *StudyMessageSender) {
+func (se *StudyEngine) RegisterStudyMessageSender(sender StudyMessageSender) {
 	if CurrentStudyEngine != nil {
 		CurrentStudyEngine.messageSender = sender
 	} else {
@@ -102,7 +102,7 @@ type StudyMessageSender interface {
 	SendInstantStudyEmail(
 		instanceID string,
 		studyKey string,
-		participantID string,
+		confidentialPID string,
 		messageType string,
 		extraPayload map[string]string,
 		opts SendOptions,
