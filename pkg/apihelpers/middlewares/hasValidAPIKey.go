@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -12,6 +13,7 @@ func HasValidAPIKey(validKeys []string) gin.HandlerFunc {
 
 		keysInHeader, ok := req.Header["Api-Key"]
 		if !ok || len(keysInHeader) < 1 {
+			slog.Error("A valid API key missing")
 			c.JSON(http.StatusBadRequest, gin.H{"error": "A valid API key missing"})
 			c.Abort()
 			return
@@ -27,6 +29,7 @@ func HasValidAPIKey(validKeys []string) gin.HandlerFunc {
 		}
 
 		// If no keys matched:
+		slog.Error("A valid API key missing")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "A valid API key missing"})
 		c.Abort()
 	}
