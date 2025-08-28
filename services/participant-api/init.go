@@ -14,6 +14,7 @@ import (
 	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 	"github.com/case-framework/case-backend/pkg/study"
 	"github.com/case-framework/case-backend/pkg/study/studyengine"
+	studySender "github.com/case-framework/case-backend/pkg/study/studyengine/sender"
 	usermanagement "github.com/case-framework/case-backend/pkg/user-management"
 	"github.com/case-framework/case-backend/pkg/user-management/pwhash"
 	"github.com/case-framework/case-backend/pkg/utils"
@@ -166,10 +167,10 @@ func init() {
 	// init user management
 	initUserManagement()
 
-	initStudyService()
-
 	// init message sending config
 	initMessageSendingConfig()
+
+	initStudyService()
 
 	checkParticipantFilestorePath()
 }
@@ -265,10 +266,22 @@ func initUserManagement() {
 }
 
 func initStudyService() {
+	studyMessageSender := studySender.NewStudyMessageSender(
+		studyDBService,
+		participantUserDBService,
+		messagingDBService,
+		globalInfosDBService,
+		studySender.MessageSenderConfig{
+			LoginTokenTTL:                24 * time.Hour,
+			GlobalEmailTemplateConstants: conf.MessagingConfigs.GlobalEmailTemplateConstants,
+		},
+	)
+
 	study.Init(
 		studyDBService,
 		conf.StudyConfigs.GlobalSecret,
 		conf.StudyConfigs.ExternalServices,
+		studyMessageSender,
 	)
 }
 

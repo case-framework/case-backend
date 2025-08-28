@@ -60,6 +60,8 @@ func ActionEval(action studyTypes.Expression, oldState ActionData, event StudyEv
 		newState, err = removeMessagesByType(action, oldState, event)
 	case "NOTIFY_RESEARCHER":
 		newState, err = notifyResearcher(action, oldState, event)
+	case "SEND_MESSAGE_NOW":
+		newState, err = sendMessageNow(action, oldState, event)
 	case "INIT_REPORT":
 		newState, err = initReport(action, oldState, event)
 	case "UPDATE_REPORT_DATA":
@@ -646,6 +648,95 @@ func notifyResearcher(action studyTypes.Expression, oldState ActionData, event S
 		slog.Error("unexpected error when saving researcher message", slog.String("error", err.Error()))
 	}
 	return
+}
+
+func getExtraPayload(pState studyTypes.Participant, event StudyEvent) map[string]string {
+	payload := map[string]string{
+		"studyKey": event.StudyKey,
+	}
+
+	// include participant flags into payload:
+	for k, v := range pState.Flags {
+		payload["flags."+k] = v
+	}
+
+	// include linking codes into payload
+	for k, v := range pState.LinkingCodes {
+		payload["linkingCodes."+k] = v
+	}
+
+	// include event payload into message (template) payload
+	for k, v := range event.Payload {
+		payload["eventData."+k] = fmt.Sprintf("%v", v)
+	}
+
+	return payload
+}
+
+func sendMessageNow(action studyTypes.Expression, oldState ActionData, event StudyEvent) (newState ActionData, err error) {
+	newState = oldState
+
+	if event.ParticipantIDForConfidentialResponses == "" {
+		slog.Debug("SEND_MESSAGE_NOW: missing participantID for confidential responses")
+		return newState, errors.New("SEND_MESSAGE_NOW: missing participantID for confidential responses")
+	}
+
+	if CurrentStudyEngine.messageSender == nil {
+		slog.Error("message sender for study engine not registered")
+		return newState, errors.New("message sender for study engine not registered")
+	}
+
+	if len(action.Data) < 1 {
+		slog.Debug("SEND_MESSAGE_NOW: must have at least one argument")
+		return newState, errors.New("SEND_MESSAGE_NOW: must have at least one argument")
+	}
+	EvalContext := EvalContext{
+		Event:            event,
+		ParticipantState: newState.PState,
+	}
+	arg1, err := EvalContext.ExpressionArgResolver(action.Data[0])
+	if err != nil {
+		return newState, err
+	}
+
+	messageType, ok1 := arg1.(string)
+	messageType = strings.TrimSpace(messageType)
+	if !ok1 || messageType == "" {
+		return newState, errors.New("could not parse arguments")
+	}
+
+	languageOverride := ""
+	if len(action.Data) > 1 {
+		arg2, err := EvalContext.ExpressionArgResolver(action.Data[1])
+		if err != nil {
+			return newState, err
+		}
+		languageOverride, ok1 = arg2.(string)
+		if !ok1 {
+			slog.Debug("could not parse language override")
+		}
+	}
+
+	extraPayload := getExtraPayload(newState.PState, event)
+
+	err = CurrentStudyEngine.messageSender.SendInstantStudyEmail(
+		event.InstanceID,
+		event.StudyKey,
+		event.ParticipantIDForConfidentialResponses,
+		messageType,
+		extraPayload,
+		SendOptions{
+			LanguageOverride: languageOverride,
+			ExpiresAt:        Now().Add(time.Hour * 24).Unix(),
+		},
+	)
+	if err != nil {
+		slog.Error("unexpected error during action", slog.String("action", action.Name), slog.String("error", err.Error()))
+		return newState, err
+	}
+
+	return
+
 }
 
 // init one empty report for the current event - if report already existing, reset report to empty report

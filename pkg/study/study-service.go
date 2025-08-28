@@ -29,6 +29,7 @@ func Init(
 	studyDB *studydb.StudyDBService,
 	gSecret string,
 	externalServices []studyengine.ExternalService,
+	studyMessageSender studyengine.StudyMessageSender,
 ) {
 	if gSecret == "" {
 		slog.Error("Study global secret must not be empty, use the config file or the env variable to set it")
@@ -38,6 +39,7 @@ func Init(
 	studyDBService = studyDB
 	globalSecret = gSecret
 	studyengine.InitStudyEngine(studyDB, externalServices)
+	studyengine.CurrentStudyEngine.RegisterStudyMessageSender(studyMessageSender)
 }
 
 func OnEnterStudy(instanceID string, studyKey string, profileID string) (result []studyTypes.AssignedSurvey, err error) {
@@ -1107,7 +1109,7 @@ func OnLeaveStudy(instanceID string, studyKey string, profileID string) (result 
 		return
 	}
 
-	pState, err := studyDBService.GetParticipantByID(instanceID, studyKey, profileID)
+	pState, err := studyDBService.GetParticipantByID(instanceID, studyKey, participantID)
 	if err != nil {
 		slog.Error("error getting participant state", slog.String("error", err.Error()))
 		return
