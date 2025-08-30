@@ -3614,15 +3614,13 @@ func (h *HttpEndpoints) getStudyReports(c *gin.Context) {
 		return
 	}
 
-	filter := bson.M{}
-
 	reportKey := c.DefaultQuery("reportKey", "")
 	if reportKey != "" {
-		filter["key"] = reportKey
+		query.Filter["key"] = reportKey
 	}
 	pid := c.DefaultQuery("pid", "")
 	if pid != "" {
-		filter["participantID"] = pid
+		query.Filter["participantID"] = pid
 	}
 
 	fromTsQuery := c.DefaultQuery("from", "")
@@ -3656,13 +3654,13 @@ func (h *HttpEndpoints) getStudyReports(c *gin.Context) {
 	}
 
 	if len(tsFilter) > 0 {
-		filter["timestamp"] = tsFilter
+		query.Filter["timestamp"] = tsFilter
 	}
 
 	reports, paginationInfo, err := h.studyDBConn.GetReports(
 		token.InstanceID,
 		studyKey,
-		filter,
+		query.Filter,
 		query.Page,
 		query.Limit,
 	)
