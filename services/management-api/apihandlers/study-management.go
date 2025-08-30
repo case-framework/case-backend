@@ -3591,7 +3591,7 @@ func (h *HttpEndpoints) getReportKeys(c *gin.Context) {
 	)
 	if err != nil {
 		slog.Error("error retrieving unique report keys", slog.String("error", err.Error()))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study reports"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study report keys"})
 		return
 	}
 

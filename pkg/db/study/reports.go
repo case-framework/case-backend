@@ -14,7 +14,7 @@ import (
 )
 
 // ReportKeyFilters allows optional filtering when listing unique report keys.
-// Use nil pointer fields to omit a filter.
+// Use 0 values to omit a filter.
 type ReportKeyFilters struct {
 	ParticipantID string
 	FromTS        int64
