@@ -13,6 +13,14 @@ import (
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
+// ReportKeyFilters allows optional filtering when listing unique report keys.
+// Use nil pointer fields to omit a filter.
+type ReportKeyFilters struct {
+	ParticipantID string
+	FromTS        int64
+	ToTS          int64
+}
+
 func (dbService *StudyDBService) CreateIndexForReportsCollection(instanceID string, studyKey string) error {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
@@ -164,4 +172,48 @@ func (dbService *StudyDBService) FindAndExecuteOnReports(
 		}
 	}
 	return nil
+}
+
+// GetUniqueReportKeysForStudy returns the distinct report keys within a study.
+// Optional filters:
+// - participantID: if non-empty, limits to reports from the specified participant
+// - fromTS/toTS: if >0, applies inclusive timestamp range filters (unix seconds)
+func (dbService *StudyDBService) GetUniqueReportKeysForStudy(
+	instanceID string,
+	studyKey string,
+	filters *ReportKeyFilters,
+) ([]string, error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	filter := bson.M{}
+	if filters != nil {
+		if filters.ParticipantID != "" {
+			filter["participantID"] = filters.ParticipantID
+		}
+
+		tsFilter := bson.M{}
+		if filters.FromTS > 0 {
+			tsFilter["$gte"] = filters.FromTS
+		}
+		if filters.ToTS > 0 {
+			tsFilter["$lte"] = filters.ToTS
+		}
+		if len(tsFilter) > 0 {
+			filter["timestamp"] = tsFilter
+		}
+	}
+
+	res, err := dbService.collectionReports(instanceID, studyKey).Distinct(ctx, "key", filter)
+	if err != nil {
+		return nil, err
+	}
+
+	keys := make([]string, 0, len(res))
+	for _, r := range res {
+		if v, ok := r.(string); ok {
+			keys = append(keys, v)
+		}
+	}
+	return keys, nil
 }
