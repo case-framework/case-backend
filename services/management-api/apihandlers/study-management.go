@@ -21,6 +21,7 @@ import (
 	studyutils "github.com/case-framework/case-backend/pkg/study/utils"
 	"github.com/case-framework/case-backend/pkg/utils"
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	studyDB "github.com/case-framework/case-backend/pkg/db/study"
@@ -3613,19 +3614,55 @@ func (h *HttpEndpoints) getStudyReports(c *gin.Context) {
 		return
 	}
 
+	filter := bson.M{}
+
 	reportKey := c.DefaultQuery("reportKey", "")
 	if reportKey != "" {
-		query.Filter["key"] = reportKey
+		filter["key"] = reportKey
 	}
 	pid := c.DefaultQuery("pid", "")
 	if pid != "" {
-		query.Filter["participantID"] = pid
+		filter["participantID"] = pid
+	}
+
+	fromTsQuery := c.DefaultQuery("from", "")
+	fromTs := int64(0)
+	if fromTsQuery != "" {
+		fromTs, err = strconv.ParseInt(fromTsQuery, 10, 64)
+		if err != nil {
+			slog.Error("error parsing fromTS", slog.String("error", err.Error()))
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid fromTS"})
+			return
+		}
+	}
+
+	toTSQuery := c.DefaultQuery("until", "")
+	toTs := int64(0)
+	if toTSQuery != "" {
+		toTs, err = strconv.ParseInt(toTSQuery, 10, 64)
+		if err != nil {
+			slog.Error("error parsing toTS", slog.String("error", err.Error()))
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid toTS"})
+			return
+		}
+	}
+
+	tsFilter := bson.M{}
+	if fromTsQuery != "" {
+		tsFilter["$gte"] = fromTs
+	}
+	if toTSQuery != "" {
+		tsFilter["$lte"] = toTs
+	}
+
+	if len(tsFilter) > 0 {
+		filter["timestamp"] = tsFilter
 	}
 
 	reports, paginationInfo, err := h.studyDBConn.GetReports(
 		token.InstanceID,
 		studyKey,
-		query.Filter,
+		filter,
 		query.Page,
 		query.Limit,
 	)
