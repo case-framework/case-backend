@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	studyutils "github.com/case-framework/case-backend/pkg/study/utils"
 	"github.com/case-framework/case-backend/pkg/utils"
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	studyDB "github.com/case-framework/case-backend/pkg/db/study"
@@ -860,6 +862,18 @@ func (h *HttpEndpoints) addStudyDataExplorerEndpoints(rg *gin.RouterGroup) {
 
 	reportsGroup := dataExplGroup.Group("/reports")
 	{
+		// get available report keys
+		reportsGroup.GET("/keys", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_GET_REPORTS,
+			},
+			nil,
+			h.getReportKeys,
+		)) // ?pid=<pid>&from=<ts1>&until=<ts2>
+
 		// get reports with pagination
 		reportsGroup.GET("/", h.useAuthorisedHandler(
 			RequiredPermission{
@@ -3525,6 +3539,68 @@ func (h *HttpEndpoints) getStudyParticipant(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"participant": participant})
 }
 
+func (h *HttpEndpoints) getReportKeys(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	studyKey := c.Param("studyKey")
+
+	pid := c.DefaultQuery("pid", "")
+	fromTsQuery := c.DefaultQuery("from", "")
+	fromTs := int64(0)
+	var err error
+	if fromTsQuery != "" {
+		fromTs, err = strconv.ParseInt(fromTsQuery, 10, 64)
+		if err != nil {
+			slog.Error("error parsing fromTS", slog.String("error", err.Error()))
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid fromTS"})
+			return
+		}
+	}
+
+	toTSQuery := c.DefaultQuery("until", "")
+	toTs := int64(0)
+	if toTSQuery != "" {
+		toTs, err = strconv.ParseInt(toTSQuery, 10, 64)
+		if err != nil {
+			slog.Error("error parsing toTS", slog.String("error", err.Error()))
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid toTS"})
+			return
+		}
+	}
+
+	slog.Info("fetching available report keys",
+		slog.String("instanceID", token.InstanceID),
+		slog.String("userID", token.Subject),
+		slog.String("participantID", pid),
+		slog.String("studyKey", studyKey),
+		slog.Int64("from", fromTs),
+		slog.Int64("until", toTs),
+	)
+
+	var filter *studyDB.ReportKeyFilters
+	if pid != "" || toTSQuery != "" || fromTsQuery != "" {
+		filter = &studyDB.ReportKeyFilters{
+			ParticipantID: pid,
+			FromTS:        fromTs,
+			ToTS:          toTs,
+		}
+	}
+
+	keys, err := h.studyDBConn.GetUniqueReportKeysForStudy(
+		token.InstanceID,
+		studyKey,
+		filter,
+	)
+	if err != nil {
+		slog.Error("error retrieving unique report keys", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study report keys"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"reportKeys": keys,
+	})
+}
+
 func (h *HttpEndpoints) getStudyReports(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 	studyKey := c.Param("studyKey")
@@ -3545,6 +3621,40 @@ func (h *HttpEndpoints) getStudyReports(c *gin.Context) {
 	pid := c.DefaultQuery("pid", "")
 	if pid != "" {
 		query.Filter["participantID"] = pid
+	}
+
+	fromTsQuery := c.DefaultQuery("from", "")
+	fromTs := int64(0)
+	if fromTsQuery != "" {
+		fromTs, err = strconv.ParseInt(fromTsQuery, 10, 64)
+		if err != nil {
+			slog.Error("error parsing fromTS", slog.String("error", err.Error()))
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid fromTS"})
+			return
+		}
+	}
+
+	toTSQuery := c.DefaultQuery("until", "")
+	toTs := int64(0)
+	if toTSQuery != "" {
+		toTs, err = strconv.ParseInt(toTSQuery, 10, 64)
+		if err != nil {
+			slog.Error("error parsing toTS", slog.String("error", err.Error()))
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid toTS"})
+			return
+		}
+	}
+
+	tsFilter := bson.M{}
+	if fromTsQuery != "" {
+		tsFilter["$gte"] = fromTs
+	}
+	if toTSQuery != "" {
+		tsFilter["$lte"] = toTs
+	}
+
+	if len(tsFilter) > 0 {
+		query.Filter["timestamp"] = tsFilter
 	}
 
 	reports, paginationInfo, err := h.studyDBConn.GetReports(
