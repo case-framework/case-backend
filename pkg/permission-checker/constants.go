@@ -30,6 +30,7 @@ const (
 	ACTION_RUN_STUDY_ACTION                  = "run-study-action"
 	ACTION_DELETE_STUDY                      = "delete-study"
 	ACTION_MANAGE_STUDY_CODE_LISTS           = "manage-study-code-lists"
+	ACTION_MANAGE_STUDY_COUNTERS             = "manage-study-counters"
 
 	ACTION_MANAGE_STUDY_PERMISSIONS = "manage-study-permissions"
 
