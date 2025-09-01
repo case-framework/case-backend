@@ -1168,7 +1168,7 @@ func drawStudyCodeAsLinkingCode(action studyTypes.Expression, oldState ActionDat
 		slog.Debug("linking code is empty, removing")
 		delete(newState.PState.LinkingCodes, linkingCodeKey)
 	} else {
-		newState.PState.LinkingCodes = updateMapValue(newState.PState.LinkingCodes, linkingCodeKey, code)
+		newState.PState.LinkingCodes[linkingCodeKey] = code
 	}
 
 	return
