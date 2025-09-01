@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"strconv"
 	"strings"
 	"time"
@@ -222,6 +223,15 @@ func startNewStudySession(action studyTypes.Expression, oldState ActionData) (ne
 	return
 }
 
+// updateMapValue clones the original map and sets the provided key to value.
+// It always returns a new map instance and never mutates the original.
+func updateMapValue(original map[string]string, key string, value string) map[string]string {
+	newMap := make(map[string]string)
+	maps.Copy(newMap, original)
+	newMap[key] = value
+	return newMap
+}
+
 // updateFlagAction is used to update one of the string flags from the participant state
 func updateFlagAction(action studyTypes.Expression, oldState ActionData, event StudyEvent) (newState ActionData, err error) {
 	newState = oldState
@@ -256,15 +266,7 @@ func updateFlagAction(action studyTypes.Expression, oldState ActionData, event S
 		value = fmt.Sprintf("%t", flagVal)
 	}
 
-	if newState.PState.Flags == nil {
-		newState.PState.Flags = map[string]string{}
-	} else {
-		newState.PState.Flags = make(map[string]string)
-		for k, v := range oldState.PState.Flags {
-			newState.PState.Flags[k] = v
-		}
-	}
-	newState.PState.Flags[key] = value
+	newState.PState.Flags = updateMapValue(oldState.PState.Flags, key, value)
 	return
 }
 
@@ -327,15 +329,7 @@ func setLinkingCodeAction(action studyTypes.Expression, oldState ActionData, eve
 		return newState, errors.New("could not parse value")
 	}
 
-	if newState.PState.LinkingCodes == nil {
-		newState.PState.LinkingCodes = map[string]string{}
-	} else {
-		newState.PState.LinkingCodes = make(map[string]string)
-		for k, v := range oldState.PState.LinkingCodes {
-			newState.PState.LinkingCodes[k] = v
-		}
-	}
-	newState.PState.LinkingCodes[key] = value
+	newState.PState.LinkingCodes = updateMapValue(oldState.PState.LinkingCodes, key, value)
 	return
 }
 
@@ -1159,9 +1153,7 @@ func drawStudyCodeAsLinkingCode(action studyTypes.Expression, oldState ActionDat
 		newState.PState.LinkingCodes = map[string]string{}
 	} else {
 		newState.PState.LinkingCodes = make(map[string]string)
-		for k, v := range oldState.PState.LinkingCodes {
-			newState.PState.LinkingCodes[k] = v
-		}
+		maps.Copy(newState.PState.LinkingCodes, oldState.PState.LinkingCodes)
 	}
 
 	// draw code
@@ -1171,12 +1163,12 @@ func drawStudyCodeAsLinkingCode(action studyTypes.Expression, oldState ActionDat
 		return newState, err
 	}
 
-	// if code emptry, remove linking code
+	// if code empty, remove linking code
 	if code == "" {
 		slog.Debug("linking code is empty, removing")
 		delete(newState.PState.LinkingCodes, linkingCodeKey)
 	} else {
-		newState.PState.LinkingCodes[linkingCodeKey] = code
+		newState.PState.LinkingCodes = updateMapValue(newState.PState.LinkingCodes, linkingCodeKey, code)
 	}
 
 	return
@@ -1251,7 +1243,7 @@ func getNextStudyCounterAsFlag(action studyTypes.Expression, oldState ActionData
 	}
 
 	newValue := fmt.Sprintf("%s%0*d", prefix, padding, value)
-	newState.PState.Flags[flagKey] = newValue
+	newState.PState.Flags = updateMapValue(oldState.PState.Flags, flagKey, newValue)
 
 	return newState, nil
 }
@@ -1324,7 +1316,7 @@ func getNextStudyCounterAsLinkingCode(action studyTypes.Expression, oldState Act
 	}
 
 	newValue := fmt.Sprintf("%s%0*d", prefix, padding, value)
-	newState.PState.LinkingCodes[linkingCodeKey] = newValue
+	newState.PState.LinkingCodes = updateMapValue(oldState.PState.LinkingCodes, linkingCodeKey, newValue)
 
 	return newState, nil
 }
