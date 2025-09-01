@@ -49,9 +49,14 @@ type StudyDBService interface {
 	GetResponses(instanceID string, studyKey string, filter bson.M, sort bson.M, page int64, limit int64) (responses []studyTypes.SurveyResponse, paginationInfo *studyDB.PaginationInfos, err error)
 	DeleteConfidentialResponses(instanceID string, studyKey string, participantID string, key string) (count int64, err error)
 	SaveResearcherMessage(instanceID string, studyKey string, message studyTypes.StudyMessage) error
+	// Study code lists:
 	StudyCodeListEntryExists(instanceID string, studyKey string, listKey string, code string) (bool, error)
 	DeleteStudyCodeListEntry(instanceID string, studyKey string, listKey string, code string) error
 	DrawStudyCode(instanceID string, studyKey string, listKey string) (string, error)
+	// Study counters:
+	GetCurrentStudyCounterValue(instanceID string, studyKey string, scope string) (int64, error)
+	IncrementAndGetStudyCounterValue(instanceID string, studyKey string, scope string) (int64, error)
+	RemoveStudyCounterValue(instanceID string, studyKey string, scope string) error
 }
 
 type ActionData struct {
