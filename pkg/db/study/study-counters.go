@@ -53,8 +53,26 @@ func (dbService *StudyDBService) GetCurrentStudyCounterValue(instanceID string, 
 	return counter.Value, nil
 }
 
+// Get all counter values for a study
+func (dbService *StudyDBService) GetAllStudyCounterValues(instanceID string, studyKey string) ([]StudyCounter, error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	cursor, err := dbService.collectionStudyCounters(instanceID).Find(ctx, bson.M{"studyKey": studyKey})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var counters []StudyCounter
+	if err = cursor.All(ctx, &counters); err != nil {
+		return nil, err
+	}
+	return counters, nil
+}
+
 // Increment counter value (atomical find and update)
-func (dbService *StudyDBService) IncrementStudyCounterValue(instanceID string, studyKey string, scope string) (int64, error) {
+func (dbService *StudyDBService) IncrementAndGetStudyCounterValue(instanceID string, studyKey string, scope string) (int64, error) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
