@@ -289,7 +289,7 @@ func (ctx EvalContext) isStudyCodePresent(exp studyTypes.Expression) (val bool, 
 	return exists, nil
 }
 
-func (ctx EvalContext) getCurrentStudyCounterValue(exp studyTypes.Expression) (val int64, err error) {
+func (ctx EvalContext) getCurrentStudyCounterValue(exp studyTypes.Expression) (val float64, err error) {
 	if CurrentStudyEngine == nil || CurrentStudyEngine.studyDBService == nil {
 		return val, errors.New("getCurrentStudyCounterValue: DB connection not available in the context")
 	}
@@ -306,10 +306,14 @@ func (ctx EvalContext) getCurrentStudyCounterValue(exp studyTypes.Expression) (v
 	if !ok {
 		return val, errors.New("could not cast arguments")
 	}
-	return CurrentStudyEngine.studyDBService.GetCurrentStudyCounterValue(ctx.Event.InstanceID, ctx.Event.StudyKey, scope)
+	value, err := CurrentStudyEngine.studyDBService.GetCurrentStudyCounterValue(ctx.Event.InstanceID, ctx.Event.StudyKey, scope)
+	if err != nil {
+		return val, err
+	}
+	return float64(value), nil
 }
 
-func (ctx EvalContext) getNextStudyCounterValue(exp studyTypes.Expression) (val int64, err error) {
+func (ctx EvalContext) getNextStudyCounterValue(exp studyTypes.Expression) (val float64, err error) {
 	if CurrentStudyEngine == nil || CurrentStudyEngine.studyDBService == nil {
 		return val, errors.New("getNextStudyCounterValue: DB connection not available in the context")
 	}
@@ -326,7 +330,11 @@ func (ctx EvalContext) getNextStudyCounterValue(exp studyTypes.Expression) (val 
 	if !ok {
 		return val, errors.New("could not cast arguments")
 	}
-	return CurrentStudyEngine.studyDBService.IncrementAndGetStudyCounterValue(ctx.Event.InstanceID, ctx.Event.StudyKey, scope)
+	value, err := CurrentStudyEngine.studyDBService.IncrementAndGetStudyCounterValue(ctx.Event.InstanceID, ctx.Event.StudyKey, scope)
+	if err != nil {
+		return val, err
+	}
+	return float64(value), nil
 }
 
 func (ctx EvalContext) checkConditionForOldResponses(exp studyTypes.Expression) (val bool, err error) {

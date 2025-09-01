@@ -1253,7 +1253,7 @@ func getNextStudyCounterAsLinkingCode(action studyTypes.Expression, oldState Act
 
 	// args: scope, linkingCodeKey, prefix (optional), padding (optional)
 	if len(action.Data) < 2 {
-		return newState, errors.New("GET_NEXT_STUDY_COUNTER_AS_FLAG must have at least two arguments")
+		return newState, errors.New("GET_NEXT_STUDY_COUNTER_AS_LINKING_CODE must have at least two arguments")
 	}
 
 	EvalContext := EvalContext{

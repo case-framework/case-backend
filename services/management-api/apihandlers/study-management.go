@@ -396,7 +396,7 @@ func (h *HttpEndpoints) addStudyConfigEndpoints(rg *gin.RouterGroup) {
 		))
 	}
 
-	studyCounterGroup.POST("/:scope", mw.RequirePayload(), h.useAuthorisedHandler(
+	studyCounterGroup.POST("/:scope", h.useAuthorisedHandler(
 		RequiredPermission{
 			ResourceType:        pc.RESOURCE_TYPE_STUDY,
 			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
@@ -1886,7 +1886,7 @@ func (h *HttpEndpoints) incrementStudyCounter(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 
 	studyKey := c.Param("studyKey")
-	scope := c.Param("scope")
+	scope := strings.TrimSpace(c.Param("scope"))
 
 	if scope == "" {
 		slog.Error("scope is required")
@@ -1910,7 +1910,7 @@ func (h *HttpEndpoints) removeStudyCounter(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 
 	studyKey := c.Param("studyKey")
-	scope := c.Param("scope")
+	scope := strings.TrimSpace(c.Param("scope"))
 
 	if scope == "" {
 		slog.Error("scope is required")

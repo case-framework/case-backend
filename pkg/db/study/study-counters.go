@@ -19,7 +19,7 @@ func (dbService *StudyDBService) CreateIndexForStudyCountersCollection(instanceI
 	defer cancel()
 
 	if _, err := dbService.collectionStudyCounters(instanceID).Indexes().DropAll(ctx); err != nil {
-		slog.Error("Error dropping indexes for studyCodeLists", slog.String("error", err.Error()))
+		slog.Error("Error dropping indexes for studyCounters", slog.String("error", err.Error()))
 	}
 
 	collection := dbService.collectionStudyCounters(instanceID)
