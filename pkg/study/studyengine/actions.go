@@ -80,6 +80,12 @@ func ActionEval(action studyTypes.Expression, oldState ActionData, event StudyEv
 		newState, err = removeStudyCode(action, oldState, event)
 	case "DRAW_STUDY_CODE_AS_LINKING_CODE":
 		newState, err = drawStudyCodeAsLinkingCode(action, oldState, event)
+	case "GET_NEXT_STUDY_COUNTER_AS_FLAG":
+		newState, err = getNextStudyCounterAsFlag(action, oldState, event)
+	case "GET_NEXT_STUDY_COUNTER_AS_LINKING_CODE":
+		newState, err = getNextStudyCounterAsLinkingCode(action, oldState, event)
+	case "RESET_STUDY_COUNTER":
+		newState, err = resetStudyCounter(action, oldState, event)
 	default:
 		newState = oldState
 		err = errors.New("action name not known")
@@ -1174,4 +1180,182 @@ func drawStudyCodeAsLinkingCode(action studyTypes.Expression, oldState ActionDat
 	}
 
 	return
+}
+
+func getNextStudyCounterAsFlag(action studyTypes.Expression, oldState ActionData, event StudyEvent) (newState ActionData, err error) {
+	newState = oldState
+
+	// args: scope, flagKey, prefix (optional), padding (optional)
+	if len(action.Data) < 2 {
+		return newState, errors.New("GET_NEXT_STUDY_COUNTER_AS_FLAG must have at least two arguments")
+	}
+
+	EvalContext := EvalContext{
+		Event:            event,
+		ParticipantState: newState.PState,
+	}
+
+	// arg 0: scope
+
+	arg0, err := EvalContext.ExpressionArgResolver(action.Data[0])
+	if err != nil {
+		return newState, err
+	}
+
+	scope, ok := arg0.(string)
+	if !ok {
+		return newState, errors.New("could not parse scope")
+	}
+
+	// arg 1: flagKey
+	arg1, err := EvalContext.ExpressionArgResolver(action.Data[1])
+	if err != nil {
+		return newState, err
+	}
+
+	flagKey, ok := arg1.(string)
+	if !ok {
+		return newState, errors.New("could not parse flagKey")
+	}
+
+	// arg 2: prefix (optional)
+	prefix := ""
+	if len(action.Data) > 2 {
+		arg2, err := EvalContext.ExpressionArgResolver(action.Data[2])
+		if err != nil {
+			return newState, err
+		}
+		prefix, ok = arg2.(string)
+		if !ok {
+			return newState, errors.New("could not parse prefix")
+		}
+	}
+
+	padding := 0
+	if len(action.Data) > 3 {
+		arg3, err := EvalContext.ExpressionArgResolver(action.Data[3])
+		if err != nil {
+			return newState, err
+		}
+		arg3Value, ok := arg3.(float64)
+		if !ok {
+			return newState, errors.New("could not parse padding")
+		}
+		padding = int(arg3Value)
+	}
+
+	value, err := CurrentStudyEngine.studyDBService.IncrementAndGetStudyCounterValue(event.InstanceID, event.StudyKey, scope)
+	if err != nil {
+		slog.Error("unexpected error during action", slog.String("action", action.Name), slog.String("error", err.Error()))
+		return newState, err
+	}
+
+	newValue := fmt.Sprintf("%s%0*d", prefix, padding, value)
+	newState.PState.Flags[flagKey] = newValue
+
+	return newState, nil
+}
+
+func getNextStudyCounterAsLinkingCode(action studyTypes.Expression, oldState ActionData, event StudyEvent) (newState ActionData, err error) {
+	newState = oldState
+
+	// args: scope, linkingCodeKey, prefix (optional), padding (optional)
+	if len(action.Data) < 2 {
+		return newState, errors.New("GET_NEXT_STUDY_COUNTER_AS_FLAG must have at least two arguments")
+	}
+
+	EvalContext := EvalContext{
+		Event:            event,
+		ParticipantState: newState.PState,
+	}
+
+	// arg 0: scope
+	arg0, err := EvalContext.ExpressionArgResolver(action.Data[0])
+	if err != nil {
+		return newState, err
+	}
+
+	scope, ok := arg0.(string)
+	if !ok {
+		return newState, errors.New("could not parse scope")
+	}
+
+	// arg 1: linkingCodeKey
+	arg1, err := EvalContext.ExpressionArgResolver(action.Data[1])
+	if err != nil {
+		return newState, err
+	}
+
+	linkingCodeKey, ok := arg1.(string)
+	if !ok {
+		return newState, errors.New("could not parse linkingCodeKey")
+	}
+
+	// arg 2: prefix (optional)
+	prefix := ""
+	if len(action.Data) > 2 {
+		arg2, err := EvalContext.ExpressionArgResolver(action.Data[2])
+		if err != nil {
+			return newState, err
+		}
+		prefix, ok = arg2.(string)
+		if !ok {
+			return newState, errors.New("could not parse prefix")
+		}
+	}
+
+	padding := 0
+	if len(action.Data) > 3 {
+		arg3, err := EvalContext.ExpressionArgResolver(action.Data[3])
+		if err != nil {
+			return newState, err
+		}
+		arg3Value, ok := arg3.(float64)
+		if !ok {
+			return newState, errors.New("could not parse padding")
+		}
+		padding = int(arg3Value)
+	}
+
+	value, err := CurrentStudyEngine.studyDBService.IncrementAndGetStudyCounterValue(event.InstanceID, event.StudyKey, scope)
+	if err != nil {
+		slog.Error("unexpected error during action", slog.String("action", action.Name), slog.String("error", err.Error()))
+		return newState, err
+	}
+
+	newValue := fmt.Sprintf("%s%0*d", prefix, padding, value)
+	newState.PState.LinkingCodes[linkingCodeKey] = newValue
+
+	return newState, nil
+}
+
+func resetStudyCounter(action studyTypes.Expression, oldState ActionData, event StudyEvent) (newState ActionData, err error) {
+	newState = oldState
+
+	if len(action.Data) < 1 {
+		return newState, errors.New("RESET_STUDY_COUNTER must have at least one argument")
+	}
+
+	EvalContext := EvalContext{
+		Event:            event,
+		ParticipantState: newState.PState,
+	}
+	arg1, err := EvalContext.ExpressionArgResolver(action.Data[0])
+	if err != nil {
+		return newState, err
+	}
+
+	scope, ok := arg1.(string)
+	if !ok {
+		return newState, errors.New("could not parse scope")
+	}
+
+	// args: scope
+	err = CurrentStudyEngine.studyDBService.RemoveStudyCounterValue(event.InstanceID, event.StudyKey, scope)
+	if err != nil {
+		slog.Error("unexpected error during action", slog.String("action", action.Name), slog.String("error", err.Error()))
+		return newState, err
+	}
+
+	return newState, nil
 }
