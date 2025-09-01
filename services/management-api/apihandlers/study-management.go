@@ -381,6 +381,42 @@ func (h *HttpEndpoints) addStudyConfigEndpoints(rg *gin.RouterGroup) {
 		nil,
 		h.removeStudyCodeListEntryHandler, // ?listKey=xy&code=abc
 	))
+
+	studyCounterGroup := rg.Group("/study-counters")
+	{
+		studyCounterGroup.GET("/", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_READ_STUDY_CONFIG,
+			},
+			nil,
+			h.getStudyCounterValues,
+		))
+	}
+
+	studyCounterGroup.POST("/:scope", mw.RequirePayload(), h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType:        pc.RESOURCE_TYPE_STUDY,
+			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+			ExtractResourceKeys: getStudyKeyFromParams,
+			Action:              pc.ACTION_MANAGE_STUDY_COUNTERS,
+		},
+		nil,
+		h.incrementStudyCounter,
+	))
+
+	studyCounterGroup.DELETE("/:scope", h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType:        pc.RESOURCE_TYPE_STUDY,
+			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+			ExtractResourceKeys: getStudyKeyFromParams,
+			Action:              pc.ACTION_MANAGE_STUDY_COUNTERS,
+		},
+		nil,
+		h.removeStudyCounter,
+	))
 }
 
 func (h *HttpEndpoints) addStudyRuleEndpoints(rg *gin.RouterGroup) {
@@ -1825,6 +1861,70 @@ func (h *HttpEndpoints) removeStudyCodeListEntryHandler(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+func (h *HttpEndpoints) getStudyCounterValues(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	studyKey := c.Param("studyKey")
+
+	slog.Info("getting study counter values", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	values, err := h.studyDBConn.GetAllStudyCounterValues(token.InstanceID, studyKey)
+	if err != nil {
+		slog.Error("failed to get study counter values", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study counter values"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"values": values})
+}
+
+func (h *HttpEndpoints) incrementStudyCounter(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	scope := c.Param("scope")
+
+	if scope == "" {
+		slog.Error("scope is required")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "scope is required"})
+		return
+	}
+
+	slog.Info("incrementing study counter", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("scope", scope))
+
+	value, err := h.studyDBConn.IncrementAndGetStudyCounterValue(token.InstanceID, studyKey, scope)
+	if err != nil {
+		slog.Error("failed to increment study counter", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to increment study counter"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"value": value})
+}
+
+func (h *HttpEndpoints) removeStudyCounter(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	scope := c.Param("scope")
+
+	if scope == "" {
+		slog.Error("scope is required")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "scope is required"})
+		return
+	}
+
+	slog.Info("removing study counter", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("scope", scope))
+
+	err := h.studyDBConn.RemoveStudyCounterValue(token.InstanceID, studyKey, scope)
+	if err != nil {
+		slog.Error("failed to remove study counter", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to remove study counter"})
+		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true})
