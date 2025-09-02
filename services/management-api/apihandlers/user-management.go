@@ -366,7 +366,7 @@ func (h *HttpEndpoints) getAllAppRoleTemplates(c *gin.Context) {
 type AppRoleTemplateProps struct {
 	AppName     string               `json:"appName"`
 	Role        string               `json:"role"`
-	Permissions []mUserDB.Permission `json:"permissions"`
+	Permissions []mUserDB.Permission `json:"requiredPermissions"`
 }
 
 func (h *HttpEndpoints) createAppRoleTemplate(c *gin.Context) {
