@@ -42,7 +42,7 @@ func (h *HttpEndpoints) AddUserManagementAPI(rg *gin.RouterGroup) {
 	}
 
 	// App role management
-	appRolesGroup := managementUsersGroup.Group("/app-roles")
+	appRolesGroup := umGroup.Group("/app-roles")
 	appRolesGroup.Use(mw.IsAdminUser())
 	{
 		appRoleTemplatesGroup := appRolesGroup.Group("/templates")
@@ -188,7 +188,7 @@ func (h *HttpEndpoints) createManagementUserPermission(c *gin.Context) {
 
 	_, err := h.muDBConn.GetUserByID(token.InstanceID, userID)
 	if err != nil {
-		slog.Error("user not found", slog.String("userID", userID), slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+		slog.Error("user not found", slog.String("requestedUserID", userID), slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "user not found"})
 		return
 	}
@@ -273,7 +273,9 @@ func (h *HttpEndpoints) getManagementUserAppRoles(c *gin.Context) {
 
 func permissionExists(existingPermissions []*mUserDB.Permission, permission *mUserDB.Permission) bool {
 	for _, existingPermission := range existingPermissions {
-		if existingPermission.ResourceType == permission.ResourceType && existingPermission.ResourceKey == permission.ResourceKey && existingPermission.Action == permission.Action {
+		if existingPermission.ResourceType == permission.ResourceType &&
+			existingPermission.ResourceKey == permission.ResourceKey &&
+			(existingPermission.Action == permission.Action || existingPermission.Action == "*") {
 			return true
 		}
 	}
@@ -286,6 +288,13 @@ func (h *HttpEndpoints) addManagementUserAppRole(c *gin.Context) {
 	appRoleTemplateID := c.Param("appRoleTemplateID")
 
 	slog.Info("adding user app role", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("requestedUserID", userID), slog.String("appRoleTemplateID", appRoleTemplateID))
+
+	_, err := h.muDBConn.GetUserByID(token.InstanceID, userID)
+	if err != nil {
+		slog.Error("user not found", slog.String("userID", userID), slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user not found"})
+		return
+	}
 
 	// find template for app role
 	appRoleTemplate, err := h.muDBConn.GetAppRoleTemplateByID(token.InstanceID, appRoleTemplateID)
@@ -369,6 +378,11 @@ func (h *HttpEndpoints) createAppRoleTemplate(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		slog.Error("failed to bind request", slog.String("error", err.Error()))
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if strings.TrimSpace(req.AppName) == "" || strings.TrimSpace(req.Role) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "appName and role are required"})
 		return
 	}
 
