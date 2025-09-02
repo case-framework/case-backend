@@ -82,7 +82,7 @@ func (dbService *StudyDBService) IncrementAndGetStudyCounterValue(instanceID str
 		bson.M{"studyKey": studyKey, "scope": scope},
 		bson.M{
 			"$inc":         bson.M{"value": 1},
-			"$setOnInsert": bson.M{"studyKey": studyKey, "scope": scope, "value": 0},
+			"$setOnInsert": bson.M{"studyKey": studyKey, "scope": scope},
 		},
 		options.FindOneAndUpdate().SetUpsert(true).SetReturnDocument(options.After),
 	).Decode(&counter)
