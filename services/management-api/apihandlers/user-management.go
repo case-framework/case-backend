@@ -291,7 +291,7 @@ func (h *HttpEndpoints) addManagementUserAppRole(c *gin.Context) {
 
 	_, err := h.muDBConn.GetUserByID(token.InstanceID, userID)
 	if err != nil {
-		slog.Error("user not found", slog.String("userID", userID), slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+		slog.Error("user not found", slog.String("requestedUserID", userID), slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "user not found"})
 		return
 	}

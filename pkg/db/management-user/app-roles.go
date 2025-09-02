@@ -26,7 +26,7 @@ func (dbService *ManagementUserDBService) createIndexForAppRoles(instanceID stri
 	defer cancel()
 
 	if _, err := dbService.collectionAppRoles(instanceID).Indexes().DropAll(ctx); err != nil {
-		slog.Error("Error dropping indexes for permissions: ", slog.String("error", err.Error()))
+		slog.Error("Error dropping indexes for app roles: ", slog.String("error", err.Error()))
 	}
 
 	idx := []mongo.IndexModel{
