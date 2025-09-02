@@ -41,14 +41,124 @@ func (dbService *ManagementUserDBService) createIndexForAppRoles(instanceID stri
 /// App role templates
 
 // Add a new app role template
+func (dbService *ManagementUserDBService) AddAppRoleTemplate(
+	instanceID string,
+	appName string,
+	role string,
+	requiredPermissions []Permission,
+) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	appRoleTemplate := AppRoleTemplate{
+		AppName:             appName,
+		Role:                role,
+		RequiredPermissions: requiredPermissions,
+		CreatedAt:           time.Now(),
+	}
+	res, err := dbService.collectionAppRoleTemplates(instanceID).InsertOne(ctx, appRoleTemplate)
+	if err != nil {
+		return err
+	}
+	appRoleTemplate.ID = res.InsertedID.(primitive.ObjectID)
+	return nil
+}
 
 // Get all app role templates
+func (dbService *ManagementUserDBService) GetAllAppRoleTemplates(
+	instanceID string,
+) ([]AppRoleTemplate, error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	var appRoleTemplates []AppRoleTemplate
+	cursor, err := dbService.collectionAppRoleTemplates(instanceID).Find(ctx, bson.M{})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	if err := cursor.All(ctx, &appRoleTemplates); err != nil {
+		return nil, err
+	}
+
+	return appRoleTemplates, nil
+}
 
 // Get a app role template by id
+func (dbService *ManagementUserDBService) GetAppRoleTemplateByID(
+	instanceID string,
+	appRoleTemplateID string,
+) (AppRoleTemplate, error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	objID, err := primitive.ObjectIDFromHex(appRoleTemplateID)
+	if err != nil {
+		return AppRoleTemplate{}, err
+	}
+
+	var appRoleTemplate AppRoleTemplate
+	if err := dbService.collectionAppRoleTemplates(instanceID).FindOne(ctx, bson.M{"_id": objID}).Decode(&appRoleTemplate); err != nil {
+		return AppRoleTemplate{}, err
+	}
+
+	return appRoleTemplate, nil
+}
 
 // Update a app role template
+func (dbService *ManagementUserDBService) UpdateAppRoleTemplate(
+	instanceID string,
+	appRoleTemplateID string,
+	appName string,
+	role string,
+	requiredPermissions []Permission,
+) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	objID, err := primitive.ObjectIDFromHex(appRoleTemplateID)
+	if err != nil {
+		return err
+	}
+
+	_, err = dbService.collectionAppRoleTemplates(instanceID).UpdateOne(ctx, bson.M{"_id": objID},
+		bson.M{"$set": bson.M{
+			"appName":             appName,
+			"role":                role,
+			"requiredPermissions": requiredPermissions,
+			"updatedAt":           time.Now(),
+		}},
+	)
+	return err
+}
 
 // Delete a app role template
+func (dbService *ManagementUserDBService) DeleteAppRoleTemplate(
+	instanceID string,
+	appRoleTemplateID string,
+) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	objID, err := primitive.ObjectIDFromHex(appRoleTemplateID)
+	if err != nil {
+		return err
+	}
+	_, err = dbService.collectionAppRoleTemplates(instanceID).DeleteOne(ctx, bson.M{"_id": objID})
+	return err
+}
+
+// Remove all app role templates for an app
+func (dbService *ManagementUserDBService) RemoveAllAppRoleTemplatesForApp(
+	instanceID string,
+	appName string,
+) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+	_, err := dbService.collectionAppRoleTemplates(instanceID).DeleteMany(ctx, bson.M{"appName": appName})
+	return err
+}
 
 /// App roles
 
