@@ -31,7 +31,7 @@ func (dbService *ManagementUserDBService) createIndexForAppRoles(instanceID stri
 		ctx,
 		mongo.IndexModel{
 			Keys: bson.D{
-				{Key: "subjectID", Value: 1},
+				{Key: "subjectId", Value: 1},
 			},
 		},
 	)
