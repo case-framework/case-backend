@@ -373,8 +373,6 @@ func (h *HttpEndpoints) createAppRoleTemplate(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
-
 	err := h.muDBConn.AddAppRoleTemplate(token.InstanceID, req.AppName, req.Role, req.Permissions)
 	if err != nil {
 		slog.Error("error creating app role template", slog.String("error", err.Error()))
