@@ -107,6 +107,11 @@ func (dbService *ManagementUserDBService) ensureIndexes() error {
 			slog.Error("Error creating index for app roles in userDB.app_roles", slog.String("error", err.Error()))
 		}
 
+		// create index for app role templates
+		if err := dbService.createIndexForAppRoleTemplates(instanceID); err != nil {
+			slog.Error("Error creating index for app role templates in userDB.app_role_templates", slog.String("error", err.Error()))
+		}
+
 		// create index for sessions
 		if err := dbService.createIndexForSessions(instanceID); err != nil {
 			slog.Error("Error creating index for userDB.sessions: ", slog.String("error", err.Error()))

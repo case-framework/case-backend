@@ -1,12 +1,14 @@
 package managementuser
 
 import (
+	"errors"
 	"log/slog"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // store which users have which roles
@@ -27,14 +29,43 @@ func (dbService *ManagementUserDBService) createIndexForAppRoles(instanceID stri
 		slog.Error("Error dropping indexes for permissions: ", slog.String("error", err.Error()))
 	}
 
-	_, err := dbService.collectionAppRoles(instanceID).Indexes().CreateOne(
-		ctx,
-		mongo.IndexModel{
-			Keys: bson.D{
-				{Key: "subjectId", Value: 1},
-			},
+	idx := []mongo.IndexModel{
+		{
+			Keys:    bson.D{{Key: "subjectId", Value: 1}},
+			Options: options.Index().SetName("app_roles_subjectId_1"),
 		},
-	)
+		{
+			Keys:    bson.D{{Key: "appName", Value: 1}},
+			Options: options.Index().SetName("app_roles_appName_1"),
+		},
+		{
+			Keys: bson.D{
+				{Key: "subjectType", Value: 1},
+				{Key: "subjectId", Value: 1},
+				{Key: "appName", Value: 1},
+				{Key: "role", Value: 1},
+			},
+			Options: options.Index().SetName("uniq_subjectType_subjectId_appName_role").SetUnique(true),
+		},
+	}
+	_, err := dbService.collectionAppRoles(instanceID).Indexes().CreateMany(ctx, idx)
+	return err
+}
+
+func (dbService *ManagementUserDBService) createIndexForAppRoleTemplates(instanceID string) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+	idx := []mongo.IndexModel{
+		{
+			Keys:    bson.D{{Key: "appName", Value: 1}, {Key: "role", Value: 1}},
+			Options: options.Index().SetName("uniq_appName_role").SetUnique(true),
+		},
+		{
+			Keys:    bson.D{{Key: "appName", Value: 1}},
+			Options: options.Index().SetName("app_role_templates_appName_1"),
+		},
+	}
+	_, err := dbService.collectionAppRoleTemplates(instanceID).Indexes().CreateMany(ctx, idx)
 	return err
 }
 
@@ -122,7 +153,7 @@ func (dbService *ManagementUserDBService) UpdateAppRoleTemplate(
 		return err
 	}
 
-	_, err = dbService.collectionAppRoleTemplates(instanceID).UpdateOne(ctx, bson.M{"_id": objID},
+	res, err := dbService.collectionAppRoleTemplates(instanceID).UpdateOne(ctx, bson.M{"_id": objID},
 		bson.M{"$set": bson.M{
 			"appName":             appName,
 			"role":                role,
@@ -130,7 +161,13 @@ func (dbService *ManagementUserDBService) UpdateAppRoleTemplate(
 			"updatedAt":           time.Now(),
 		}},
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if res.MatchedCount == 0 {
+		return errors.New("app role template not found")
+	}
+	return nil
 }
 
 // Delete a app role template
