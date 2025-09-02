@@ -10,7 +10,6 @@ import (
 	mUserDB "github.com/case-framework/case-backend/pkg/db/management-user"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	pc "github.com/case-framework/case-backend/pkg/permission-checker"
-	"github.com/case-framework/case-backend/pkg/user-management/utils"
 	umUtils "github.com/case-framework/case-backend/pkg/user-management/utils"
 
 	studyService "github.com/case-framework/case-backend/pkg/study"
@@ -697,7 +696,7 @@ func (h *HttpEndpoints) createServiceAccountAPIKey(c *gin.Context) {
 		expiresAt = &eat
 	}
 
-	newApiKey, err := utils.GenerateUniqueTokenString()
+	newApiKey, err := umUtils.GenerateUniqueTokenString()
 	if err != nil {
 		slog.Error("failed to generate unique token string", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
