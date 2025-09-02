@@ -239,7 +239,15 @@ func (h *HttpEndpoints) getMyPermissions(c *gin.Context) {
 		return
 	}
 
+	appRoles, err := h.muDBConn.GetAppRolesForSubject(token.InstanceID, userID)
+	if err != nil {
+		slog.Error("error retrieving user app roles", slog.String("error", err.Error()))
+		// not returning an error, as it is not critical
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"isAdmin":     token.IsAdmin,
-		"permissions": permissions})
+		"permissions": permissions,
+		"appRoles":    appRoles,
+	})
 }

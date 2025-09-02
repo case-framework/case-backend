@@ -3,6 +3,7 @@ package apihandlers
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
@@ -34,6 +35,29 @@ func (h *HttpEndpoints) AddUserManagementAPI(rg *gin.RouterGroup) {
 		managementUsersGroup.POST("/:userID/permissions", mw.RequirePayload(), h.createManagementUserPermission)
 		managementUsersGroup.DELETE("/:userID/permissions/:permissionID", h.deleteManagementUserPermission)
 		managementUsersGroup.PUT("/:userID/permissions/:permissionID/limiter", mw.RequirePayload(), h.updateManagementUserPermissionLimiter)
+
+		// App roles
+		managementUsersGroup.GET("/:userID/app-roles", h.getManagementUserAppRoles)
+		managementUsersGroup.POST("/:userID/app-roles/:appRoleTemplateID", h.addManagementUserAppRole)
+		managementUsersGroup.DELETE("/:userID/app-roles/:appRoleID", h.deleteManagementUserAppRole)
+	}
+
+	// App role management
+	appRolesGroup := managementUsersGroup.Group("/app-roles")
+	appRolesGroup.Use(mw.IsAdminUser())
+	{
+		appRoleTemplatesGroup := appRolesGroup.Group("/templates")
+		{
+			appRoleTemplatesGroup.GET("/", h.getAllAppRoleTemplates)
+			appRoleTemplatesGroup.POST("/", mw.RequirePayload(), h.createAppRoleTemplate)
+			appRoleTemplatesGroup.GET("/:appRoleTemplateID", h.getAppRoleTemplateByID)
+			appRoleTemplatesGroup.PUT("/:appRoleTemplateID", mw.RequirePayload(), h.updateAppRoleTemplate)
+			appRoleTemplatesGroup.DELETE("/delete/:appRoleTemplateID", h.deleteAppRoleTemplate)
+			appRoleTemplatesGroup.DELETE("/delete-for-app/:appName", h.deleteAppRoleTemplateForApp)
+		}
+
+		appRolesGroup.GET("/", h.getAllAppRoles)
+		appRolesGroup.DELETE("/delete/:appName", h.deleteAllAppRolesForApp)
 	}
 
 	participantUsersGroup := umGroup.Group("/participant-users")
@@ -230,6 +254,275 @@ func (h *HttpEndpoints) updateManagementUserPermissionLimiter(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "permission limiter updated"})
+}
+
+func (h *HttpEndpoints) getManagementUserAppRoles(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	userID := c.Param("userID")
+
+	slog.Info("getting user app roles", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("requestedUserID", userID))
+
+	appRoles, err := h.muDBConn.GetAppRolesForSubject(token.InstanceID, userID)
+	if err != nil {
+		slog.Error("error retrieving user app roles", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting user app roles"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"appRoles": appRoles})
+}
+
+func permissionExists(existingPermissions []*mUserDB.Permission, permission *mUserDB.Permission) bool {
+	for _, existingPermission := range existingPermissions {
+		if existingPermission.ResourceType == permission.ResourceType && existingPermission.ResourceKey == permission.ResourceKey && existingPermission.Action == permission.Action {
+			return true
+		}
+	}
+	return false
+}
+
+func (h *HttpEndpoints) addManagementUserAppRole(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	userID := c.Param("userID")
+	appRoleTemplateID := c.Param("appRoleTemplateID")
+
+	slog.Info("adding user app role", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("requestedUserID", userID), slog.String("appRoleTemplateID", appRoleTemplateID))
+
+	// find template for app role
+	appRoleTemplate, err := h.muDBConn.GetAppRoleTemplateByID(token.InstanceID, appRoleTemplateID)
+	if err != nil {
+		slog.Error("error retrieving app role template", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error retrieving app role template"})
+		return
+	}
+
+	err = h.muDBConn.AddAppRoleForSubject(token.InstanceID, userID, pc.SUBJECT_TYPE_MANAGEMENT_USER, appRoleTemplate.AppName, appRoleTemplate.Role)
+	if err != nil {
+		slog.Error("error adding user app role", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error adding user app role"})
+		return
+	}
+
+	userPermissions, err := h.muDBConn.GetPermissionBySubject(token.InstanceID, userID, pc.SUBJECT_TYPE_MANAGEMENT_USER)
+	if err != nil {
+		slog.Error("error retrieving user permissions", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error retrieving user permissions"})
+		return
+	}
+
+	for _, requiredPerm := range appRoleTemplate.RequiredPermissions {
+		if !permissionExists(userPermissions, &requiredPerm) {
+			_, err := h.muDBConn.CreatePermission(token.InstanceID, userID, pc.SUBJECT_TYPE_MANAGEMENT_USER, requiredPerm.ResourceType, requiredPerm.ResourceKey, requiredPerm.Action, requiredPerm.Limiter)
+			if err != nil {
+				slog.Error("error creating user permission", slog.String("error", err.Error()))
+				continue
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "user app role added"})
+}
+
+func (h *HttpEndpoints) deleteManagementUserAppRole(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	userID := c.Param("userID")
+	appRoleID := c.Param("appRoleID")
+
+	slog.Info("deleting user app role", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("requestedUserID", userID), slog.String("appRoleID", appRoleID))
+
+	err := h.muDBConn.DeleteAppRole(token.InstanceID, appRoleID)
+	if err != nil {
+		slog.Error("error deleting user app role", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error deleting user app role"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "user app role deleted"})
+}
+
+func (h *HttpEndpoints) getAllAppRoleTemplates(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	slog.Info("getting all app role templates", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+
+	appRoleTemplates, err := h.muDBConn.GetAllAppRoleTemplates(token.InstanceID)
+	if err != nil {
+		slog.Error("error retrieving app role templates", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error retrieving app role templates"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"appRoleTemplates": appRoleTemplates})
+}
+
+type AppRoleTemplateProps struct {
+	AppName     string               `json:"appName"`
+	Role        string               `json:"role"`
+	Permissions []mUserDB.Permission `json:"permissions"`
+}
+
+func (h *HttpEndpoints) createAppRoleTemplate(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	slog.Info("creating app role template", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+
+	var req AppRoleTemplateProps
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+
+	err := h.muDBConn.AddAppRoleTemplate(token.InstanceID, req.AppName, req.Role, req.Permissions)
+	if err != nil {
+		slog.Error("error creating app role template", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error creating app role template"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "app role template created"})
+}
+
+func (h *HttpEndpoints) getAppRoleTemplateByID(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	appRoleTemplateID := strings.TrimSpace(c.Param("appRoleTemplateID"))
+
+	if appRoleTemplateID == "" {
+		slog.Error("app role template ID is required", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "app role template ID is required"})
+		return
+	}
+
+	slog.Info("getting app role template by ID", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("appRoleTemplateID", appRoleTemplateID))
+
+	appRoleTemplate, err := h.muDBConn.GetAppRoleTemplateByID(token.InstanceID, appRoleTemplateID)
+	if err != nil {
+		slog.Error("error retrieving app role template", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error retrieving app role template"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"appRoleTemplate": appRoleTemplate})
+}
+
+func (h *HttpEndpoints) updateAppRoleTemplate(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	appRoleTemplateID := strings.TrimSpace(c.Param("appRoleTemplateID"))
+
+	if appRoleTemplateID == "" {
+		slog.Error("app role template ID is required", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "app role template ID is required"})
+		return
+	}
+
+	var req AppRoleTemplateProps
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	slog.Info("updating app role template", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("appRoleTemplateID", appRoleTemplateID))
+
+	err := h.muDBConn.UpdateAppRoleTemplate(token.InstanceID, appRoleTemplateID, req.AppName, req.Role, req.Permissions)
+	if err != nil {
+		slog.Error("error updating app role template", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error updating app role template"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "app role template updated"})
+}
+
+func (h *HttpEndpoints) deleteAppRoleTemplate(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	appRoleTemplateID := strings.TrimSpace(c.Param("appRoleTemplateID"))
+
+	if appRoleTemplateID == "" {
+		slog.Error("app role template ID is required", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "app role template ID is required"})
+		return
+	}
+
+	slog.Info("deleting app role template", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("appRoleTemplateID", appRoleTemplateID))
+
+	err := h.muDBConn.DeleteAppRoleTemplate(token.InstanceID, appRoleTemplateID)
+	if err != nil {
+		slog.Error("error deleting app role template", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error deleting app role template"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "app role template deleted"})
+}
+
+func (h *HttpEndpoints) deleteAppRoleTemplateForApp(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	appName := strings.TrimSpace(c.Param("appName"))
+
+	if appName == "" {
+		slog.Error("app name is required", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "app name is required"})
+		return
+	}
+
+	slog.Info("deleting all app role templates (and its instance roles) for app", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("appName", appName))
+
+	if err := h.muDBConn.RemoveAllAppRolesForApp(token.InstanceID, appName); err != nil {
+		slog.Error("error deleting app roles for app", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error deleting app roles for app"})
+		return
+	}
+
+	if err := h.muDBConn.RemoveAllAppRoleTemplatesForApp(token.InstanceID, appName); err != nil {
+		slog.Error("error deleting app role template for app", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error deleting app role template for app"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "app role template deleted"})
+}
+
+func (h *HttpEndpoints) getAllAppRoles(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	slog.Info("getting all app roles", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+
+	appRoles, err := h.muDBConn.GetAllAppRoles(token.InstanceID)
+	if err != nil {
+		slog.Error("error retrieving app roles", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error retrieving app roles"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"appRoles": appRoles})
+}
+
+func (h *HttpEndpoints) deleteAllAppRolesForApp(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	appName := strings.TrimSpace(c.Param("appName"))
+
+	if appName == "" {
+		slog.Error("app name is required", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "app name is required"})
+		return
+	}
+
+	slog.Info("deleting all app roles for app", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("appName", appName))
+
+	err := h.muDBConn.RemoveAllAppRolesForApp(token.InstanceID, appName)
+	if err != nil {
+		slog.Error("error deleting app roles for app", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error deleting app roles for app"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "app roles deleted"})
 }
 
 func (h *HttpEndpoints) requestParticipantUserDeletion(c *gin.Context) {
