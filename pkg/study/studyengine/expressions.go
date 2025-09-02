@@ -47,6 +47,11 @@ func ExpressionEval(expression studyTypes.Expression, evalCtx EvalContext) (val 
 	// Study code lists:
 	case "isStudyCodePresent":
 		val, err = evalCtx.isStudyCodePresent(expression)
+	// Study counters:
+	case "getCurrentStudyCounterValue":
+		val, err = evalCtx.getCurrentStudyCounterValue(expression)
+	case "getNextStudyCounterValue":
+		val, err = evalCtx.getNextStudyCounterValue(expression)
 	// Access event payload:
 	case "hasEventPayload":
 		val, err = evalCtx.hasEventPayload()
@@ -282,6 +287,54 @@ func (ctx EvalContext) isStudyCodePresent(exp studyTypes.Expression) (val bool, 
 		exists = false
 	}
 	return exists, nil
+}
+
+func (ctx EvalContext) getCurrentStudyCounterValue(exp studyTypes.Expression) (val float64, err error) {
+	if CurrentStudyEngine == nil || CurrentStudyEngine.studyDBService == nil {
+		return val, errors.New("getCurrentStudyCounterValue: DB connection not available in the context")
+	}
+
+	if len(exp.Data) != 1 {
+		return val, errors.New("getCurrentStudyCounterValue: invalid number of arguments")
+	}
+
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	scope, ok := arg1.(string)
+	if !ok {
+		return val, errors.New("could not cast arguments")
+	}
+	value, err := CurrentStudyEngine.studyDBService.GetCurrentStudyCounterValue(ctx.Event.InstanceID, ctx.Event.StudyKey, scope)
+	if err != nil {
+		return val, err
+	}
+	return float64(value), nil
+}
+
+func (ctx EvalContext) getNextStudyCounterValue(exp studyTypes.Expression) (val float64, err error) {
+	if CurrentStudyEngine == nil || CurrentStudyEngine.studyDBService == nil {
+		return val, errors.New("getNextStudyCounterValue: DB connection not available in the context")
+	}
+
+	if len(exp.Data) != 1 {
+		return val, errors.New("getNextStudyCounterValue: invalid number of arguments")
+	}
+
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	scope, ok := arg1.(string)
+	if !ok {
+		return val, errors.New("could not cast arguments")
+	}
+	value, err := CurrentStudyEngine.studyDBService.IncrementAndGetStudyCounterValue(ctx.Event.InstanceID, ctx.Event.StudyKey, scope)
+	if err != nil {
+		return val, err
+	}
+	return float64(value), nil
 }
 
 func (ctx EvalContext) checkConditionForOldResponses(exp studyTypes.Expression) (val bool, err error) {

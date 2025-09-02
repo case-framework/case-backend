@@ -230,6 +230,18 @@ func (db MockStudyDBService) DrawStudyCode(instanceID string, studyKey string, l
 	return "", nil
 }
 
+func (db MockStudyDBService) GetCurrentStudyCounterValue(instanceID string, studyKey string, scope string) (int64, error) {
+	return 0, nil
+}
+
+func (db MockStudyDBService) IncrementAndGetStudyCounterValue(instanceID string, studyKey string, scope string) (int64, error) {
+	return 0, nil
+}
+
+func (db MockStudyDBService) RemoveStudyCounterValue(instanceID string, studyKey string, scope string) error {
+	return nil
+}
+
 func TestEvalCheckConditionForOldResponses(t *testing.T) {
 
 	testResponses := []studyTypes.SurveyResponse{

@@ -25,6 +25,7 @@ const (
 	COLLECTION_NAME_SUFFIX_RESEARCHER_MESSAGES    = "researcherMessages"
 	COLLECTION_NAME_TASK_QUEUE                    = "taskQueue"
 	COLLECTION_NAME_STUDY_CODE_LISTS              = "studyCodeLists"
+	COLLECTION_NAME_STUDY_COUNTERS                = "studyCounters"
 )
 
 const (
@@ -130,6 +131,10 @@ func (dbService *StudyDBService) collectionStudyCodeLists(instanceID string) *mo
 	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_STUDY_CODE_LISTS)
 }
 
+func (dbService *StudyDBService) collectionStudyCounters(instanceID string) *mongo.Collection {
+	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_STUDY_COUNTERS)
+}
+
 func (dbService *StudyDBService) getContext() (ctx context.Context, cancel context.CancelFunc) {
 	return context.WithTimeout(context.Background(), time.Duration(dbService.timeout)*time.Second)
 }
@@ -198,6 +203,12 @@ func (dbService *StudyDBService) ensureIndexes() error {
 		err = dbService.CreateIndexForStudyCodeListsCollection(instanceID)
 		if err != nil {
 			slog.Error("Error creating index for studyCodeLists: ", slog.String("error", err.Error()))
+		}
+
+		// index on studyCounters
+		err = dbService.CreateIndexForStudyCountersCollection(instanceID)
+		if err != nil {
+			slog.Error("Error creating index for studyCounters: ", slog.String("error", err.Error()))
 		}
 
 		for _, study := range studies {

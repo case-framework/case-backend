@@ -275,6 +275,11 @@ func (dbService *StudyDBService) DeleteStudy(instanceID string, studyKey string)
 		slog.Error("Error deleting study code lists", slog.String("studyKey", studyKey), slog.String("error", err.Error()))
 	}
 
+	err = dbService.RemoveAllStudyCounters(instanceID, studyKey)
+	if err != nil {
+		slog.Error("Error deleting study counters", slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+	}
+
 	// delete study rules for study
 	err = dbService.deleteStudyRules(instanceID, studyKey)
 	if err != nil {
