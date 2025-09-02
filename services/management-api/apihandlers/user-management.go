@@ -364,9 +364,9 @@ func (h *HttpEndpoints) getAllAppRoleTemplates(c *gin.Context) {
 }
 
 type AppRoleTemplateProps struct {
-	AppName     string               `json:"appName"`
-	Role        string               `json:"role"`
-	Permissions []mUserDB.Permission `json:"requiredPermissions"`
+	AppName             string               `json:"appName"`
+	Role                string               `json:"role"`
+	RequiredPermissions []mUserDB.Permission `json:"requiredPermissions"`
 }
 
 func (h *HttpEndpoints) createAppRoleTemplate(c *gin.Context) {
@@ -386,7 +386,7 @@ func (h *HttpEndpoints) createAppRoleTemplate(c *gin.Context) {
 		return
 	}
 
-	err := h.muDBConn.AddAppRoleTemplate(token.InstanceID, req.AppName, req.Role, req.Permissions)
+	err := h.muDBConn.AddAppRoleTemplate(token.InstanceID, req.AppName, req.Role, req.RequiredPermissions)
 	if err != nil {
 		slog.Error("error creating app role template", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error creating app role template"})
@@ -439,7 +439,7 @@ func (h *HttpEndpoints) updateAppRoleTemplate(c *gin.Context) {
 
 	slog.Info("updating app role template", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("appRoleTemplateID", appRoleTemplateID))
 
-	err := h.muDBConn.UpdateAppRoleTemplate(token.InstanceID, appRoleTemplateID, req.AppName, req.Role, req.Permissions)
+	err := h.muDBConn.UpdateAppRoleTemplate(token.InstanceID, appRoleTemplateID, req.AppName, req.Role, req.RequiredPermissions)
 	if err != nil {
 		slog.Error("error updating app role template", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error updating app role template"})
