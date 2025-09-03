@@ -3,7 +3,7 @@
 
 ## Latest Versions
 
-- management-api: [`v0.19.0`](https://github.com/case-framework/case-backend/releases/tag/management-api@v0.19.0)
+- management-api: [`v0.20.0`](https://github.com/case-framework/case-backend/releases/tag/management-api@v0.20.0)
 - messaging-job: [`v1.1.1`](https://github.com/case-framework/case-backend/releases/tag/messaging-job@v1.1.1)
 - participant-api: [`v0.21.0`](https://github.com/case-framework/case-backend/releases/tag/participant-api@v0.21.0)
 - smtp-bridge: [`v1.2.1`](https://github.com/case-framework/case-backend/releases/tag/smtp-bridge@v1.2.1)
