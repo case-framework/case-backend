@@ -17,6 +17,8 @@ const (
 	COLLECTION_NAME_SESSIONS              = "management_user_sessions"
 	COLLECTION_NAME_SERVICE_USERS         = "service_users"
 	COLLECTION_NAME_SERVICE_USER_API_KEYS = "service_user_api_keys"
+	COLLECTION_NAME_APP_ROLES             = "app_roles"
+	COLLECTION_NAME_APP_ROLE_TEMPLATES    = "app_role_templates"
 )
 
 const (
@@ -98,6 +100,16 @@ func (dbService *ManagementUserDBService) ensureIndexes() error {
 		// create index for permissions
 		if err := dbService.createIndexForPermissions(instanceID); err != nil {
 			slog.Error("Error creating index for permissions in userDB.permissions", slog.String("error", err.Error()))
+		}
+
+		// create index for app roles
+		if err := dbService.createIndexForAppRoles(instanceID); err != nil {
+			slog.Error("Error creating index for app roles in userDB.app_roles", slog.String("error", err.Error()))
+		}
+
+		// create index for app role templates
+		if err := dbService.createIndexForAppRoleTemplates(instanceID); err != nil {
+			slog.Error("Error creating index for app role templates in userDB.app_role_templates", slog.String("error", err.Error()))
 		}
 
 		// create index for sessions

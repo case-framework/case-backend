@@ -57,3 +57,21 @@ type ServiceUserAPIKey struct {
 	CreatedAt     time.Time          `json:"createdAt,omitempty" bson:"createdAt,omitempty"`
 	LastUsedAt    time.Time          `json:"lastUsedAt,omitempty" bson:"lastUsedAt,omitempty"`
 }
+
+type AppRole struct {
+	ID          primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
+	SubjectID   string             `json:"subjectId,omitempty" bson:"subjectId,omitempty"`
+	SubjectType string             `json:"subjectType,omitempty" bson:"subjectType,omitempty"`
+	AppName     string             `json:"appName,omitempty" bson:"appName,omitempty"`
+	Role        string             `json:"role,omitempty" bson:"role,omitempty"`
+	CreatedAt   time.Time          `json:"createdAt,omitempty" bson:"createdAt,omitempty"`
+}
+
+type AppRoleTemplate struct {
+	ID                  primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
+	AppName             string             `json:"appName,omitempty" bson:"appName,omitempty"`
+	Role                string             `json:"role,omitempty" bson:"role,omitempty"`
+	RequiredPermissions []Permission       `json:"requiredPermissions,omitempty" bson:"requiredPermissions,omitempty"`
+	CreatedAt           time.Time          `json:"createdAt,omitempty" bson:"createdAt,omitempty"`
+	UpdatedAt           time.Time          `json:"updatedAt,omitempty" bson:"updatedAt,omitempty"`
+}

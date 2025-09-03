@@ -116,6 +116,14 @@ func (dbService *ManagementUserDBService) DeleteUser(
 ) error {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
+
+	// delete all app roles for the user
+	err := dbService.RemoveAllAppRolesForSubject(instanceID, id)
+	if err != nil {
+		return err
+	}
+
+	// delete the user
 	objID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		return err

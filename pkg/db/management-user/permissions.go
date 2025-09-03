@@ -20,10 +20,10 @@ func (dbService *ManagementUserDBService) createIndexForPermissions(instanceID s
 		ctx,
 		mongo.IndexModel{
 			Keys: bson.D{
-				{Key: "subjectID", Value: 1},
+				{Key: "subjectId", Value: 1},
 				{Key: "subjectType", Value: 1},
 				{Key: "resourceType", Value: 1},
-				{Key: "resourceID", Value: 1},
+				{Key: "resourceKey", Value: 1},
 				{Key: "action", Value: 1},
 			},
 		},
