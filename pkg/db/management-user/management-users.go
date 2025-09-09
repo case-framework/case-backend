@@ -83,6 +83,7 @@ func (dbService *ManagementUserDBService) UpdateUser(
 	id string,
 	email string,
 	username string,
+	provider string,
 	isAdmin bool,
 	lastLogin time.Time,
 	imageURL string,
@@ -100,6 +101,7 @@ func (dbService *ManagementUserDBService) UpdateUser(
 			"$set": bson.M{
 				"email":       email,
 				"username":    username,
+				"provider":    provider,
 				"isAdmin":     isAdmin,
 				"lastLoginAt": lastLogin,
 				"imageUrl":    imageURL,
@@ -148,6 +150,7 @@ func (dbService *ManagementUserDBService) GetAllUsers(
 			{Key: "_id", Value: 1},
 			{Key: "email", Value: 1},
 			{Key: "username", Value: 1},
+			{Key: "provider", Value: 1},
 			{Key: "isAdmin", Value: 1},
 			{Key: "imageUrl", Value: 1},
 		})
@@ -195,6 +198,7 @@ func (dbService *ManagementUserDBService) GetUsersByIDs(
 			{Key: "_id", Value: 1},
 			{Key: "email", Value: 1},
 			{Key: "username", Value: 1},
+			{Key: "provider", Value: 1},
 			{Key: "isAdmin", Value: 1},
 			{Key: "imageUrl", Value: 1},
 		})

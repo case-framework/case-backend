@@ -29,6 +29,7 @@ type ManagementUser struct {
 	Sub         string             `json:"sub,omitempty" bson:"sub,omitempty"`
 	Email       string             `json:"email,omitempty" bson:"email,omitempty"`
 	Username    string             `json:"username,omitempty" bson:"username,omitempty"`
+	Provider    string             `json:"provider,omitempty" bson:"provider,omitempty"`
 	ImageURL    string             `json:"imageUrl,omitempty" bson:"imageUrl,omitempty"`
 	IsAdmin     bool               `json:"isAdmin,omitempty" bson:"isAdmin,omitempty"`
 	LastLoginAt time.Time          `json:"lastLoginAt,omitempty" bson:"lastLoginAt,omitempty"`
