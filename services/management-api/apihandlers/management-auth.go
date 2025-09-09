@@ -39,6 +39,7 @@ type SignInRequest struct {
 	Sub        string   `json:"sub"`
 	Roles      []string `json:"roles"`
 	Name       string   `json:"name"`
+	Provider   string   `json:"provider"`
 	Email      string   `json:"email"`
 	ImageURL   string   `json:"imageUrl"`
 	RenewToken string   `json:"renewToken"`
@@ -82,6 +83,7 @@ func (h *HttpEndpoints) signInWithIdP(c *gin.Context) {
 		existingUser, err = h.muDBConn.CreateUser(req.InstanceID, &mUserDB.ManagementUser{
 			Sub:         req.Sub,
 			Username:    req.Name,
+			Provider:    req.Provider,
 			Email:       req.Email,
 			ImageURL:    req.ImageURL,
 			IsAdmin:     isAdmin,

@@ -148,6 +148,7 @@ func (dbService *ManagementUserDBService) GetAllUsers(
 			{Key: "_id", Value: 1},
 			{Key: "email", Value: 1},
 			{Key: "username", Value: 1},
+			{Key: "provider", Value: 1},
 			{Key: "isAdmin", Value: 1},
 			{Key: "imageUrl", Value: 1},
 		})
@@ -195,6 +196,7 @@ func (dbService *ManagementUserDBService) GetUsersByIDs(
 			{Key: "_id", Value: 1},
 			{Key: "email", Value: 1},
 			{Key: "username", Value: 1},
+			{Key: "provider", Value: 1},
 			{Key: "isAdmin", Value: 1},
 			{Key: "imageUrl", Value: 1},
 		})
