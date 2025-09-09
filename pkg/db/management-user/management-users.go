@@ -83,6 +83,7 @@ func (dbService *ManagementUserDBService) UpdateUser(
 	id string,
 	email string,
 	username string,
+	provider string,
 	isAdmin bool,
 	lastLogin time.Time,
 	imageURL string,
@@ -100,6 +101,7 @@ func (dbService *ManagementUserDBService) UpdateUser(
 			"$set": bson.M{
 				"email":       email,
 				"username":    username,
+				"provider":    provider,
 				"isAdmin":     isAdmin,
 				"lastLoginAt": lastLogin,
 				"imageUrl":    imageURL,

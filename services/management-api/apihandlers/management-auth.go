@@ -97,7 +97,16 @@ func (h *HttpEndpoints) signInWithIdP(c *gin.Context) {
 	} else {
 		slog.Info("sign in with an existing management user", slog.String("sub", req.Sub), slog.String("instanceID", req.InstanceID), slog.String("name", req.Name), slog.String("email", req.Email))
 		// Update existing user
-		err = h.muDBConn.UpdateUser(req.InstanceID, existingUser.ID.Hex(), req.Email, req.Name, isAdmin, time.Now(), req.ImageURL)
+		err = h.muDBConn.UpdateUser(
+			req.InstanceID,
+			existingUser.ID.Hex(),
+			req.Email,
+			req.Name,
+			req.Provider,
+			isAdmin,
+			time.Now(),
+			req.ImageURL,
+		)
 		if err != nil {
 			slog.Error("could not update existing user", slog.String("sub", req.Sub), slog.String("instanceID", req.InstanceID), slog.String("name", req.Name), slog.String("email", req.Email), slog.String("error", err.Error()))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not update existing user"})
