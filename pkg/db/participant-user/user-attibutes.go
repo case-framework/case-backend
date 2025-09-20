@@ -1,6 +1,7 @@
 package participantuser
 
 import (
+	"context"
 	"log/slog"
 	"time"
 
@@ -58,10 +59,11 @@ func (dbService *ParticipantUserDBService) CreateUserAttribute(
 }
 
 // Delete all user attributes for a user
-func (dbService *ParticipantUserDBService) DeleteAllUserAttributes(instanceID string, userID string) error {
-	ctx, cancel := dbService.getContext()
-	defer cancel()
-
+func (dbService *ParticipantUserDBService) DeleteAllUserAttributes(
+	ctx context.Context,
+	instanceID string,
+	userID string,
+) error {
 	userIDObj, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
 		return err

@@ -206,17 +206,31 @@ func (dbService *ParticipantUserDBService) DeleteUser(instanceID, userID string)
 		return err
 	}
 
-	filter := bson.M{"_id": _id}
-
-	res, err := dbService.collectionParticipantUsers(instanceID).DeleteOne(ctx, filter)
+	session, err := dbService.DBClient.StartSession()
 	if err != nil {
 		return err
 	}
-	if res.DeletedCount < 1 {
-		return errors.New("no user found with the given id")
+	defer session.EndSession(ctx)
+
+	txnFunc := func(sessionCtx mongo.SessionContext) (any, error) {
+		filter := bson.M{"_id": _id}
+		res, err := dbService.collectionParticipantUsers(instanceID).DeleteOne(sessionCtx, filter)
+		if err != nil {
+			return nil, err
+		}
+		if res.DeletedCount < 1 {
+			return nil, errors.New("no user found with the given id")
+		}
+
+		if err = dbService.DeleteAllUserAttributes(sessionCtx, instanceID, userID); err != nil {
+			slog.Error("error deleting user attributes", slog.String("error", err.Error()))
+			return nil, err
+		}
+
+		return nil, nil
 	}
 
-	err = dbService.DeleteAllUserAttributes(instanceID, userID)
+	_, err = session.WithTransaction(ctx, txnFunc)
 	if err != nil {
 		return err
 	}
