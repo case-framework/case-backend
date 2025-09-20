@@ -706,7 +706,7 @@ func (h *HttpEndpoints) getUserAttributesHandl(c *gin.Context) {
 
 	slog.Info("get user attributes", slog.String("userID", token.Subject), slog.String("instanceID", token.InstanceID))
 
-	attributes, err := h.userDBConn.GetUsersAttributes(token.InstanceID, token.Subject)
+	attributes, err := h.userDBConn.GetAttributesForUser(token.InstanceID, token.Subject)
 	if err != nil {
 		slog.Error("failed to get user attributes", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get user attributes"})

@@ -93,7 +93,7 @@ func (dbService *ParticipantUserDBService) DeleteUserAttribute(instanceID string
 }
 
 // Get all user attributes for a user
-func (dbService *ParticipantUserDBService) GetUsersAttributes(instanceID string, userID string) ([]userTypes.UserAttributes, error) {
+func (dbService *ParticipantUserDBService) GetAttributesForUser(instanceID string, userID string) ([]userTypes.UserAttributes, error) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 

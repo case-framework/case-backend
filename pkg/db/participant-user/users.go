@@ -223,7 +223,6 @@ func (dbService *ParticipantUserDBService) DeleteUser(instanceID, userID string)
 		}
 
 		if err = dbService.DeleteAllUserAttributes(sessionCtx, instanceID, userID); err != nil {
-			slog.Error("error deleting user attributes", slog.String("error", err.Error()))
 			return nil, err
 		}
 
@@ -232,6 +231,7 @@ func (dbService *ParticipantUserDBService) DeleteUser(instanceID, userID string)
 
 	_, err = session.WithTransaction(ctx, txnFunc)
 	if err != nil {
+		slog.Error("error deleting user", slog.String("error", err.Error()))
 		return err
 	}
 
