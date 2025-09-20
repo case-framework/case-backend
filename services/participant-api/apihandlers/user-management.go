@@ -661,6 +661,12 @@ func (h *HttpEndpoints) createUserAttributeHandl(c *gin.Context) {
 		return
 	}
 
+	if req.Type == "" {
+		slog.Error("type is required")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "type is required"})
+		return
+	}
+
 	slog.Info("creating user attribute", slog.String("userID", token.Subject), slog.String("instanceID", token.InstanceID), slog.String("type", req.Type))
 
 	err := h.userDBConn.CreateUserAttribute(token.InstanceID, token.Subject, req.Type, req.Attributes)

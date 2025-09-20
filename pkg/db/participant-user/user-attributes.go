@@ -53,7 +53,7 @@ func (dbService *ParticipantUserDBService) CreateUserAttribute(
 		UserID:     userIDObj,
 		Type:       attributeType,
 		Attributes: attributes,
-		CreatedAt:  time.Now(),
+		CreatedAt:  time.Now().UTC(),
 	})
 	return err
 }
