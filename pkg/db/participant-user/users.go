@@ -215,6 +215,12 @@ func (dbService *ParticipantUserDBService) DeleteUser(instanceID, userID string)
 	if res.DeletedCount < 1 {
 		return errors.New("no user found with the given id")
 	}
+
+	err = dbService.DeleteAllUserAttributes(instanceID, userID)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
