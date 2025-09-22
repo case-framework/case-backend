@@ -57,6 +57,7 @@ func (h *HttpEndpoints) prepTokenAndSendEmail(
 	err = emailsending.SendInstantEmailByTemplate(
 		instanceID,
 		[]string{email},
+		userID,
 		emailTemplate,
 		"",
 		lang,
@@ -93,11 +94,12 @@ func (h *HttpEndpoints) prepAndSendEmailVerification(
 }
 
 func (h *HttpEndpoints) sendSimpleEmail(
-	instanceID string, to []string, messageType string, studyKey string, lang string, payload map[string]string, useLowPrio bool,
+	instanceID string, to []string, userID string, messageType string, studyKey string, lang string, payload map[string]string, useLowPrio bool,
 ) {
 	err := emailsending.SendInstantEmailByTemplate(
 		instanceID,
 		to,
+		userID,
 		messageType,
 		studyKey,
 		lang,

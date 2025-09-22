@@ -7,6 +7,7 @@ import (
 func QueueEmailByTemplate(
 	instanceID string,
 	to []string,
+	userID string,
 	messageType string,
 	studyKey string,
 	lang string,
@@ -17,6 +18,7 @@ func QueueEmailByTemplate(
 		messageDBService,
 		instanceID,
 		messageType,
+		userID,
 		studyKey,
 		lang,
 		payload,

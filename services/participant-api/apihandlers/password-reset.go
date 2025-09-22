@@ -205,6 +205,7 @@ func (h *HttpEndpoints) resetPassword(c *gin.Context) {
 	go h.sendSimpleEmail(
 		tokenInfos.InstanceID,
 		[]string{user.Account.AccountID},
+		user.ID.Hex(),
 		emailTypes.EMAIL_TYPE_PASSWORD_CHANGED,
 		"",
 		user.Account.PreferredLanguage,

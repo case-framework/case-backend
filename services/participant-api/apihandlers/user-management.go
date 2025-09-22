@@ -231,6 +231,7 @@ func (h *HttpEndpoints) changePasswordHandl(c *gin.Context) {
 	go h.sendSimpleEmail(
 		token.InstanceID,
 		[]string{user.Account.AccountID},
+		user.ID.Hex(),
 		emailTypes.EMAIL_TYPE_PASSWORD_CHANGED,
 		"",
 		user.Account.PreferredLanguage,
@@ -757,6 +758,7 @@ func (h *HttpEndpoints) deleteUser(c *gin.Context) {
 	h.sendSimpleEmail(
 		token.InstanceID,
 		[]string{user.Account.AccountID},
+		user.ID.Hex(),
 		emailTypes.EMAIL_TYPE_ACCOUNT_DELETED,
 		"",
 		user.Account.PreferredLanguage,

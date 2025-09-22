@@ -71,6 +71,7 @@ func cleanUpUnverifiedUsers() {
 							[]string{
 								email,
 							},
+							user.ID.Hex(),
 							emailTypes.EMAIL_TYPE_ACCOUNT_DELETED,
 							"",
 							user.Account.PreferredLanguage,
@@ -146,6 +147,7 @@ func sendReminderToConfirmAccounts() {
 					[]string{
 						user.Account.AccountID,
 					},
+					user.ID.Hex(),
 					emailTypes.EMAIL_TYPE_REGISTRATION,
 					"",
 					user.Account.PreferredLanguage,
@@ -236,6 +238,7 @@ func notifyInactiveUsersAndMarkForDeletion() {
 					[]string{
 						user.Account.AccountID,
 					},
+					user.ID.Hex(),
 					emailTypes.EMAIL_TYPE_ACCOUNT_INACTIVITY,
 					"",
 					user.Account.PreferredLanguage,
@@ -305,6 +308,7 @@ func cleanUpUsersMarkedForDeletion() {
 							[]string{
 								email,
 							},
+							user.ID.Hex(),
 							emailTypes.EMAIL_TYPE_ACCOUNT_DELETED_AFTER_INACTIVITY,
 							"",
 							user.Account.PreferredLanguage,

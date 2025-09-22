@@ -893,6 +893,7 @@ func (h *HttpEndpoints) requestOTP(c *gin.Context) {
 				err := emailsending.SendInstantEmailByTemplate(
 					token.InstanceID,
 					[]string{email},
+					token.Subject,
 					emailTypes.EMAIL_TYPE_AUTH_VERIFICATION_CODE,
 					"",
 					preferredLang,

@@ -28,8 +28,9 @@ func (dbService *MessagingDBService) AddToOutgoingEmails(instanceID string, emai
 func (dbService *MessagingDBService) AddToSentEmails(instanceID string, email messagingTypes.OutgoingEmail) (messagingTypes.OutgoingEmail, error) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
-	email.AddedAt = time.Now().Unix()
 	email.Content = ""
+	email.SentAt = time.Now().UTC()
+	email.To = []string{}
 
 	email.ID = primitive.NilObjectID
 	res, err := dbService.collectionSentEmails(instanceID).InsertOne(ctx, email)

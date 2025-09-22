@@ -131,6 +131,7 @@ func (s *StudyMessageSender) SendInstantStudyEmail(
 	err = emailsending.SendInstantEmailByTemplate(
 		instanceID,
 		to,
+		user.ID.Hex(),
 		messageType,
 		studyKey,
 		lang,
