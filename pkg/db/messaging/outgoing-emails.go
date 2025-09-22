@@ -45,7 +45,7 @@ func (dbService *MessagingDBService) GetSentEmailsForUser(instanceID string, use
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	filter := bson.M{"userID": userID}
+	filter := bson.M{"userId": userID}
 	cursor, err := dbService.collectionSentEmails(instanceID).Find(ctx, filter)
 	if err != nil {
 		return nil, err
