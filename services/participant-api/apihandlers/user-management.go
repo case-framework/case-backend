@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
@@ -41,6 +42,10 @@ func (h *HttpEndpoints) AddUserManagementAPI(rg *gin.RouterGroup) {
 		userGroup.GET("/request-phone-number-verification", h.requestPhoneNumberVerificationHandl)
 
 		userGroup.PUT("/contact-preferences", mw.RequirePayload(), h.updateContactPreferences)
+
+		userGroup.POST("/attributes", mw.RequirePayload(), h.setUserAttributeHandl) // create or update
+		userGroup.DELETE("/attributes/:attributeID", h.deleteUserAttributeHandl)
+		userGroup.GET("/attributes", h.getUserAttributesHandl)
 
 		userGroup.DELETE("/", h.deleteUser)
 	}
@@ -642,6 +647,76 @@ func (h *HttpEndpoints) updateContactPreferences(c *gin.Context) {
 	slog.Info("updated contact preferences", slog.String("userID", token.Subject), slog.String("instanceID", token.InstanceID))
 
 	c.JSON(http.StatusOK, gin.H{"message": "contact preferences updated"})
+}
+
+type UserAttributeReqPayload struct {
+	Type       string         `json:"type"`
+	Attributes map[string]any `json:"attributes"`
+}
+
+func (h *HttpEndpoints) setUserAttributeHandl(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	var req UserAttributeReqPayload
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if strings.TrimSpace(req.Type) == "" {
+		slog.Error("type is required")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "type is required"})
+		return
+	}
+
+	slog.Info("set user attribute", slog.String("userID", token.Subject), slog.String("instanceID", token.InstanceID), slog.String("type", req.Type))
+
+	err := h.userDBConn.SetUserAttribute(token.InstanceID, token.Subject, req.Type, req.Attributes)
+	if err != nil {
+		slog.Error("failed to set user attribute", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set user attribute"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "user attribute set"})
+}
+
+func (h *HttpEndpoints) deleteUserAttributeHandl(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+	attributeID := c.Param("attributeID")
+
+	if attributeID == "" {
+		slog.Error("attributeID is required")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "attributeID is required"})
+		return
+	}
+
+	slog.Info("delete user attribute", slog.String("userID", token.Subject), slog.String("instanceID", token.InstanceID), slog.String("attributeID", attributeID))
+
+	err := h.userDBConn.DeleteUserAttribute(token.InstanceID, token.Subject, attributeID)
+	if err != nil {
+		slog.Error("failed to delete user attribute", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete user attribute"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "user attribute deleted"})
+}
+
+func (h *HttpEndpoints) getUserAttributesHandl(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	slog.Info("get user attributes", slog.String("userID", token.Subject), slog.String("instanceID", token.InstanceID))
+
+	attributes, err := h.userDBConn.GetAttributesForUser(token.InstanceID, token.Subject)
+	if err != nil {
+		slog.Error("failed to get user attributes", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get user attributes"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"attributes": attributes})
 }
 
 func (h *HttpEndpoints) deleteUser(c *gin.Context) {

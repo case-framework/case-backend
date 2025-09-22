@@ -219,6 +219,10 @@ type SignupWithEmailReq struct {
 	InstanceID        string `json:"instanceId"`
 	InfoCheck         string `json:"infoCheck"`
 	PreferredLanguage string `json:"preferredLanguage"`
+	WithAttributes    *struct {
+		Type       string         `json:"type"`
+		Attributes map[string]any `json:"attributes"`
+	} `json:"withAttributes"`
 }
 
 func (h *HttpEndpoints) signupWithEmail(c *gin.Context) {
@@ -368,6 +372,13 @@ func (h *HttpEndpoints) signupWithEmail(c *gin.Context) {
 
 	newUser.Account.Password = ""
 	newUser.Account.VerificationCode = userTypes.VerificationCode{}
+
+	if req.WithAttributes != nil && req.WithAttributes.Type != "" && req.WithAttributes.Attributes != nil {
+		err = h.userDBConn.SetUserAttribute(req.InstanceID, newUser.ID.Hex(), req.WithAttributes.Type, req.WithAttributes.Attributes)
+		if err != nil {
+			slog.Error("failed to create user attribute", slog.String("error", err.Error()))
+		}
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"token": gin.H{
