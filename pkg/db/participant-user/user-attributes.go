@@ -58,6 +58,30 @@ func (dbService *ParticipantUserDBService) CreateUserAttribute(
 	return err
 }
 
+// Update a user attribute for a user by type
+func (dbService *ParticipantUserDBService) UpdateUserAttribute(
+	instanceID string,
+	userID string,
+	attributeType string,
+	attributes map[string]any,
+) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	userIDObj, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		return err
+	}
+
+	_, err = dbService.collectionParticipantUserAttributes(instanceID).UpdateOne(
+		ctx,
+		bson.M{"userId": userIDObj, "type": attributeType, "createdAt": time.Now().UTC()},
+		bson.M{"$set": bson.M{"attributes": attributes}},
+		options.Update().SetUpsert(true),
+	)
+	return err
+}
+
 // Delete all user attributes for a user
 func (dbService *ParticipantUserDBService) DeleteAllUserAttributes(
 	ctx context.Context,
