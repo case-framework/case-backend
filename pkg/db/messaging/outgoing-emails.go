@@ -41,6 +41,21 @@ func (dbService *MessagingDBService) AddToSentEmails(instanceID string, email me
 	return email, nil
 }
 
+func (dbService *MessagingDBService) GetSentEmailsForUser(instanceID string, userID string) (emails []messagingTypes.OutgoingEmail, err error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	filter := bson.M{"userID": userID}
+	cursor, err := dbService.collectionSentEmails(instanceID).Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	if err = cursor.All(ctx, &emails); err != nil {
+		return nil, err
+	}
+	return emails, nil
+}
+
 func (dbService *MessagingDBService) GetOutgoingEmailsForSending(
 	instanceID string,
 	lastSendAttemptOlderThan int64,
