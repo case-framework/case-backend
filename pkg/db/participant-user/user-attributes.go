@@ -27,39 +27,15 @@ func (dbService *ParticipantUserDBService) CreateIndexForParticipantUserAttribut
 	_, err := dbService.collectionParticipantUserAttributes(instanceID).Indexes().CreateOne(
 		ctx,
 		mongo.IndexModel{
-			Keys:    bson.D{{Key: "userId", Value: 1}},
-			Options: options.Index().SetName(idxName),
+			Keys:    bson.D{{Key: "userId", Value: 1}, {Key: "type", Value: 1}},
+			Options: options.Index().SetName(idxName).SetUnique(true),
 		},
 	)
 	return err
 }
 
-// Create a user attribute for a user
-func (dbService *ParticipantUserDBService) CreateUserAttribute(
-	instanceID string,
-	userID string,
-	attributeType string,
-	attributes map[string]any,
-) error {
-	ctx, cancel := dbService.getContext()
-	defer cancel()
-
-	userIDObj, err := primitive.ObjectIDFromHex(userID)
-	if err != nil {
-		return err
-	}
-
-	_, err = dbService.collectionParticipantUserAttributes(instanceID).InsertOne(ctx, userTypes.UserAttributes{
-		UserID:     userIDObj,
-		Type:       attributeType,
-		Attributes: attributes,
-		CreatedAt:  time.Now().UTC(),
-	})
-	return err
-}
-
-// Update a user attribute for a user by type
-func (dbService *ParticipantUserDBService) UpdateUserAttribute(
+// Create or update a user attribute for a user by type
+func (dbService *ParticipantUserDBService) SetUserAttribute(
 	instanceID string,
 	userID string,
 	attributeType string,
@@ -75,8 +51,8 @@ func (dbService *ParticipantUserDBService) UpdateUserAttribute(
 
 	_, err = dbService.collectionParticipantUserAttributes(instanceID).UpdateOne(
 		ctx,
-		bson.M{"userId": userIDObj, "type": attributeType, "createdAt": time.Now().UTC()},
-		bson.M{"$set": bson.M{"attributes": attributes}},
+		bson.M{"userId": userIDObj, "type": attributeType},
+		bson.M{"$set": bson.M{"attributes": attributes, "createdAt": time.Now().UTC()}},
 		options.Update().SetUpsert(true),
 	)
 	return err

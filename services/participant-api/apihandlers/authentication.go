@@ -374,7 +374,7 @@ func (h *HttpEndpoints) signupWithEmail(c *gin.Context) {
 	newUser.Account.VerificationCode = userTypes.VerificationCode{}
 
 	if req.WithAttributes != nil && req.WithAttributes.Type != "" && req.WithAttributes.Attributes != nil {
-		err = h.userDBConn.CreateUserAttribute(req.InstanceID, newUser.ID.Hex(), req.WithAttributes.Type, req.WithAttributes.Attributes)
+		err = h.userDBConn.SetUserAttribute(req.InstanceID, newUser.ID.Hex(), req.WithAttributes.Type, req.WithAttributes.Attributes)
 		if err != nil {
 			slog.Error("failed to create user attribute", slog.String("error", err.Error()))
 		}
