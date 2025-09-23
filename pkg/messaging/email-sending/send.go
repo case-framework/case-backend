@@ -61,6 +61,7 @@ func SendOutgoingEmail(
 func SendInstantEmailByTemplate(
 	instanceID string,
 	to []string,
+	userID string,
 	messageType string,
 	studyKey string,
 	lang string,
@@ -76,6 +77,7 @@ func SendInstantEmailByTemplate(
 		messageDBService,
 		instanceID,
 		messageType,
+		userID,
 		studyKey,
 		lang,
 		payload,

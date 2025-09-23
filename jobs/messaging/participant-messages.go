@@ -127,6 +127,7 @@ func handleParticipantMessages(wg *sync.WaitGroup) {
 							MessageType:     message.Type,
 							HeaderOverrides: template.HeaderOverrides,
 							To:              to,
+							UserID:          user.ID.Hex(),
 							Subject:         subject,
 							Content:         content,
 						}

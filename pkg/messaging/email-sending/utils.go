@@ -14,6 +14,7 @@ func prepOutgoingEmail(
 	messageDB *messageDB.MessagingDBService,
 	instanceID string,
 	messageType string,
+	userID string,
 	studyKey string,
 	lang string,
 	payload map[string]string,
@@ -72,6 +73,7 @@ func prepOutgoingEmail(
 		Subject:         translation.Subject,
 		Content:         content,
 		HighPrio:        !useLowPrio,
+		UserID:          userID,
 	}
 	return &outgoingEmail, nil
 }
