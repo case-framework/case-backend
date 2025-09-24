@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/db"
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -26,10 +25,6 @@ const (
 	COLLECTION_NAME_TASK_QUEUE                    = "taskQueue"
 	COLLECTION_NAME_STUDY_CODE_LISTS              = "studyCodeLists"
 	COLLECTION_NAME_STUDY_COUNTERS                = "studyCounters"
-)
-
-const (
-	REMOVE_TASK_FROM_QUEUE_AFTER = 60 * 60 * 24 * 2 // 2 days
 )
 
 type StudyDBService struct {
@@ -68,12 +63,6 @@ func NewStudyDBService(configs db.DBConfig) (*StudyDBService, error) {
 		noCursorTimeout: configs.NoCursorTimeout,
 		DBNamePrefix:    configs.DBNamePrefix,
 		InstanceIDs:     configs.InstanceIDs,
-	}
-
-	if configs.RunIndexCreation {
-		if err := studyDBSc.ensureIndexes(); err != nil {
-			slog.Error("Error ensuring indexes for study DB", slog.String("error", err.Error()))
-		}
 	}
 
 	return studyDBSc, nil
@@ -139,112 +128,81 @@ func (dbService *StudyDBService) getContext() (ctx context.Context, cancel conte
 	return context.WithTimeout(context.Background(), time.Duration(dbService.timeout)*time.Second)
 }
 
-func (dbService *StudyDBService) ensureIndexes() error {
-	slog.Debug("Ensuring indexes for study DB")
+func (dbService *StudyDBService) dropIndexes(all bool) {
 	for _, instanceID := range dbService.InstanceIDs {
-		ctx, cancel := dbService.getContext()
-		defer cancel()
+		start := time.Now()
+		slog.Info("Dropping indexes for study DB", slog.String("instanceID", instanceID))
 
-		// task queue: auto delete on creation date
-		if _, err := dbService.collectionTaskQueue(instanceID).Indexes().DropAll(ctx); err != nil {
-			slog.Error("Error dropping indexes for task queue", slog.String("error", err.Error()))
-		}
-
-		_, err := dbService.collectionTaskQueue(instanceID).Indexes().CreateOne(
-			ctx,
-			mongo.IndexModel{
-				Keys:    bson.D{{Key: "updatedAt", Value: 1}},
-				Options: options.Index().SetExpireAfterSeconds(REMOVE_TASK_FROM_QUEUE_AFTER),
-			},
-		)
-		if err != nil {
-			slog.Error("Error creating index for createdAt in userDB.sessions", slog.String("error", err.Error()))
-		}
-
-		// index on studyInfos
-		err = dbService.createIndexForStudyInfosCollection(instanceID)
-		if err != nil {
-			slog.Error("Error creating index for studyInfos", slog.String("error", err.Error()))
-		}
-
-		// index on confidentialIDMap
-		if _, err := dbService.collectionConfidentialIDMap(instanceID).Indexes().DropAll(ctx); err != nil {
-			slog.Error("Error dropping indexes for confidentialIDMap", slog.String("error", err.Error()))
-		}
-
-		_, err = dbService.collectionConfidentialIDMap(instanceID).Indexes().CreateOne(
-			ctx,
-			mongo.IndexModel{
-				Keys: bson.D{
-					{Key: "confidentialID", Value: 1},
-					{Key: "studyKey", Value: 1},
-				},
-				Options: options.Index().SetUnique(true),
-			},
-		)
-		if err != nil {
-			slog.Error("Error creating index for confidentialIDMap", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
-		}
+		dbService.DropIndexForConfidentialIDMapCollection(instanceID, all)
+		dbService.DropIndexForStudyCodeListsCollection(instanceID, all)
+		dbService.DropIndexForStudyCountersCollection(instanceID, all)
+		dbService.DropIndexForStudyInfosCollection(instanceID, all)
+		dbService.DropIndexForStudyRulesCollection(instanceID, all)
+		dbService.DropIndexForTaskQueueCollection(instanceID, all)
+		// participant files has no default indexes at the moment
+		// researcher messages has no default indexes at the moment
 
 		//fetch studyKeys from studyInfos
 		studies, err := dbService.GetStudies(instanceID, "", true)
 		if err != nil {
 			slog.Error("Error fetching studies", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
-			return err
-		}
-
-		// index on studyRules
-		err = dbService.CreateIndexForStudyRulesCollection(instanceID)
-		if err != nil {
-			slog.Error("Error creating index for studyRules: ", slog.String("error", err.Error()))
-		}
-
-		// index on studyCodeLists
-		err = dbService.CreateIndexForStudyCodeListsCollection(instanceID)
-		if err != nil {
-			slog.Error("Error creating index for studyCodeLists: ", slog.String("error", err.Error()))
-		}
-
-		// index on studyCounters
-		err = dbService.CreateIndexForStudyCountersCollection(instanceID)
-		if err != nil {
-			slog.Error("Error creating index for studyCounters: ", slog.String("error", err.Error()))
+			continue
 		}
 
 		for _, study := range studies {
 			studyKey := study.Key
-
-			// index on surveys
-			err = dbService.CreateIndexForSurveyCollection(instanceID, studyKey)
-			if err != nil {
-				slog.Error("Error creating index for surveys: ", slog.String("error", err.Error()))
-			}
-
-			// index on participants
-			err = dbService.CreateIndexForParticipantsCollection(instanceID, studyKey)
-			if err != nil {
-				slog.Error("Error creating index for participants: ", slog.String("error", err.Error()))
-			}
-
-			// index on responses
-			err = dbService.CreateIndexForResponsesCollection(instanceID, studyKey)
-			if err != nil {
-				slog.Error("Error creating index for responses: ", slog.String("error", err.Error()))
-			}
-
-			// index on confidentialResponses
-			err = dbService.CreateIndexForConfidentialResponsesCollection(instanceID, studyKey)
-			if err != nil {
-				slog.Error("Error creating index for confidentialResponses: ", slog.String("error", err.Error()))
-			}
-
-			// index on reports
-			err = dbService.CreateIndexForReportsCollection(instanceID, studyKey)
-			if err != nil {
-				slog.Error("Error creating index for reports: ", slog.String("error", err.Error()))
-			}
+			dbService.DropIndexForSurveysCollection(instanceID, studyKey, all)
+			dbService.DropIndexForResponsesCollection(instanceID, studyKey, all)
+			dbService.DropIndexForConfidentialResponsesCollection(instanceID, studyKey, all)
+			dbService.DropIndexForReportsCollection(instanceID, studyKey, all)
+			dbService.DropIndexForParticipantsCollection(instanceID, studyKey, all)
 		}
 
+		slog.Info("Indexes dropped for study DB", slog.String("instanceID", instanceID), slog.String("duration", time.Since(start).String()))
 	}
-	return nil
+}
+
+// DropAllIndexes drops all indexes for all instanceIDs and all collections
+func (dbService *StudyDBService) DropAllIndexes() {
+	dbService.dropIndexes(true)
+}
+
+// DropDefaultIndexes drops all default indexes for all instanceIDs and all collections
+func (dbService *StudyDBService) DropDefaultIndexes() {
+	dbService.dropIndexes(false)
+}
+
+// CreateDefaultIndexes creates all default indexes for all instanceIDs and all collections
+func (dbService *StudyDBService) CreateDefaultIndexes() {
+	for _, instanceID := range dbService.InstanceIDs {
+		start := time.Now()
+		slog.Info("Creating default indexes for study DB", slog.String("instanceID", instanceID))
+
+		//fetch studyKeys from studyInfos
+		studies, err := dbService.GetStudies(instanceID, "", true)
+		if err != nil {
+			slog.Error("Error fetching studies", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
+			continue
+		}
+
+		dbService.CreateDefaultIndexesForConfidentialIDMapCollection(instanceID)
+		dbService.CreateDefaultIndexesForStudyCodeListsCollection(instanceID)
+		dbService.CreateDefaultIndexesForStudyCountersCollection(instanceID)
+		dbService.CreateDefaultIndexesForStudyInfosCollection(instanceID)
+		dbService.CreateDefaultIndexesForStudyRulesCollection(instanceID)
+		dbService.CreateDefaultIndexesForTaskQueueCollection(instanceID)
+		// participant files has no default indexes at the moment
+		// researcher messages has no default indexes at the moment
+
+		for _, study := range studies {
+			studyKey := study.Key
+
+			dbService.CreateDefaultIndexesForSurveysCollection(instanceID, studyKey)
+			dbService.CreateDefaultIndexesForResponsesCollection(instanceID, studyKey)
+			dbService.CreateDefaultIndexesForConfidentialResponsesCollection(instanceID, studyKey)
+			dbService.CreateDefaultIndexesForReportsCollection(instanceID, studyKey)
+			dbService.CreateDefaultIndexesForParticipantsCollection(instanceID, studyKey)
+		}
+		slog.Info("Default indexes created for study DB", slog.String("instanceID", instanceID), slog.String("duration", time.Since(start).String()))
+	}
 }
