@@ -34,14 +34,13 @@ func (dbService *StudyDBService) DropIndexForConfidentialResponsesCollection(ins
 		if err != nil {
 			slog.Error("Error dropping all indexes for confidential responses", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 		}
-		return
-	}
-
-	for _, index := range indexesForConfidentialResponsesCollection {
-		indexName := *index.Options.Name
-		_, err := collection.Indexes().DropOne(ctx, indexName)
-		if err != nil {
-			slog.Error("Error dropping index for confidential responses", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("indexName", indexName))
+	} else {
+		for _, index := range indexesForConfidentialResponsesCollection {
+			indexName := *index.Options.Name
+			_, err := collection.Indexes().DropOne(ctx, indexName)
+			if err != nil {
+				slog.Error("Error dropping index for confidential responses", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("indexName", indexName))
+			}
 		}
 	}
 }

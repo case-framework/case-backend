@@ -59,13 +59,13 @@ func (dbService *StudyDBService) DropIndexForParticipantsCollection(instanceID s
 		if err != nil {
 			slog.Error("Error dropping all indexes for participants", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 		}
-	}
-
-	for _, index := range indexesForParticipantsCollection {
-		indexName := *index.Options.Name
-		_, err := collection.Indexes().DropOne(ctx, indexName)
-		if err != nil {
-			slog.Error("Error dropping index for participants", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("indexName", indexName))
+	} else {
+		for _, index := range indexesForParticipantsCollection {
+			indexName := *index.Options.Name
+			_, err := collection.Indexes().DropOne(ctx, indexName)
+			if err != nil {
+				slog.Error("Error dropping index for participants", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("indexName", indexName))
+			}
 		}
 	}
 }

@@ -53,7 +53,6 @@ func (dbService *StudyDBService) DropIndexForSurveysCollection(instanceID string
 		if err != nil {
 			slog.Error("Error dropping all indexes for surveys", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 		}
-		return
 	} else {
 		for _, index := range indexesForSurveysCollection {
 			indexName := *index.Options.Name
@@ -62,7 +61,6 @@ func (dbService *StudyDBService) DropIndexForSurveysCollection(instanceID string
 				slog.Error("Error dropping index for surveys", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("indexName", indexName))
 			}
 		}
-		return
 	}
 }
 
