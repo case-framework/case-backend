@@ -94,6 +94,18 @@ func (dbService *ManagementUserDBService) DropIndexForAppRoleTemplatesCollection
 		if err != nil {
 			slog.Error("Error dropping all indexes for app role templates", slog.String("error", err.Error()))
 		}
+	} else {
+		for _, index := range indexesForAppRoleTemplatesCollection {
+			if index.Options.Name == nil {
+				slog.Error("Index name is nil for app role templates collection: ", slog.String("index", fmt.Sprintf("%+v", index)))
+				continue
+			}
+			indexName := *index.Options.Name
+			_, err := dbService.collectionAppRoleTemplates(instanceID).Indexes().DropOne(ctx, indexName)
+			if err != nil {
+				slog.Error("Error dropping index for app role templates", slog.String("error", err.Error()), slog.String("indexName", indexName))
+			}
+		}
 	}
 }
 
