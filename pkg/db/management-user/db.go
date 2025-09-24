@@ -2,7 +2,6 @@ package managementuser
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/db"
@@ -63,12 +62,6 @@ func NewManagementUserDBService(configs db.DBConfig) (*ManagementUserDBService, 
 		InstanceIDs:     configs.InstanceIDs,
 	}
 
-	if configs.RunIndexCreation {
-		if err := muDBSc.ensureIndexes(); err != nil {
-			slog.Error("Error ensuring indexes for management user DB", slog.String("error", err.Error()))
-		}
-	}
-
 	return muDBSc, nil
 }
 
@@ -88,37 +81,24 @@ func (dbService *ManagementUserDBService) getContext() (ctx context.Context, can
 	return context.WithTimeout(context.Background(), time.Duration(dbService.timeout)*time.Second)
 }
 
-func (dbService *ManagementUserDBService) ensureIndexes() error {
-	slog.Debug("Ensuring indexes for management user DB")
+func (dbService *ManagementUserDBService) CreateDefaultIndexes() {
 	for _, instanceID := range dbService.InstanceIDs {
-
-		// create unique index for sub
-		if err := dbService.createIndexForManagementUsers(instanceID); err != nil {
-			slog.Error("Error creating unique index for sub in userDB.management_users", slog.String("error", err.Error()))
-		}
-
-		// create index for permissions
-		if err := dbService.createIndexForPermissions(instanceID); err != nil {
-			slog.Error("Error creating index for permissions in userDB.permissions", slog.String("error", err.Error()))
-		}
-
-		// create index for app roles
-		if err := dbService.createIndexForAppRoles(instanceID); err != nil {
-			slog.Error("Error creating index for app roles in userDB.app_roles", slog.String("error", err.Error()))
-		}
-
-		// create index for app role templates
-		if err := dbService.createIndexForAppRoleTemplates(instanceID); err != nil {
-			slog.Error("Error creating index for app role templates in userDB.app_role_templates", slog.String("error", err.Error()))
-		}
-
-		// create index for sessions
-		if err := dbService.createIndexForSessions(instanceID); err != nil {
-			slog.Error("Error creating index for userDB.sessions: ", slog.String("error", err.Error()))
-		}
-
-		dbService.createIndexForServiceUserAPIKeys(instanceID)
+		dbService.CreateDefaultIndexesForAppRolesCollection(instanceID)
+		dbService.CreateDefaultIndexesForAppRoleTemplatesCollection(instanceID)
+		dbService.CreateDefaultIndexesForManagementUsersCollection(instanceID)
+		dbService.CreateDefaultIndexesForPermissionsCollection(instanceID)
+		dbService.CreateDefaultIndexesForServiceUserAPIKeysCollection(instanceID)
+		dbService.CreateDefaultIndexesForSessionsCollection(instanceID)
 	}
+}
 
-	return nil
+func (dbService *ManagementUserDBService) DropIndexes(dropAll bool) {
+	for _, instanceID := range dbService.InstanceIDs {
+		dbService.DropIndexForAppRolesCollection(instanceID, dropAll)
+		dbService.DropIndexForAppRoleTemplatesCollection(instanceID, dropAll)
+		dbService.DropIndexForManagementUsersCollection(instanceID, dropAll)
+		dbService.DropIndexForPermissionsCollection(instanceID, dropAll)
+		dbService.DropIndexForServiceUserAPIKeysCollection(instanceID, dropAll)
+		dbService.DropIndexForSessionsCollection(instanceID, dropAll)
+	}
 }
