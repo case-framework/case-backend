@@ -2,6 +2,7 @@ package participantuser
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -13,25 +14,45 @@ import (
 	userTypes "github.com/case-framework/case-backend/pkg/user-management/types"
 )
 
-func (dbService *ParticipantUserDBService) CreateIndexForParticipantUserAttributes(instanceID string) error {
+var indexesForParticipantUserAttributesCollection = []mongo.IndexModel{
+	{
+		Keys:    bson.D{{Key: "userId", Value: 1}, {Key: "type", Value: 1}},
+		Options: options.Index().SetName("idx_user_attributes_userId").SetUnique(true),
+	},
+}
+
+func (dbService *ParticipantUserDBService) DropIndexForParticipantUserAttributesCollection(instanceID string, dropAll bool) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	const idxName = "idx_user_attributes_userId"
-
-	if _, err := dbService.collectionParticipantUserAttributes(instanceID).Indexes().DropOne(ctx, idxName); err != nil {
-		// Index might not exist yet; log at debug level
-		slog.Debug("Drop index for participant user attributes", slog.String("index", idxName), slog.String("error", err.Error()))
+	if dropAll {
+		_, err := dbService.collectionParticipantUserAttributes(instanceID).Indexes().DropAll(ctx)
+		if err != nil {
+			slog.Error("Error dropping all indexes for participant user attributes", slog.String("error", err.Error()))
+		}
+	} else {
+		for _, index := range indexesForParticipantUserAttributesCollection {
+			if index.Options.Name == nil {
+				slog.Error("Index name is nil for participant user attributes collection: ", slog.String("index", fmt.Sprintf("%+v", index)))
+				continue
+			}
+			indexName := *index.Options.Name
+			_, err := dbService.collectionParticipantUserAttributes(instanceID).Indexes().DropOne(ctx, indexName)
+			if err != nil {
+				slog.Error("Error dropping index for participant user attributes", slog.String("error", err.Error()), slog.String("indexName", indexName))
+			}
+		}
 	}
+}
 
-	_, err := dbService.collectionParticipantUserAttributes(instanceID).Indexes().CreateOne(
-		ctx,
-		mongo.IndexModel{
-			Keys:    bson.D{{Key: "userId", Value: 1}, {Key: "type", Value: 1}},
-			Options: options.Index().SetName(idxName).SetUnique(true),
-		},
-	)
-	return err
+func (dbService *ParticipantUserDBService) CreateDefaultIndexesForParticipantUserAttributesCollection(instanceID string) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	_, err := dbService.collectionParticipantUserAttributes(instanceID).Indexes().CreateMany(ctx, indexesForParticipantUserAttributesCollection)
+	if err != nil {
+		slog.Error("Error creating index for participant user attributes", slog.String("error", err.Error()))
+	}
 }
 
 // Create or update a user attribute for a user by type

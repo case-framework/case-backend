@@ -2,7 +2,6 @@ package participantuser
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/db"
@@ -56,10 +55,6 @@ func NewParticipantUserDBService(configs db.DBConfig) (*ParticipantUserDBService
 		DBNamePrefix:    configs.DBNamePrefix,
 		InstanceIDs:     configs.InstanceIDs,
 	}
-
-	if configs.RunIndexCreation {
-		puDBSc.ensureIndexes()
-	}
 	return puDBSc, nil
 }
 
@@ -91,39 +86,22 @@ func (dbService *ParticipantUserDBService) collectionFailedOtpAttempts(instanceI
 	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_FAILED_OTP_ATTEMPTS)
 }
 
-func (dbService *ParticipantUserDBService) ensureIndexes() {
-	slog.Debug("Ensuring indexes for participant user DB")
+func (dbService *ParticipantUserDBService) CreateDefaultIndexes() {
 	for _, instanceID := range dbService.InstanceIDs {
+		dbService.CreateDefaultIndexesForParticipantUsersCollection(instanceID)
+		dbService.CreateDefaultIndexesForParticipantUserAttributesCollection(instanceID)
+		dbService.CreateDefaultIndexesForRenewTokensCollection(instanceID)
+		dbService.CreateDefaultIndexesForOTPsCollection(instanceID)
+		dbService.CreateDefaultIndexesForFailedOtpAttemptsCollection(instanceID)
+	}
+}
 
-		err := dbService.CreateIndexForParticipantUsers(instanceID)
-		if err != nil {
-			slog.Debug("Error creating indexes for participant users: ", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
-		}
-
-		err = dbService.CreateIndexForParticipantUserAttributes(instanceID)
-		if err != nil {
-			slog.Debug("Error creating indexes for participant user attributes: ", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
-		}
-
-		err = dbService.CreateIndexForRenewTokens(instanceID)
-		if err != nil {
-			slog.Debug("Error creating indexes for renew tokens: ", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
-		}
-
-		err = dbService.CreateIndexForOTPs(instanceID)
-		if err != nil {
-			slog.Debug("Error creating indexes for OTPs: ", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
-		}
-
-		err = dbService.CreateIndexForFailedOtpAttempts(instanceID)
-		if err != nil {
-			slog.Debug("Error creating indexes for failed OTP attempts: ", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
-		}
-
-		// Fix field name for contactInfos
-		err = dbService.FixFieldNameForContactInfos(instanceID)
-		if err != nil {
-			slog.Debug("Error fixing field name for contactInfos: ", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
-		}
+func (dbService *ParticipantUserDBService) DropIndexes(dropAll bool) {
+	for _, instanceID := range dbService.InstanceIDs {
+		dbService.DropIndexForParticipantUsersCollection(instanceID, dropAll)
+		dbService.DropIndexForParticipantUserAttributesCollection(instanceID, dropAll)
+		dbService.DropIndexForRenewTokensCollection(instanceID, dropAll)
+		dbService.DropIndexForOTPsCollection(instanceID, dropAll)
+		dbService.DropIndexForFailedOtpAttemptsCollection(instanceID, dropAll)
 	}
 }
