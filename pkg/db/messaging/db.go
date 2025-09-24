@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/db"
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -59,12 +58,6 @@ func NewMessagingDBService(configs db.DBConfig) (*MessagingDBService, error) {
 		InstanceIDs:     configs.InstanceIDs,
 	}
 
-	if configs.RunIndexCreation {
-		if err := messagingDBSc.ensureIndexes(); err != nil {
-			slog.Error("Error ensuring indexes for messaging DB: ", slog.String("error", err.Error()))
-		}
-	}
-
 	return messagingDBSc, nil
 }
 
@@ -100,47 +93,30 @@ func (dbService *MessagingDBService) getContext() (ctx context.Context, cancel c
 	return context.WithTimeout(context.Background(), time.Duration(dbService.timeout)*time.Second)
 }
 
-func (dbService *MessagingDBService) ensureIndexes() error {
-	slog.Debug("Ensuring indexes for messaging DB")
+func (dbService *MessagingDBService) CreateDefaultIndexes() {
 	for _, instanceID := range dbService.InstanceIDs {
-		ctx, cancel := dbService.getContext()
-		defer cancel()
-
-		// Email Templates
-		if _, err := dbService.collectionEmailTemplates(instanceID).Indexes().DropAll(ctx); err != nil {
-			slog.Error("Error dropping indexes for email templates: ", slog.String("error", err.Error()))
-		}
-
-		_, err := dbService.collectionEmailTemplates(instanceID).Indexes().CreateOne(
-			ctx,
-			// index unique on messageType and studyKey combo:
-			mongo.IndexModel{
-				Keys: bson.D{
-					{Key: "messageType", Value: 1},
-					{Key: "studyKey", Value: 1},
-				},
-				Options: options.Index().SetUnique(true),
-			},
-		)
-		if err != nil {
-			slog.Error("Error creating index for email templates: ", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
-		}
-
-		// Sent SMS
-		err = dbService.CreateSentSMSIndex(instanceID)
-		if err != nil {
-			slog.Error("Error creating index for sent SMS: ", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
-		}
-
-		// Outgoing Emails
-		// add index generation here if needed
-
-		// Sent Emails
-		// add index generation here if needed
-
-		// Email Schedules
-		// add index generation here if needed
+		start := time.Now()
+		slog.Info("Creating default indexes for messaging DB", slog.String("instanceID", instanceID))
+		dbService.CreateDefaultIndexesForEmailTemplatesCollection(instanceID)
+		dbService.CreateDefaultIndexesForSMSTemplatesCollection(instanceID)
+		// email schedules collection has no default indexes at the moment
+		// outgoing emails collection has no default indexes at the moment
+		dbService.CreateDefaultIndexesForSentEmailsCollection(instanceID)
+		dbService.CreateDefaultIndexesForSentSMSCollection(instanceID)
+		slog.Info("Default indexes created for messaging DB", slog.String("instanceID", instanceID), slog.String("duration", time.Since(start).String()))
 	}
+}
 
-	return nil
+func (dbService *MessagingDBService) DropIndexes(dropAll bool) {
+	for _, instanceID := range dbService.InstanceIDs {
+		start := time.Now()
+		slog.Info("Dropping indexes for messaging DB", slog.String("instanceID", instanceID))
+		dbService.DropIndexForEmailTemplatesCollection(instanceID, dropAll)
+		dbService.DropIndexForSMSTemplatesCollection(instanceID, dropAll)
+		dbService.DropIndexForEmailSchedulesCollection(instanceID, dropAll)
+		dbService.DropIndexForOutgoingEmailsCollection(instanceID, dropAll)
+		dbService.DropIndexForSentEmailsCollection(instanceID, dropAll)
+		dbService.DropIndexForSentSMSCollection(instanceID, dropAll)
+		slog.Info("Indexes dropped for messaging DB", slog.String("instanceID", instanceID), slog.String("duration", time.Since(start).String()))
+	}
 }

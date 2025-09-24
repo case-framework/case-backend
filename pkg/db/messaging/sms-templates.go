@@ -1,6 +1,9 @@
 package messaging
 
 import (
+	"fmt"
+	"log/slog"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -9,20 +12,46 @@ import (
 	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 )
 
-func (messagingDBService *MessagingDBService) CreateIndexForSMSTemplates(instanceID string) error {
+var indexesForSMSTemplatesCollection = []mongo.IndexModel{
+	{
+		Keys: bson.D{
+			{Key: "messageType", Value: 1},
+		},
+		Options: options.Index().SetUnique(true).SetName("messageType_1"),
+	},
+}
+
+func (messagingDBService *MessagingDBService) DropIndexForSMSTemplatesCollection(instanceID string, dropAll bool) {
+	ctx, cancel := messagingDBService.getContext()
+	defer cancel()
+	if dropAll {
+		_, err := messagingDBService.collectionSMSTemplates(instanceID).Indexes().DropAll(ctx)
+		if err != nil {
+			slog.Error("Error dropping all indexes for SMS templates", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
+		}
+	} else {
+		for _, index := range indexesForSMSTemplatesCollection {
+			if index.Options.Name == nil {
+				slog.Error("Index name is nil for SMS templates collection", slog.String("index", fmt.Sprintf("%+v", index)))
+				continue
+			}
+			indexName := *index.Options.Name
+			_, err := messagingDBService.collectionSMSTemplates(instanceID).Indexes().DropOne(ctx, indexName)
+			if err != nil {
+				slog.Error("Error dropping index for SMS templates", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("indexName", indexName))
+			}
+		}
+	}
+}
+
+func (messagingDBService *MessagingDBService) CreateDefaultIndexesForSMSTemplatesCollection(instanceID string) {
 	ctx, cancel := messagingDBService.getContext()
 	defer cancel()
 
-	_, err := messagingDBService.collectionSMSTemplates(instanceID).Indexes().CreateOne(
-		ctx,
-		mongo.IndexModel{
-			Keys: bson.D{
-				{Key: "messageType", Value: 1},
-			},
-			Options: options.Index().SetUnique(true),
-		},
-	)
-	return err
+	_, err := messagingDBService.collectionSMSTemplates(instanceID).Indexes().CreateMany(ctx, indexesForSMSTemplatesCollection)
+	if err != nil {
+		slog.Error("Error creating index for SMS templates", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
+	}
 }
 
 // save email template (if id is empty, insert, else update)

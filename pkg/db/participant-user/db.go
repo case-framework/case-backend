@@ -2,6 +2,7 @@ package participantuser
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/db"
@@ -88,20 +89,26 @@ func (dbService *ParticipantUserDBService) collectionFailedOtpAttempts(instanceI
 
 func (dbService *ParticipantUserDBService) CreateDefaultIndexes() {
 	for _, instanceID := range dbService.InstanceIDs {
+		start := time.Now()
+		slog.Info("Creating default indexes for participant user DB", slog.String("instanceID", instanceID))
 		dbService.CreateDefaultIndexesForParticipantUsersCollection(instanceID)
 		dbService.CreateDefaultIndexesForParticipantUserAttributesCollection(instanceID)
 		dbService.CreateDefaultIndexesForRenewTokensCollection(instanceID)
 		dbService.CreateDefaultIndexesForOTPsCollection(instanceID)
 		dbService.CreateDefaultIndexesForFailedOtpAttemptsCollection(instanceID)
+		slog.Info("Default indexes created for participant user DB", slog.String("instanceID", instanceID), slog.String("duration", time.Since(start).String()))
 	}
 }
 
 func (dbService *ParticipantUserDBService) DropIndexes(dropAll bool) {
 	for _, instanceID := range dbService.InstanceIDs {
+		start := time.Now()
+		slog.Info("Dropping indexes for participant user DB", slog.String("instanceID", instanceID))
 		dbService.DropIndexForParticipantUsersCollection(instanceID, dropAll)
 		dbService.DropIndexForParticipantUserAttributesCollection(instanceID, dropAll)
 		dbService.DropIndexForRenewTokensCollection(instanceID, dropAll)
 		dbService.DropIndexForOTPsCollection(instanceID, dropAll)
 		dbService.DropIndexForFailedOtpAttemptsCollection(instanceID, dropAll)
+		slog.Info("Indexes dropped for participant user DB", slog.String("instanceID", instanceID), slog.String("duration", time.Since(start).String()))
 	}
 }
