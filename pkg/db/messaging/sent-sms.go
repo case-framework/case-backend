@@ -1,6 +1,7 @@
 package messaging
 
 import (
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -8,29 +9,52 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func (dbService *MessagingDBService) CreateSentSMSIndex(instanceID string) error {
+var indexesForSentSMSCollection = []mongo.IndexModel{
+	{
+		Keys: bson.D{
+			{Key: "userID", Value: 1},
+			{Key: "sentAt", Value: 1},
+			{Key: "messageType", Value: 1},
+		},
+		Options: options.Index().SetName("userID_sentAt_messageType_1"),
+	},
+}
+
+func (dbService *MessagingDBService) DropIndexForSentSMSCollection(instanceID string, dropAll bool) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	if _, err := dbService.collectionSentSMS(instanceID).Indexes().DropAll(ctx); err != nil {
-		slog.Error("Error dropping indexes for sent SMS: ", slog.String("error", err.Error()))
+	if dropAll {
+		_, err := dbService.collectionSentSMS(instanceID).Indexes().DropAll(ctx)
+		if err != nil {
+			slog.Error("Error dropping all indexes for sent SMS", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
+		}
+	} else {
+		for _, index := range indexesForSentSMSCollection {
+			if index.Options.Name == nil {
+				slog.Error("Index name is nil for sent SMS collection", slog.String("index", fmt.Sprintf("%+v", index)))
+				continue
+			}
+			indexName := *index.Options.Name
+			_, err := dbService.collectionSentSMS(instanceID).Indexes().DropOne(ctx, indexName)
+			if err != nil {
+				slog.Error("Error dropping index for sent SMS", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("indexName", indexName))
+			}
+		}
 	}
+}
 
-	_, err := dbService.collectionSentSMS(instanceID).Indexes().CreateMany(
-		ctx, []mongo.IndexModel{
-			{
-				Keys: bson.D{
-					{Key: "userID", Value: 1},
-					{Key: "sentAt", Value: 1},
-					{Key: "messageType", Value: 1},
-				},
-			},
-		},
-	)
+func (dbService *MessagingDBService) CreateDefaultIndexesForSentSMSCollection(instanceID string) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
 
-	return err
+	_, err := dbService.collectionSentSMS(instanceID).Indexes().CreateMany(ctx, indexesForSentSMSCollection)
+	if err != nil {
+		slog.Error("Error creating index for sent SMS", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
+	}
 }
 
 func (dbService *MessagingDBService) AddToSentSMS(instanceID string, sms types.SentSMS) (types.SentSMS, error) {
