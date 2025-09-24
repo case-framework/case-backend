@@ -42,7 +42,7 @@ func (dbService *GlobalInfosDBService) DropIndexForBlockedJwtsCollection(dropAll
 	} else {
 		for _, index := range indexesForBlockedJwtsCollection {
 			if index.Options.Name == nil {
-				slog.Error("Index name is nil for temptokens collection", slog.String("index", fmt.Sprintf("%+v", index)))
+				slog.Error("Index name is nil for blocked jwts collection", slog.String("index", fmt.Sprintf("%+v", index)))
 				continue
 			}
 			indexName := *index.Options.Name
