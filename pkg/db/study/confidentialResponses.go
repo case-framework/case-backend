@@ -13,25 +13,47 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func (dbService *StudyDBService) CreateIndexForConfidentialResponsesCollection(instanceID string, studyKey string) error {
+var indexesForConfidentialResponsesCollection = []mongo.IndexModel{
+	{
+		Keys: bson.D{
+			{Key: "participantID", Value: 1},
+			{Key: "key", Value: 1},
+		},
+		Options: options.Index().SetName("participantID_key_1"),
+	},
+}
+
+func (dbService *StudyDBService) DropIndexForConfidentialResponsesCollection(instanceID string, studyKey string, dropAll bool) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
 	collection := dbService.collectionConfidentialResponses(instanceID, studyKey)
-	if _, err := collection.Indexes().DropAll(ctx); err != nil {
-		slog.Error("Error dropping indexes for confidential responses", slog.String("error", err.Error()))
-	}
 
-	indexes := []mongo.IndexModel{
-		{
-			Keys: bson.D{
-				{Key: "participantID", Value: 1},
-				{Key: "key", Value: 1},
-			},
-		},
+	if dropAll {
+		_, err := collection.Indexes().DropAll(ctx)
+		if err != nil {
+			slog.Error("Error dropping all indexes for confidential responses", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
+		}
+	} else {
+		for _, index := range indexesForConfidentialResponsesCollection {
+			indexName := *index.Options.Name
+			_, err := collection.Indexes().DropOne(ctx, indexName)
+			if err != nil {
+				slog.Error("Error dropping index for confidential responses", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("indexName", indexName))
+			}
+		}
 	}
-	_, err := collection.Indexes().CreateMany(ctx, indexes)
-	return err
+}
+
+func (dbService *StudyDBService) CreateDefaultIndexesForConfidentialResponsesCollection(instanceID string, studyKey string) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	collection := dbService.collectionConfidentialResponses(instanceID, studyKey)
+	_, err := collection.Indexes().CreateMany(ctx, indexesForConfidentialResponsesCollection)
+	if err != nil {
+		slog.Error("Error creating index for confidential responses", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
+	}
 }
 
 func (dbService *StudyDBService) AddConfidentialResponse(instanceID string, studyKey string, response studytypes.SurveyResponse) (string, error) {

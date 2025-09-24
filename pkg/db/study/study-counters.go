@@ -14,26 +14,45 @@ type StudyCounter struct {
 	Value    int64  `bson:"value"`
 }
 
-func (dbService *StudyDBService) CreateIndexForStudyCountersCollection(instanceID string) error {
+var indexesForStudyCountersCollection = []mongo.IndexModel{
+	{
+		Keys: bson.D{
+			{Key: "studyKey", Value: 1},
+			{Key: "scope", Value: 1},
+		},
+		Options: options.Index().SetUnique(true).SetName("studyKey_scope_1"),
+	},
+}
+
+func (dbService *StudyDBService) DropIndexForStudyCountersCollection(instanceID string, dropAll bool) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	if _, err := dbService.collectionStudyCounters(instanceID).Indexes().DropAll(ctx); err != nil {
-		slog.Error("Error dropping indexes for studyCounters", slog.String("error", err.Error()))
-	}
-
 	collection := dbService.collectionStudyCounters(instanceID)
-	indexes := []mongo.IndexModel{
-		{
-			Keys: bson.D{
-				{Key: "studyKey", Value: 1},
-				{Key: "scope", Value: 1},
-			},
-			Options: options.Index().SetUnique(true),
-		},
+	if dropAll {
+		_, err := collection.Indexes().DropAll(ctx)
+		if err != nil {
+			slog.Error("Error dropping all indexes for studyCounters", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
+		}
+	} else {
+		for _, index := range indexesForStudyCountersCollection {
+			indexName := *index.Options.Name
+			_, err := collection.Indexes().DropOne(ctx, indexName)
+			if err != nil {
+				slog.Error("Error dropping index for studyCounters", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("indexName", indexName))
+			}
+		}
 	}
-	_, err := collection.Indexes().CreateMany(ctx, indexes)
-	return err
+}
+
+func (dbService *StudyDBService) CreateDefaultIndexesForStudyCountersCollection(instanceID string) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	_, err := dbService.collectionStudyCounters(instanceID).Indexes().CreateMany(ctx, indexesForStudyCountersCollection)
+	if err != nil {
+		slog.Error("Error creating index for studyCounters", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
+	}
 }
 
 // Get current counter value (without incrementing)

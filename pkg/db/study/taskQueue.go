@@ -1,14 +1,57 @@
 package study
 
 import (
+	"log/slog"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
+
+const (
+	REMOVE_TASK_FROM_QUEUE_AFTER = 60 * 60 * 24 * 2 // 2 days
+)
+
+var indexesForTaskQueueCollection = []mongo.IndexModel{
+	{
+		Keys:    bson.D{{Key: "updatedAt", Value: 1}},
+		Options: options.Index().SetExpireAfterSeconds(REMOVE_TASK_FROM_QUEUE_AFTER).SetName("updatedAt_1"),
+	},
+}
+
+func (dbService *StudyDBService) DropIndexForTaskQueueCollection(instanceID string, dropAll bool) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	if dropAll {
+		_, err := dbService.collectionTaskQueue(instanceID).Indexes().DropAll(ctx)
+		if err != nil {
+			slog.Error("Error dropping all indexes for task queue", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
+		}
+	} else {
+		for _, index := range indexesForTaskQueueCollection {
+			indexName := *index.Options.Name
+			_, err := dbService.collectionTaskQueue(instanceID).Indexes().DropOne(ctx, indexName)
+			if err != nil {
+				slog.Error("Error dropping index for task queue", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("indexName", indexName))
+			}
+		}
+	}
+}
+
+func (dbService *StudyDBService) CreateDefaultIndexesForTaskQueueCollection(instanceID string) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	_, err := dbService.collectionTaskQueue(instanceID).Indexes().CreateMany(ctx, indexesForTaskQueueCollection)
+	if err != nil {
+		slog.Error("Error creating index for task queue", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
+	}
+}
 
 // create task
 func (dbService *StudyDBService) CreateTask(
