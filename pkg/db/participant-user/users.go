@@ -3,6 +3,7 @@ package participantuser
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -14,45 +15,74 @@ import (
 	umTypes "github.com/case-framework/case-backend/pkg/user-management/types"
 )
 
-func (dbService *ParticipantUserDBService) CreateIndexForParticipantUsers(instanceID string) error {
+var indexesForParticipantUsersCollection = []mongo.IndexModel{
+	{
+		Keys: bson.D{
+			{Key: "timestamps.markedForDeletion", Value: 1},
+		},
+		Options: options.Index().SetName("timestamps.markedForDeletion_1"),
+	},
+	{
+		Keys: bson.D{
+			{Key: "account.accountID", Value: 1},
+		},
+		Options: options.Index().SetName("account.accountID_1"),
+	},
+	{
+		Keys: bson.D{
+			{Key: "timestamps.createdAt", Value: 1},
+		},
+		Options: options.Index().SetName("timestamps.createdAt_1"),
+	},
+	{
+		Keys: bson.D{
+			{Key: "account.accountConfirmedAt", Value: 1},
+			{Key: "timestamps.createdAt", Value: 1},
+		},
+		Options: options.Index().SetName("account.accountConfirmedAt_timestamps.createdAt_1"),
+	},
+	{
+		Keys: bson.D{
+			{Key: "contactPreferences.receiveWeeklyMessageDayOfWeek", Value: 1},
+		},
+		Options: options.Index().SetName("contactPreferences.receiveWeeklyMessageDayOfWeek_1"),
+	},
+}
+
+func (dbService *ParticipantUserDBService) DropIndexForParticipantUsersCollection(instanceID string, dropAll bool) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	if _, err := dbService.collectionParticipantUsers(instanceID).Indexes().DropAll(ctx); err != nil {
-		slog.Error("Error dropping indexes for participant users", slog.String("error", err.Error()))
+	if dropAll {
+		_, err := dbService.collectionParticipantUsers(instanceID).Indexes().DropAll(ctx)
+		if err != nil {
+			slog.Error("Error dropping all indexes for participant users", slog.String("error", err.Error()))
+		}
+	} else {
+		for _, index := range indexesForParticipantUsersCollection {
+			if index.Options.Name == nil {
+				slog.Error("Index name is nil for participant users collection", slog.String("index", fmt.Sprintf("%+v", index)))
+				continue
+			}
+			indexName := *index.Options.Name
+			_, err := dbService.collectionParticipantUsers(instanceID).Indexes().DropOne(ctx, indexName)
+			if err != nil {
+				slog.Error("Error dropping index for participant users", slog.String("error", err.Error()), slog.String("indexName", indexName))
+			}
+		}
 	}
+}
+
+func (dbService *ParticipantUserDBService) CreateDefaultIndexesForParticipantUsersCollection(instanceID string) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
 
 	_, err := dbService.collectionParticipantUsers(instanceID).Indexes().CreateMany(
-		ctx, []mongo.IndexModel{
-			{
-				Keys: bson.D{
-					{Key: "timestamps.markedForDeletion", Value: 1},
-				},
-			},
-			{
-				Keys: bson.D{
-					{Key: "account.accountID", Value: 1},
-				},
-			},
-			{
-				Keys: bson.D{
-					{Key: "timestamps.createdAt", Value: 1},
-				},
-			},
-			{
-				Keys: bson.D{
-					{Key: "account.accountConfirmedAt", Value: 1},
-					{Key: "timestamps.createdAt", Value: 1},
-				},
-			},
-			{
-				Keys: bson.D{
-					{Key: "contactPreferences.receiveWeeklyMessageDayOfWeek", Value: 1},
-				},
-			},
-		},
+		ctx, indexesForParticipantUsersCollection,
 	)
-	return err
+	if err != nil {
+		slog.Error("Error creating index for participant users", slog.String("error", err.Error()))
+	}
 }
 
 func (dbService *ParticipantUserDBService) FixFieldNameForContactInfos(instanceID string) error {

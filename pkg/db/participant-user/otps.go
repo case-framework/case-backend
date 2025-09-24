@@ -2,6 +2,7 @@ package participantuser
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -16,32 +17,54 @@ const (
 	OTP_TTL = 60 * 15
 )
 
-func (dbService *ParticipantUserDBService) CreateIndexForOTPs(instanceID string) error {
+var indexesForOTPsCollection = []mongo.IndexModel{
+	{
+		Keys: bson.D{
+			{Key: "userID", Value: 1},
+			{Key: "code", Value: 1},
+		},
+		Options: options.Index().SetUnique(true).SetName("userID_code_1"),
+	},
+	{
+		Keys: bson.D{
+			{Key: "createdAt", Value: 1},
+		},
+		Options: options.Index().SetExpireAfterSeconds(OTP_TTL).SetName("createdAt_1"),
+	},
+}
+
+func (dbService *ParticipantUserDBService) DropIndexForOTPsCollection(instanceID string, dropAll bool) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	if _, err := dbService.collectionOTPs(instanceID).Indexes().DropAll(ctx); err != nil {
-		slog.Error("Error dropping indexes for OTPs", slog.String("error", err.Error()))
+	if dropAll {
+		_, err := dbService.collectionOTPs(instanceID).Indexes().DropAll(ctx)
+		if err != nil {
+			slog.Error("Error dropping all indexes for OTPs", slog.String("error", err.Error()))
+		}
+	} else {
+		for _, index := range indexesForOTPsCollection {
+			if index.Options.Name == nil {
+				slog.Error("Index name is nil for OTPs collection", slog.String("index", fmt.Sprintf("%+v", index)))
+				continue
+			}
+			indexName := *index.Options.Name
+			_, err := dbService.collectionOTPs(instanceID).Indexes().DropOne(ctx, indexName)
+			if err != nil {
+				slog.Error("Error dropping index for OTPs", slog.String("error", err.Error()), slog.String("indexName", indexName))
+			}
+		}
 	}
+}
 
-	_, err := dbService.collectionOTPs(instanceID).Indexes().CreateMany(
-		ctx, []mongo.IndexModel{
-			{
-				Keys: bson.D{
-					{Key: "userID", Value: 1},
-					{Key: "code", Value: 1},
-				},
-				Options: options.Index().SetUnique(true),
-			},
-			{
-				Keys: bson.D{
-					{Key: "createdAt", Value: 1},
-				},
-				Options: options.Index().SetExpireAfterSeconds(OTP_TTL),
-			},
-		},
-	)
-	return err
+func (dbService *ParticipantUserDBService) CreateDefaultIndexesForOTPsCollection(instanceID string) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	_, err := dbService.collectionOTPs(instanceID).Indexes().CreateMany(ctx, indexesForOTPsCollection)
+	if err != nil {
+		slog.Error("Error creating index for OTPs", slog.String("error", err.Error()))
+	}
 }
 
 func (dbService *ParticipantUserDBService) CreateOTP(instanceID string, userID string, code string, t userTypes.OTPType, maxOTPCount int64) error {

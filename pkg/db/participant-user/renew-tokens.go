@@ -2,6 +2,7 @@ package participantuser
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -17,44 +18,70 @@ const (
 	RENEW_TOKEN_DEFAULT_LIFETIME = 60 * 60 * 24 * 90
 )
 
-func (dbService *ParticipantUserDBService) CreateIndexForRenewTokens(instanceID string) error {
+var indexesForRenewTokensCollection = []mongo.IndexModel{
+	{
+		Keys: bson.D{
+			{Key: "userID", Value: 1},
+			{Key: "renewToken", Value: 1},
+			{Key: "expiresAt", Value: 1},
+		},
+		Options: options.Index().SetName("userID_renewToken_expiresAt_1"),
+	},
+	{
+		Keys: bson.D{
+			{Key: "userID", Value: 1},
+			{Key: "sessionID", Value: 1},
+		},
+		Options: options.Index().SetName("userID_sessionID_1"),
+	},
+	{
+		Keys: bson.D{
+			{Key: "expiresAt", Value: 1},
+		},
+		Options: options.Index().SetExpireAfterSeconds(RENEW_TOKEN_GRACE_PERIOD).SetName("expiresAt_1"),
+	},
+	{
+		Keys: bson.D{
+			{Key: "renewToken", Value: 1},
+		},
+		Options: options.Index().SetUnique(true).SetName("renewToken_1"),
+	},
+}
+
+func (dbService *ParticipantUserDBService) DropIndexForRenewTokensCollection(instanceID string, dropAll bool) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	if _, err := dbService.collectionRenewTokens(instanceID).Indexes().DropAll(ctx); err != nil {
-		slog.Error("Error dropping indexes for renew tokens", slog.String("error", err.Error()))
+	if dropAll {
+		_, err := dbService.collectionRenewTokens(instanceID).Indexes().DropAll(ctx)
+		if err != nil {
+			slog.Error("Error dropping all indexes for renew tokens", slog.String("error", err.Error()))
+		}
+	} else {
+		for _, index := range indexesForRenewTokensCollection {
+			if index.Options.Name == nil {
+				slog.Error("Index name is nil for renew tokens collection", slog.String("index", fmt.Sprintf("%+v", index)))
+				continue
+			}
+			indexName := *index.Options.Name
+			_, err := dbService.collectionRenewTokens(instanceID).Indexes().DropOne(ctx, indexName)
+			if err != nil {
+				slog.Error("Error dropping index for renew tokens", slog.String("error", err.Error()), slog.String("indexName", indexName))
+			}
+		}
 	}
+}
+
+func (dbService *ParticipantUserDBService) CreateDefaultIndexesForRenewTokensCollection(instanceID string) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
 
 	_, err := dbService.collectionRenewTokens(instanceID).Indexes().CreateMany(
-		ctx, []mongo.IndexModel{
-			{
-				Keys: bson.D{
-					{Key: "userID", Value: 1},
-					{Key: "renewToken", Value: 1},
-					{Key: "expiresAt", Value: 1},
-				},
-			},
-			{
-				Keys: bson.D{
-					{Key: "userID", Value: 1},
-					{Key: "sessionID", Value: 1},
-				},
-			},
-			{
-				Keys: bson.D{
-					{Key: "expiresAt", Value: 1},
-				},
-				Options: options.Index().SetExpireAfterSeconds(RENEW_TOKEN_GRACE_PERIOD),
-			},
-			{
-				Keys: bson.D{
-					{Key: "renewToken", Value: 1},
-				},
-				Options: options.Index().SetUnique(true),
-			},
-		},
+		ctx, indexesForRenewTokensCollection,
 	)
-	return err
+	if err != nil {
+		slog.Error("Error creating index for renew tokens", slog.String("error", err.Error()))
+	}
 }
 
 func (dbService *ParticipantUserDBService) CreateRenewToken(instanceID string, userID string, token string, lifeTimeInSec int, sessionID string) error {
