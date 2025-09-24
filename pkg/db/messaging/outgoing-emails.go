@@ -40,22 +40,6 @@ func (dbService *MessagingDBService) AddToOutgoingEmails(instanceID string, emai
 	return email, nil
 }
 
-func (dbService *MessagingDBService) AddToSentEmails(instanceID string, email messagingTypes.OutgoingEmail) (messagingTypes.OutgoingEmail, error) {
-	ctx, cancel := dbService.getContext()
-	defer cancel()
-	email.Content = ""
-	email.SentAt = time.Now().UTC()
-	email.To = []string{}
-
-	email.ID = primitive.NilObjectID
-	res, err := dbService.collectionSentEmails(instanceID).InsertOne(ctx, email)
-	if err != nil {
-		return email, err
-	}
-	email.ID = res.InsertedID.(primitive.ObjectID)
-	return email, nil
-}
-
 func (dbService *MessagingDBService) GetSentEmailsForUser(instanceID string, userID string) (emails []messagingTypes.OutgoingEmail, err error) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
