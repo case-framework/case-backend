@@ -14,46 +14,71 @@ import (
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
-func (dbService *StudyDBService) CreateIndexForParticipantsCollection(instanceID string, studyKey string) error {
+var indexesForParticipantsCollection = []mongo.IndexModel{
+	{
+		Keys: bson.D{
+			{Key: "participantID", Value: 1},
+		},
+		Options: options.Index().SetUnique(true).SetName("participantID_1"),
+	},
+	{
+		Keys: bson.D{
+			{Key: "studyStatus", Value: 1},
+		},
+		Options: options.Index().SetName("studyStatus_1"),
+	},
+	{
+		Keys: bson.D{
+			{Key: "enteredAt", Value: 1},
+		},
+		Options: options.Index().SetName("enteredAt_1"),
+	},
+	{
+		Keys: bson.D{
+			{Key: "messages.scheduledFor", Value: 1},
+			{Key: "studyStatus", Value: 1},
+		},
+		Options: options.Index().SetName("messages_scheduledFor_studyStatus_1"),
+	},
+	{
+		Keys: bson.D{
+			{Key: "messages.scheduledFor", Value: 1},
+		},
+		Options: options.Index().SetName("messages_scheduledFor_1"),
+	},
+}
+
+func (dbService *StudyDBService) DropIndexForParticipantsCollection(instanceID string, studyKey string, dropAll bool) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	if _, err := dbService.collectionParticipants(instanceID, studyKey).Indexes().DropAll(ctx); err != nil {
-		slog.Error("Error dropping indexes for participants", slog.String("error", err.Error()))
+	collection := dbService.collectionParticipants(instanceID, studyKey)
+
+	if dropAll {
+		_, err := collection.Indexes().DropAll(ctx)
+		if err != nil {
+			slog.Error("Error dropping all indexes for participants", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
+		}
 	}
 
-	collection := dbService.collectionParticipants(instanceID, studyKey)
-	indexes := []mongo.IndexModel{
-		{
-			Keys: bson.D{
-				{Key: "participantID", Value: 1},
-			},
-			Options: options.Index().SetUnique(true),
-		},
-		{
-			Keys: bson.D{
-				{Key: "studyStatus", Value: 1},
-			},
-		},
-		{
-			Keys: bson.D{
-				{Key: "enteredAt", Value: 1},
-			},
-		},
-		{
-			Keys: bson.D{
-				{Key: "messages.scheduledFor", Value: 1},
-				{Key: "studyStatus", Value: 1},
-			},
-		},
-		{
-			Keys: bson.D{
-				{Key: "messages.scheduledFor", Value: 1},
-			},
-		},
+	for _, index := range indexesForParticipantsCollection {
+		indexName := *index.Options.Name
+		_, err := collection.Indexes().DropOne(ctx, indexName)
+		if err != nil {
+			slog.Error("Error dropping index for participants", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("indexName", indexName))
+		}
 	}
-	_, err := collection.Indexes().CreateMany(ctx, indexes)
-	return err
+}
+
+func (dbService *StudyDBService) CreateDefaultIndexesForParticipantsCollection(instanceID string, studyKey string) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	collection := dbService.collectionParticipants(instanceID, studyKey)
+	_, err := collection.Indexes().CreateMany(ctx, indexesForParticipantsCollection)
+	if err != nil {
+		slog.Error("Error creating index for participants", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
+	}
 }
 
 func (dbService *StudyDBService) SaveParticipantState(instanceID string, studyKey string, pState studyTypes.Participant) (studyTypes.Participant, error) {
