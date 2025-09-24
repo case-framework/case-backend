@@ -2,6 +2,7 @@ package managementuser
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -21,52 +22,89 @@ func (dbService *ManagementUserDBService) collectionAppRoleTemplates(instanceID 
 	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_APP_ROLE_TEMPLATES)
 }
 
-func (dbService *ManagementUserDBService) createIndexForAppRoles(instanceID string) error {
-	ctx, cancel := dbService.getContext()
-	defer cancel()
-
-	if _, err := dbService.collectionAppRoles(instanceID).Indexes().DropAll(ctx); err != nil {
-		slog.Error("Error dropping indexes for app roles: ", slog.String("error", err.Error()))
-	}
-
-	idx := []mongo.IndexModel{
-		{
-			Keys:    bson.D{{Key: "subjectId", Value: 1}},
-			Options: options.Index().SetName("app_roles_subjectId_1"),
+var indexesForAppRolesCollection = []mongo.IndexModel{
+	{
+		Keys:    bson.D{{Key: "subjectId", Value: 1}},
+		Options: options.Index().SetName("app_roles_subjectId_1"),
+	},
+	{
+		Keys:    bson.D{{Key: "appName", Value: 1}},
+		Options: options.Index().SetName("app_roles_appName_1"),
+	},
+	{
+		Keys: bson.D{
+			{Key: "subjectType", Value: 1},
+			{Key: "subjectId", Value: 1},
+			{Key: "appName", Value: 1},
+			{Key: "role", Value: 1},
 		},
-		{
-			Keys:    bson.D{{Key: "appName", Value: 1}},
-			Options: options.Index().SetName("app_roles_appName_1"),
-		},
-		{
-			Keys: bson.D{
-				{Key: "subjectType", Value: 1},
-				{Key: "subjectId", Value: 1},
-				{Key: "appName", Value: 1},
-				{Key: "role", Value: 1},
-			},
-			Options: options.Index().SetName("uniq_subjectType_subjectId_appName_role").SetUnique(true),
-		},
-	}
-	_, err := dbService.collectionAppRoles(instanceID).Indexes().CreateMany(ctx, idx)
-	return err
+		Options: options.Index().SetName("uniq_subjectType_subjectId_appName_role").SetUnique(true),
+	},
 }
 
-func (dbService *ManagementUserDBService) createIndexForAppRoleTemplates(instanceID string) error {
+func (dbService *ManagementUserDBService) DropIndexForAppRolesCollection(instanceID string, dropAll bool) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
-	idx := []mongo.IndexModel{
-		{
-			Keys:    bson.D{{Key: "appName", Value: 1}, {Key: "role", Value: 1}},
-			Options: options.Index().SetName("uniq_appName_role").SetUnique(true),
-		},
-		{
-			Keys:    bson.D{{Key: "appName", Value: 1}},
-			Options: options.Index().SetName("app_role_templates_appName_1"),
-		},
+	if dropAll {
+		_, err := dbService.collectionAppRoles(instanceID).Indexes().DropAll(ctx)
+		if err != nil {
+			slog.Error("Error dropping all indexes for app roles", slog.String("error", err.Error()))
+		}
+	} else {
+		for _, index := range indexesForAppRolesCollection {
+			if index.Options.Name == nil {
+				slog.Error("Index name is nil for app roles collection", slog.String("index", fmt.Sprintf("%+v", index)))
+				continue
+			}
+			indexName := *index.Options.Name
+			_, err := dbService.collectionAppRoles(instanceID).Indexes().DropOne(ctx, indexName)
+			if err != nil {
+				slog.Error("Error dropping index for app roles", slog.String("error", err.Error()), slog.String("indexName", indexName))
+			}
+		}
 	}
-	_, err := dbService.collectionAppRoleTemplates(instanceID).Indexes().CreateMany(ctx, idx)
-	return err
+}
+
+func (dbService *ManagementUserDBService) CreateDefaultIndexesForAppRolesCollection(instanceID string) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	_, err := dbService.collectionAppRoles(instanceID).Indexes().CreateMany(ctx, indexesForAppRolesCollection)
+	if err != nil {
+		slog.Error("Error creating index for app roles", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
+	}
+}
+
+var indexesForAppRoleTemplatesCollection = []mongo.IndexModel{
+	{
+		Keys:    bson.D{{Key: "appName", Value: 1}, {Key: "role", Value: 1}},
+		Options: options.Index().SetName("uniq_appName_role").SetUnique(true),
+	},
+	{
+		Keys:    bson.D{{Key: "appName", Value: 1}},
+		Options: options.Index().SetName("app_role_templates_appName_1"),
+	},
+}
+
+func (dbService *ManagementUserDBService) DropIndexForAppRoleTemplatesCollection(instanceID string, dropAll bool) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+	if dropAll {
+		_, err := dbService.collectionAppRoleTemplates(instanceID).Indexes().DropAll(ctx)
+		if err != nil {
+			slog.Error("Error dropping all indexes for app role templates", slog.String("error", err.Error()))
+		}
+	}
+}
+
+func (dbService *ManagementUserDBService) CreateDefaultIndexesForAppRoleTemplatesCollection(instanceID string) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	_, err := dbService.collectionAppRoleTemplates(instanceID).Indexes().CreateMany(ctx, indexesForAppRoleTemplatesCollection)
+	if err != nil {
+		slog.Error("Error creating index for app role templates", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
+	}
 }
 
 /// App role templates

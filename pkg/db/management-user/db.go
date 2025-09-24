@@ -63,12 +63,6 @@ func NewManagementUserDBService(configs db.DBConfig) (*ManagementUserDBService, 
 		InstanceIDs:     configs.InstanceIDs,
 	}
 
-	if configs.RunIndexCreation {
-		if err := muDBSc.ensureIndexes(); err != nil {
-			slog.Error("Error ensuring indexes for management user DB", slog.String("error", err.Error()))
-		}
-	}
-
 	return muDBSc, nil
 }
 
@@ -88,6 +82,30 @@ func (dbService *ManagementUserDBService) getContext() (ctx context.Context, can
 	return context.WithTimeout(context.Background(), time.Duration(dbService.timeout)*time.Second)
 }
 
+func (dbService *ManagementUserDBService) CreateDefaultIndexes() {
+	slog.Debug("Creating default indexes for management user DB")
+	for _, instanceID := range dbService.InstanceIDs {
+		dbService.CreateDefaultIndexesForAppRolesCollection(instanceID)
+		dbService.CreateDefaultIndexesForAppRoleTemplatesCollection(instanceID)
+		// management users
+		// permissions
+		// service users
+		// sessions
+	}
+}
+
+func (dbService *ManagementUserDBService) DropIndexes(dropAll bool) {
+
+	for _, instanceID := range dbService.InstanceIDs {
+		dbService.DropIndexForAppRolesCollection(instanceID, dropAll)
+		dbService.DropIndexForAppRoleTemplatesCollection(instanceID, dropAll)
+		// management users
+		// permissions
+		// service users
+		// sessions
+	}
+}
+
 func (dbService *ManagementUserDBService) ensureIndexes() error {
 	slog.Debug("Ensuring indexes for management user DB")
 	for _, instanceID := range dbService.InstanceIDs {
@@ -100,16 +118,6 @@ func (dbService *ManagementUserDBService) ensureIndexes() error {
 		// create index for permissions
 		if err := dbService.createIndexForPermissions(instanceID); err != nil {
 			slog.Error("Error creating index for permissions in userDB.permissions", slog.String("error", err.Error()))
-		}
-
-		// create index for app roles
-		if err := dbService.createIndexForAppRoles(instanceID); err != nil {
-			slog.Error("Error creating index for app roles in userDB.app_roles", slog.String("error", err.Error()))
-		}
-
-		// create index for app role templates
-		if err := dbService.createIndexForAppRoleTemplates(instanceID); err != nil {
-			slog.Error("Error creating index for app role templates in userDB.app_role_templates", slog.String("error", err.Error()))
 		}
 
 		// create index for sessions
