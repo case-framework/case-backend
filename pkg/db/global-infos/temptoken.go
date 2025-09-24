@@ -2,6 +2,7 @@ package globalinfos
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -46,6 +47,10 @@ func (dbService *GlobalInfosDBService) DropIndexForTemptokensCollection(dropAll 
 		}
 	} else {
 		for _, index := range indexesForTemptokensCollection {
+			if index.Options.Name == nil {
+				slog.Error("Index name is nil for temptokens collection", slog.String("index", fmt.Sprintf("%+v", index)))
+				continue
+			}
 			indexName := *index.Options.Name
 			_, err := dbService.collectionTemptokens().Indexes().DropOne(ctx, indexName)
 			if err != nil {
