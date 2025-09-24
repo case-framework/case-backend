@@ -14,30 +14,49 @@ type BlockedJwt struct {
 	ExpiresAt time.Time `bson:"expiresAt"`
 }
 
-func (dbService *GlobalInfosDBService) CreateIndexForBlockedJwts() error {
+var indexesForBlockedJwtsCollection = []mongo.IndexModel{
+	{
+		Keys: bson.D{
+			{Key: "token", Value: 1},
+		},
+		Options: options.Index().SetName("token_1"),
+	},
+	{
+		Keys: bson.D{
+			{Key: "expiresAt", Value: 1},
+		},
+		Options: options.Index().SetExpireAfterSeconds(0).SetName("expiresAt_1"),
+	},
+}
+
+func (dbService *GlobalInfosDBService) DropIndexForBlockedJwtsCollection(dropAll bool) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	if _, err := dbService.collectionBlockedJwts().Indexes().DropAll(ctx); err != nil {
-		slog.Error("Error dropping indexes for blocked jwts", slog.String("error", err.Error()))
+	if dropAll {
+		_, err := dbService.collectionBlockedJwts().Indexes().DropAll(ctx)
+		if err != nil {
+			slog.Error("Error dropping all indexes for blocked jwts", slog.String("error", err.Error()))
+		}
+	} else {
+		for _, index := range indexesForBlockedJwtsCollection {
+			indexName := *index.Options.Name
+			_, err := dbService.collectionBlockedJwts().Indexes().DropOne(ctx, indexName)
+			if err != nil {
+				slog.Error("Error dropping index for blocked jwts", slog.String("error", err.Error()), slog.String("indexName", indexName))
+			}
+		}
 	}
+}
 
-	_, err := dbService.collectionBlockedJwts().Indexes().CreateMany(
-		ctx, []mongo.IndexModel{
-			{
-				Keys: bson.D{
-					{Key: "token", Value: 1},
-				},
-			},
-			{
-				Keys: bson.D{
-					{Key: "expiresAt", Value: 1},
-				},
-				Options: options.Index().SetExpireAfterSeconds(0),
-			},
-		},
-	)
-	return err
+func (dbService *GlobalInfosDBService) CreateDefaultIndexesForBlockedJwtsCollection() {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	_, err := dbService.collectionBlockedJwts().Indexes().CreateMany(ctx, indexesForBlockedJwtsCollection)
+	if err != nil {
+		slog.Error("Error creating index for blocked jwts", slog.String("error", err.Error()))
+	}
 }
 
 // AddBlockedJwt adds a JWT token to the blocked list with the specified expiration time
