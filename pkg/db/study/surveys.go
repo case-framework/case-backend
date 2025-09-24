@@ -13,44 +13,68 @@ import (
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
-func (dbService *StudyDBService) CreateIndexForSurveyCollection(instanceID string, studyKey string) error {
+var indexesForSurveysCollection = []mongo.IndexModel{
+	{
+		Keys: bson.D{
+			{Key: "surveyDefinition.key", Value: 1},
+			{Key: "unpublished", Value: 1},
+			{Key: "published", Value: -1},
+		},
+		Options: options.Index().SetName("surveyDefinition.key_unpublished_published_1"),
+	},
+	{
+		Keys: bson.D{
+			{Key: "published", Value: 1},
+			{Key: "surveyDefinition.key", Value: 1},
+		},
+		Options: options.Index().SetName("published_surveyDefinition.key_1"),
+	},
+	{
+		Keys: bson.D{
+			{Key: "unpublished", Value: 1},
+		},
+		Options: options.Index().SetName("unpublished_1"),
+	},
+	{
+		Keys: bson.D{
+			{Key: "surveyDefinition.key", Value: 1},
+			{Key: "versionID", Value: 1},
+		},
+		Options: options.Index().SetName("surveyDefinition.key_versionID_1").SetUnique(true),
+	},
+}
+
+func (dbService *StudyDBService) DropIndexForSurveysCollection(instanceID string, studyKey string, dropAll bool) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	if _, err := dbService.collectionSurveys(instanceID, studyKey).Indexes().DropAll(ctx); err != nil {
-		slog.Error("Error dropping indexes for surveys", slog.String("error", err.Error()))
+	if dropAll {
+		_, err := dbService.collectionSurveys(instanceID, studyKey).Indexes().DropAll(ctx)
+		if err != nil {
+			slog.Error("Error dropping all indexes for surveys", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
+		}
+		return
+	} else {
+		for _, index := range indexesForSurveysCollection {
+			indexName := *index.Options.Name
+			_, err := dbService.collectionSurveys(instanceID, studyKey).Indexes().DropOne(ctx, indexName)
+			if err != nil {
+				slog.Error("Error dropping index for surveys", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("indexName", indexName))
+			}
+		}
+		return
 	}
+}
+
+func (dbService *StudyDBService) CreateDefaultIndexesForSurveysCollection(instanceID string, studyKey string) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
 
 	collection := dbService.collectionSurveys(instanceID, studyKey)
-	indexes := []mongo.IndexModel{
-		{
-			Keys: bson.D{
-				{Key: "surveyDefinition.key", Value: 1},
-				{Key: "unpublished", Value: 1},
-				{Key: "published", Value: -1},
-			},
-		},
-		{
-			Keys: bson.D{
-				{Key: "published", Value: 1},
-				{Key: "surveyDefinition.key", Value: 1},
-			},
-		},
-		{
-			Keys: bson.D{
-				{Key: "unpublished", Value: 1},
-			},
-		},
-		{
-			Keys: bson.D{
-				{Key: "surveyDefinition.key", Value: 1},
-				{Key: "versionID", Value: 1},
-			},
-			Options: options.Index().SetUnique(true),
-		},
+	_, err := collection.Indexes().CreateMany(ctx, indexesForSurveysCollection)
+	if err != nil {
+		slog.Error("Error creating index for surveys", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 	}
-	_, err := collection.Indexes().CreateMany(ctx, indexes)
-	return err
 }
 
 func (dbService *StudyDBService) SaveSurveyVersion(instanceID string, studyKey string, survey *studyTypes.Survey) (err error) {
