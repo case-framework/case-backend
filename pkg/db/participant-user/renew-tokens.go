@@ -60,7 +60,7 @@ func (dbService *ParticipantUserDBService) DropIndexForRenewTokensCollection(ins
 	} else {
 		for _, index := range indexesForRenewTokensCollection {
 			if index.Options.Name == nil {
-				slog.Error("Index name is nil for renew tokens collection: ", slog.String("index", fmt.Sprintf("%+v", index)))
+				slog.Error("Index name is nil for renew tokens collection", slog.String("index", fmt.Sprintf("%+v", index)))
 				continue
 			}
 			indexName := *index.Options.Name

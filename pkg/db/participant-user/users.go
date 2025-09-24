@@ -61,7 +61,7 @@ func (dbService *ParticipantUserDBService) DropIndexForParticipantUsersCollectio
 	} else {
 		for _, index := range indexesForParticipantUsersCollection {
 			if index.Options.Name == nil {
-				slog.Error("Index name is nil for participant users collection: ", slog.String("index", fmt.Sprintf("%+v", index)))
+				slog.Error("Index name is nil for participant users collection", slog.String("index", fmt.Sprintf("%+v", index)))
 				continue
 			}
 			indexName := *index.Options.Name
