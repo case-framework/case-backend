@@ -1,6 +1,7 @@
 package managementuser
 
 import (
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -18,33 +19,52 @@ func (dbService *ManagementUserDBService) collectionServiceUserAPIKeys(instanceI
 	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_SERVICE_USER_API_KEYS)
 }
 
-func (dbService *ManagementUserDBService) createIndexForServiceUserAPIKeys(instanceID string) {
+var indexesForServiceUserAPIKeysCollection = []mongo.IndexModel{
+	{
+		Keys: bson.D{
+			{Key: "key", Value: 1},
+		},
+		Options: options.Index().SetUnique(true).SetName("key_1"),
+	},
+	{
+		Keys: bson.D{
+			{Key: "expiresAt", Value: 1},
+		},
+		Options: options.Index().SetExpireAfterSeconds(0).SetName("expiresAt_1"),
+	},
+}
+
+func (dbService *ManagementUserDBService) DropIndexForServiceUserAPIKeysCollection(instanceID string, dropAll bool) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	if _, err := dbService.collectionServiceUserAPIKeys(instanceID).Indexes().DropAll(ctx); err != nil {
-		slog.Error("Error dropping indexes for service user API keys: ", slog.String("error", err.Error()))
+	if dropAll {
+		_, err := dbService.collectionServiceUserAPIKeys(instanceID).Indexes().DropAll(ctx)
+		if err != nil {
+			slog.Error("Error dropping all indexes for service user API keys: ", slog.String("error", err.Error()))
+		}
+	} else {
+		for _, index := range indexesForServiceUserAPIKeysCollection {
+			if index.Options.Name == nil {
+				slog.Error("Index name is nil for service user API keys collection: ", slog.String("index", fmt.Sprintf("%+v", index)))
+				continue
+			}
+			indexName := *index.Options.Name
+			_, err := dbService.collectionServiceUserAPIKeys(instanceID).Indexes().DropOne(ctx, indexName)
+			if err != nil {
+				slog.Error("Error dropping index for service user API keys: ", slog.String("error", err.Error()), slog.String("indexName", indexName))
+			}
+		}
 	}
+}
 
-	_, err := dbService.collectionServiceUserAPIKeys(instanceID).Indexes().CreateMany(
-		ctx,
-		[]mongo.IndexModel{
-			{
-				Keys: bson.D{
-					{Key: "key", Value: 1},
-				},
-				Options: options.Index().SetUnique(true),
-			},
-			{
-				Keys: bson.D{
-					{Key: "expiresAt", Value: 1},
-				},
-				Options: options.Index().SetExpireAfterSeconds(0),
-			},
-		},
-	)
+func (dbService *ManagementUserDBService) CreateDefaultIndexesForServiceUserAPIKeysCollection(instanceID string) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	_, err := dbService.collectionServiceUserAPIKeys(instanceID).Indexes().CreateMany(ctx, indexesForServiceUserAPIKeysCollection)
 	if err != nil {
-		slog.Error("Error creating index for service user api keys", slog.String("error", err.Error()))
+		slog.Error("Error creating index for service user API keys: ", slog.String("error", err.Error()))
 	}
 }
 

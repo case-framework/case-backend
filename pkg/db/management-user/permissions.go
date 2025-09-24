@@ -1,34 +1,59 @@
 package managementuser
 
 import (
+	"fmt"
 	"log/slog"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func (dbService *ManagementUserDBService) createIndexForPermissions(instanceID string) error {
+var indexesForPermissionsCollection = []mongo.IndexModel{
+	{
+		Keys: bson.D{
+			{Key: "subjectId", Value: 1},
+			{Key: "subjectType", Value: 1},
+			{Key: "resourceType", Value: 1},
+			{Key: "resourceKey", Value: 1},
+			{Key: "action", Value: 1},
+		},
+		Options: options.Index().SetName("uniq_subjectId_subjectType_resourceType_resourceKey_action"),
+	},
+}
+
+func (dbService *ManagementUserDBService) DropIndexForPermissionsCollection(instanceID string, dropAll bool) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	if _, err := dbService.collectionPermissions(instanceID).Indexes().DropAll(ctx); err != nil {
-		slog.Error("Error dropping indexes for permissions: ", slog.String("error", err.Error()))
+	if dropAll {
+		_, err := dbService.collectionPermissions(instanceID).Indexes().DropAll(ctx)
+		if err != nil {
+			slog.Error("Error dropping all indexes for permissions: ", slog.String("error", err.Error()))
+		}
+	} else {
+		for _, index := range indexesForPermissionsCollection {
+			if index.Options.Name == nil {
+				slog.Error("Index name is nil for permissions collection: ", slog.String("index", fmt.Sprintf("%+v", index)))
+				continue
+			}
+			indexName := *index.Options.Name
+			_, err := dbService.collectionPermissions(instanceID).Indexes().DropOne(ctx, indexName)
+			if err != nil {
+				slog.Error("Error dropping index for permissions: ", slog.String("error", err.Error()), slog.String("indexName", indexName))
+			}
+		}
 	}
+}
 
-	_, err := dbService.collectionPermissions(instanceID).Indexes().CreateOne(
-		ctx,
-		mongo.IndexModel{
-			Keys: bson.D{
-				{Key: "subjectId", Value: 1},
-				{Key: "subjectType", Value: 1},
-				{Key: "resourceType", Value: 1},
-				{Key: "resourceKey", Value: 1},
-				{Key: "action", Value: 1},
-			},
-		},
-	)
-	return err
+func (dbService *ManagementUserDBService) CreateDefaultIndexesForPermissionsCollection(instanceID string) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+	_, err := dbService.collectionPermissions(instanceID).Indexes().CreateMany(ctx, indexesForPermissionsCollection)
+	if err != nil {
+		slog.Error("Error creating index for permissions: ", slog.String("error", err.Error()))
+	}
 }
 
 // Create permission

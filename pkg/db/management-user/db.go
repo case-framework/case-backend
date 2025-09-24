@@ -2,7 +2,6 @@ package managementuser
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/db"
@@ -83,50 +82,23 @@ func (dbService *ManagementUserDBService) getContext() (ctx context.Context, can
 }
 
 func (dbService *ManagementUserDBService) CreateDefaultIndexes() {
-	slog.Debug("Creating default indexes for management user DB")
 	for _, instanceID := range dbService.InstanceIDs {
 		dbService.CreateDefaultIndexesForAppRolesCollection(instanceID)
 		dbService.CreateDefaultIndexesForAppRoleTemplatesCollection(instanceID)
-		// management users
-		// permissions
-		// service users
-		// sessions
+		dbService.CreateDefaultIndexesForManagementUsersCollection(instanceID)
+		dbService.CreateDefaultIndexesForPermissionsCollection(instanceID)
+		dbService.CreateDefaultIndexesForServiceUserAPIKeysCollection(instanceID)
+		dbService.CreateDefaultIndexesForSessionsCollection(instanceID)
 	}
 }
 
 func (dbService *ManagementUserDBService) DropIndexes(dropAll bool) {
-
 	for _, instanceID := range dbService.InstanceIDs {
 		dbService.DropIndexForAppRolesCollection(instanceID, dropAll)
 		dbService.DropIndexForAppRoleTemplatesCollection(instanceID, dropAll)
-		// management users
-		// permissions
-		// service users
-		// sessions
+		dbService.DropIndexForManagementUsersCollection(instanceID, dropAll)
+		dbService.DropIndexForPermissionsCollection(instanceID, dropAll)
+		dbService.DropIndexForServiceUserAPIKeysCollection(instanceID, dropAll)
+		dbService.DropIndexForSessionsCollection(instanceID, dropAll)
 	}
-}
-
-func (dbService *ManagementUserDBService) ensureIndexes() error {
-	slog.Debug("Ensuring indexes for management user DB")
-	for _, instanceID := range dbService.InstanceIDs {
-
-		// create unique index for sub
-		if err := dbService.createIndexForManagementUsers(instanceID); err != nil {
-			slog.Error("Error creating unique index for sub in userDB.management_users", slog.String("error", err.Error()))
-		}
-
-		// create index for permissions
-		if err := dbService.createIndexForPermissions(instanceID); err != nil {
-			slog.Error("Error creating index for permissions in userDB.permissions", slog.String("error", err.Error()))
-		}
-
-		// create index for sessions
-		if err := dbService.createIndexForSessions(instanceID); err != nil {
-			slog.Error("Error creating index for userDB.sessions: ", slog.String("error", err.Error()))
-		}
-
-		dbService.createIndexForServiceUserAPIKeys(instanceID)
-	}
-
-	return nil
 }
