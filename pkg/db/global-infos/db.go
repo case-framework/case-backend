@@ -2,6 +2,7 @@ package globalinfos
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/db"
@@ -73,11 +74,18 @@ func (dbService *GlobalInfosDBService) collectionBlockedJwts() *mongo.Collection
 }
 
 func (dbService *GlobalInfosDBService) DropIndexes(all bool) {
+	start := time.Now()
+	slog.Info("Dropping indexes for global infos DB")
 	dbService.DropIndexForBlockedJwtsCollection(all)
 	dbService.DropIndexForTemptokensCollection(all)
+	slog.Info("Indexes dropped for global infos DB", slog.String("duration", time.Since(start).String()))
 }
 
 func (dbService *GlobalInfosDBService) CreateDefaultIndexes() {
+	start := time.Now()
+	slog.Info("Creating default indexes for global infos DB")
 	dbService.CreateDefaultIndexesForBlockedJwtsCollection()
 	dbService.CreateDefaultIndexesForTemptokensCollection()
+	slog.Info("Default indexes created for global infos DB", slog.String("duration", time.Since(start).String()))
+
 }

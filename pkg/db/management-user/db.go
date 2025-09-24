@@ -2,6 +2,7 @@ package managementuser
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/db"
@@ -83,22 +84,28 @@ func (dbService *ManagementUserDBService) getContext() (ctx context.Context, can
 
 func (dbService *ManagementUserDBService) CreateDefaultIndexes() {
 	for _, instanceID := range dbService.InstanceIDs {
+		start := time.Now()
+		slog.Info("Creating default indexes for management user DB", slog.String("instanceID", instanceID))
 		dbService.CreateDefaultIndexesForAppRolesCollection(instanceID)
 		dbService.CreateDefaultIndexesForAppRoleTemplatesCollection(instanceID)
 		dbService.CreateDefaultIndexesForManagementUsersCollection(instanceID)
 		dbService.CreateDefaultIndexesForPermissionsCollection(instanceID)
 		dbService.CreateDefaultIndexesForServiceUserAPIKeysCollection(instanceID)
 		dbService.CreateDefaultIndexesForSessionsCollection(instanceID)
+		slog.Info("Default indexes created for management user DB", slog.String("instanceID", instanceID), slog.String("duration", time.Since(start).String()))
 	}
 }
 
 func (dbService *ManagementUserDBService) DropIndexes(dropAll bool) {
 	for _, instanceID := range dbService.InstanceIDs {
+		start := time.Now()
+		slog.Info("Dropping indexes for management user DB", slog.String("instanceID", instanceID))
 		dbService.DropIndexForAppRolesCollection(instanceID, dropAll)
 		dbService.DropIndexForAppRoleTemplatesCollection(instanceID, dropAll)
 		dbService.DropIndexForManagementUsersCollection(instanceID, dropAll)
 		dbService.DropIndexForPermissionsCollection(instanceID, dropAll)
 		dbService.DropIndexForServiceUserAPIKeysCollection(instanceID, dropAll)
 		dbService.DropIndexForSessionsCollection(instanceID, dropAll)
+		slog.Info("Indexes dropped for management user DB", slog.String("instanceID", instanceID), slog.String("duration", time.Since(start).String()))
 	}
 }
