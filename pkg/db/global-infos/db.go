@@ -2,7 +2,6 @@ package globalinfos
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/db"
@@ -54,9 +53,6 @@ func NewGlobalInfosDBService(configs db.DBConfig) (*GlobalInfosDBService, error)
 		InstanceIDs:     configs.InstanceIDs,
 	}
 
-	if configs.RunIndexCreation {
-		giDBSc.ensureIndexes()
-	}
 	return giDBSc, nil
 }
 
@@ -76,16 +72,12 @@ func (dbService *GlobalInfosDBService) collectionBlockedJwts() *mongo.Collection
 	return dbService.DBClient.Database(dbService.getDBName()).Collection(COLLECTION_NAME_BLOCKED_JWTS)
 }
 
-func (dbService *GlobalInfosDBService) ensureIndexes() {
-	slog.Debug("Ensuring indexes for global infos DB")
+func (dbService *GlobalInfosDBService) DropIndexes(all bool) {
+	dbService.DropIndexForBlockedJwtsCollection(all)
+	dbService.DropIndexForTemptokensCollection(all)
+}
 
-	err := dbService.CreateIndexForTemptokens()
-	if err != nil {
-		slog.Debug("Error creating indexes for temp tokens: ", slog.String("error", err.Error()))
-	}
-
-	err = dbService.CreateIndexForBlockedJwts()
-	if err != nil {
-		slog.Debug("Error creating indexes for blocked jwts: ", slog.String("error", err.Error()))
-	}
+func (dbService *GlobalInfosDBService) CreateDefaultIndexes() {
+	dbService.CreateDefaultIndexesForBlockedJwtsCollection()
+	dbService.CreateDefaultIndexesForTemptokensCollection()
 }
