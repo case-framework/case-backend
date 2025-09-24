@@ -11,24 +11,43 @@ import (
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
-func (dbService *StudyDBService) createIndexForStudyInfosCollection(instanceID string) error {
+var indexesForStudyInfosCollection = []mongo.IndexModel{
+	{
+		Keys: bson.D{
+			{Key: "key", Value: 1},
+		},
+		Options: options.Index().SetUnique(true).SetName("key_1"),
+	},
+}
+
+func (dbService *StudyDBService) DropIndexForStudyInfosCollection(instanceID string, dropAll bool) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	if _, err := dbService.collectionStudyInfos(instanceID).Indexes().DropAll(ctx); err != nil {
-		slog.Error("Error dropping indexes for studyInfos", slog.String("error", err.Error()))
+	if dropAll {
+		_, err := dbService.collectionStudyInfos(instanceID).Indexes().DropAll(ctx)
+		if err != nil {
+			slog.Error("Error dropping all indexes for studyInfos", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
+		}
+	} else {
+		for _, index := range indexesForStudyInfosCollection {
+			indexName := *index.Options.Name
+			_, err := dbService.collectionStudyInfos(instanceID).Indexes().DropOne(ctx, indexName)
+			if err != nil {
+				slog.Error("Error dropping index for studyInfos", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("indexName", indexName))
+			}
+		}
 	}
+}
 
-	_, err := dbService.collectionStudyInfos(instanceID).Indexes().CreateOne(
-		ctx,
-		mongo.IndexModel{
-			Keys: bson.D{
-				{Key: "key", Value: 1},
-			},
-			Options: options.Index().SetUnique(true),
-		},
-	)
-	return err
+func (dbService *StudyDBService) CreateDefaultIndexesForStudyInfosCollection(instanceID string) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	_, err := dbService.collectionStudyInfos(instanceID).Indexes().CreateMany(ctx, indexesForStudyInfosCollection)
+	if err != nil {
+		slog.Error("Error creating index for studyInfos", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
+	}
 }
 
 // get studies
@@ -77,28 +96,20 @@ func (dbService *StudyDBService) CreateStudy(instanceID string, study studyTypes
 	studyKey := study.Key
 
 	// index on surveys
-	err = dbService.CreateIndexForSurveyCollection(instanceID, studyKey)
-	if err != nil {
-		slog.Error("Error creating index for surveys: ", slog.String("error", err.Error()))
-	}
+	dbService.CreateDefaultIndexesForSurveysCollection(instanceID, studyKey)
 
 	// index on participants
-	err = dbService.CreateIndexForParticipantsCollection(instanceID, studyKey)
-	if err != nil {
-		slog.Error("Error creating index for participants: ", slog.String("error", err.Error()))
-	}
+	dbService.CreateDefaultIndexesForParticipantsCollection(instanceID, studyKey)
 
 	// index on responses
-	err = dbService.CreateIndexForResponsesCollection(instanceID, studyKey)
-	if err != nil {
-		slog.Error("Error creating index for responses: ", slog.String("error", err.Error()))
-	}
+	dbService.CreateDefaultIndexesForResponsesCollection(instanceID, studyKey)
 
 	// index on reports
-	err = dbService.CreateIndexForReportsCollection(instanceID, studyKey)
-	if err != nil {
-		slog.Error("Error creating index for reports: ", slog.String("error", err.Error()))
-	}
+	dbService.CreateDefaultIndexesForReportsCollection(instanceID, studyKey)
+
+	// index on confidential responses
+	dbService.CreateDefaultIndexesForConfidentialResponsesCollection(instanceID, studyKey)
+
 	return nil
 }
 
