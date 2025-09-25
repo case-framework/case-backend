@@ -18,7 +18,7 @@ var indexesForSentEmailsCollection = []mongo.IndexModel{
 			{Key: "userId", Value: 1},
 			{Key: "sentAt", Value: 1},
 		},
-		Options: options.Index().SetName("userId_sentAt_1"),
+		Options: options.Index().SetName("userId_1_sentAt_1"),
 	},
 }
 

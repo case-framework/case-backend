@@ -18,7 +18,7 @@ var indexesForEmailTemplatesCollection = []mongo.IndexModel{
 			{Key: "messageType", Value: 1},
 			{Key: "studyKey", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("messageType_studyKey_1"),
+		Options: options.Index().SetUnique(true).SetName("messageType_1_studyKey_1"),
 	},
 }
 

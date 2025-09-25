@@ -14,7 +14,7 @@ import (
 var indexesForManagementUsersCollection = []mongo.IndexModel{
 	{
 		Keys:    bson.D{{Key: "sub", Value: 1}},
-		Options: options.Index().SetUnique(true).SetName("uniq_sub"),
+		Options: options.Index().SetUnique(true).SetName("uniq_sub_1"),
 	},
 }
 

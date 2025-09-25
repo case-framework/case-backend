@@ -40,7 +40,7 @@ var indexesForParticipantUsersCollection = []mongo.IndexModel{
 			{Key: "account.accountConfirmedAt", Value: 1},
 			{Key: "timestamps.createdAt", Value: 1},
 		},
-		Options: options.Index().SetName("account.accountConfirmedAt_timestamps.createdAt_1"),
+		Options: options.Index().SetName("account.accountConfirmedAt_1_timestamps.createdAt_1"),
 	},
 	{
 		Keys: bson.D{

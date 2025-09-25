@@ -25,14 +25,14 @@ var indexesForRenewTokensCollection = []mongo.IndexModel{
 			{Key: "renewToken", Value: 1},
 			{Key: "expiresAt", Value: 1},
 		},
-		Options: options.Index().SetName("userID_renewToken_expiresAt_1"),
+		Options: options.Index().SetName("userID_1_renewToken_1_expiresAt_1"),
 	},
 	{
 		Keys: bson.D{
 			{Key: "userID", Value: 1},
 			{Key: "sessionID", Value: 1},
 		},
-		Options: options.Index().SetName("userID_sessionID_1"),
+		Options: options.Index().SetName("userID_1_sessionID_1"),
 	},
 	{
 		Keys: bson.D{
@@ -44,7 +44,7 @@ var indexesForRenewTokensCollection = []mongo.IndexModel{
 		Keys: bson.D{
 			{Key: "renewToken", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("renewToken_1"),
+		Options: options.Index().SetUnique(true).SetName("uniq_renewToken_1"),
 	},
 }
 

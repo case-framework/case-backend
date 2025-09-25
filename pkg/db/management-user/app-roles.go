@@ -25,11 +25,11 @@ func (dbService *ManagementUserDBService) collectionAppRoleTemplates(instanceID 
 var indexesForAppRolesCollection = []mongo.IndexModel{
 	{
 		Keys:    bson.D{{Key: "subjectId", Value: 1}},
-		Options: options.Index().SetName("app_roles_subjectId_1"),
+		Options: options.Index().SetName("subjectId_1"),
 	},
 	{
 		Keys:    bson.D{{Key: "appName", Value: 1}},
-		Options: options.Index().SetName("app_roles_appName_1"),
+		Options: options.Index().SetName("appName_1"),
 	},
 	{
 		Keys: bson.D{
@@ -38,7 +38,7 @@ var indexesForAppRolesCollection = []mongo.IndexModel{
 			{Key: "appName", Value: 1},
 			{Key: "role", Value: 1},
 		},
-		Options: options.Index().SetName("uniq_subjectType_subjectId_appName_role").SetUnique(true),
+		Options: options.Index().SetName("uniq_subjectType_1_subjectId_1_appName_1_role_1").SetUnique(true),
 	},
 }
 
@@ -78,11 +78,11 @@ func (dbService *ManagementUserDBService) CreateDefaultIndexesForAppRolesCollect
 var indexesForAppRoleTemplatesCollection = []mongo.IndexModel{
 	{
 		Keys:    bson.D{{Key: "appName", Value: 1}, {Key: "role", Value: 1}},
-		Options: options.Index().SetName("uniq_appName_role").SetUnique(true),
+		Options: options.Index().SetName("uniq_appName_1_role_1").SetUnique(true),
 	},
 	{
 		Keys:    bson.D{{Key: "appName", Value: 1}},
-		Options: options.Index().SetName("app_role_templates_appName_1"),
+		Options: options.Index().SetName("appName_1"),
 	},
 }
 
