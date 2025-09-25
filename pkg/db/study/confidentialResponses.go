@@ -3,6 +3,7 @@ package study
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
@@ -36,6 +37,10 @@ func (dbService *StudyDBService) DropIndexForConfidentialResponsesCollection(ins
 		}
 	} else {
 		for _, index := range indexesForConfidentialResponsesCollection {
+			if index.Options.Name == nil {
+				slog.Error("Index name is nil for confidential responses collection", slog.String("index", fmt.Sprintf("%+v", index)))
+				continue
+			}
 			indexName := *index.Options.Name
 			_, err := collection.Indexes().DropOne(ctx, indexName)
 			if err != nil {

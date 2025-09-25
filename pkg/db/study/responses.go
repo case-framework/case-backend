@@ -3,6 +3,7 @@ package study
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -60,6 +61,10 @@ func (dbService *StudyDBService) DropIndexForResponsesCollection(instanceID stri
 		}
 	} else {
 		for _, index := range indexesForResponsesCollection {
+			if index.Options.Name == nil {
+				slog.Error("Index name is nil for responses collection", slog.String("index", fmt.Sprintf("%+v", index)))
+				continue
+			}
 			indexName := *index.Options.Name
 			_, err := dbService.collectionResponses(instanceID, studyKey).Indexes().DropOne(ctx, indexName)
 			if err != nil {

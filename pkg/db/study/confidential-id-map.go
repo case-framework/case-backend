@@ -1,6 +1,7 @@
 package study
 
 import (
+	"fmt"
 	"log/slog"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -30,6 +31,10 @@ func (dbService *StudyDBService) DropIndexForConfidentialIDMapCollection(instanc
 		}
 	} else {
 		for _, index := range indexesForConfidentialIDMapCollection {
+			if index.Options.Name == nil {
+				slog.Error("Index name is nil for confidentialIDMap collection", slog.String("index", fmt.Sprintf("%+v", index)))
+				continue
+			}
 			indexName := *index.Options.Name
 			_, err := collection.Indexes().DropOne(ctx, indexName)
 			if err != nil {

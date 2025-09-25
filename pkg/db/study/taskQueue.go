@@ -1,6 +1,7 @@
 package study
 
 import (
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -34,6 +35,10 @@ func (dbService *StudyDBService) DropIndexForTaskQueueCollection(instanceID stri
 		}
 	} else {
 		for _, index := range indexesForTaskQueueCollection {
+			if index.Options.Name == nil {
+				slog.Error("Index name is nil for task queue collection", slog.String("index", fmt.Sprintf("%+v", index)))
+				continue
+			}
 			indexName := *index.Options.Name
 			_, err := dbService.collectionTaskQueue(instanceID).Indexes().DropOne(ctx, indexName)
 			if err != nil {
