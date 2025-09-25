@@ -95,13 +95,13 @@ func (dbService *StudyDBService) SaveParticipantState(instanceID string, studyKe
 
 	upsert := true
 	rd := options.After
-	options := options.FindOneAndReplaceOptions{
+	qOpts := options.FindOneAndReplaceOptions{
 		Upsert:         &upsert,
 		ReturnDocument: &rd,
 	}
 	elem := studyTypes.Participant{}
 	err := dbService.collectionParticipants(instanceID, studyKey).FindOneAndReplace(
-		ctx, filter, pState, &options,
+		ctx, filter, pState, &qOpts,
 	).Decode(&elem)
 	return elem, err
 }
