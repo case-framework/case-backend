@@ -1,6 +1,7 @@
 package study
 
 import (
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -8,31 +9,54 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/case-framework/case-backend/pkg/study/types"
 	studytypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
-func (dbService *StudyDBService) CreateIndexForStudyCodeListsCollection(instanceID string) error {
+var indexesForStudyCodeListsCollection = []mongo.IndexModel{
+	{
+		Keys: bson.D{
+			{Key: "studyKey", Value: 1},
+			{Key: "listKey", Value: 1},
+			{Key: "code", Value: 1},
+		},
+		Options: options.Index().SetUnique(true).SetName("studyKey_1_listKey_1_code_1"),
+	},
+}
+
+func (dbService *StudyDBService) DropIndexForStudyCodeListsCollection(instanceID string, dropAll bool) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	if _, err := dbService.collectionStudyCodeLists(instanceID).Indexes().DropAll(ctx); err != nil {
-		slog.Error("Error dropping indexes for studyCodeLists", slog.String("error", err.Error()))
+	collection := dbService.collectionStudyCodeLists(instanceID)
+	if dropAll {
+		_, err := collection.Indexes().DropAll(ctx)
+		if err != nil {
+			slog.Error("Error dropping all indexes for studyCodeLists", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
+		}
+	} else {
+		for _, index := range indexesForStudyCodeListsCollection {
+			if index.Options == nil || index.Options.Name == nil {
+				slog.Error("Index name is nil for studyCodeLists collection", slog.String("index", fmt.Sprintf("%+v", index)), slog.String("instanceID", instanceID))
+				continue
+			}
+			indexName := *index.Options.Name
+			_, err := collection.Indexes().DropOne(ctx, indexName)
+			if err != nil {
+				slog.Error("Error dropping index for studyCodeLists", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("indexName", indexName))
+			}
+		}
 	}
+}
+
+func (dbService *StudyDBService) CreateDefaultIndexesForStudyCodeListsCollection(instanceID string) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
 
 	collection := dbService.collectionStudyCodeLists(instanceID)
-	indexes := []mongo.IndexModel{
-		{
-			Keys: bson.D{
-				{Key: "studyKey", Value: 1},
-				{Key: "listKey", Value: 1},
-				{Key: "code", Value: 1},
-			},
-			Options: options.Index().SetUnique(true),
-		},
+	_, err := collection.Indexes().CreateMany(ctx, indexesForStudyCodeListsCollection)
+	if err != nil {
+		slog.Error("Error creating index for studyCodeLists", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 	}
-	_, err := collection.Indexes().CreateMany(ctx, indexes)
-	return err
 }
 
 func (dbService *StudyDBService) AddStudyCodeListEntry(instanceID string, studyKey string, listKey string, code string) error {
@@ -156,7 +180,7 @@ func (dbService *StudyDBService) DrawStudyCode(instanceID string, studyKey strin
 		"listKey":  listKey,
 	}
 
-	var result types.StudyCodeListEntry
+	var result studytypes.StudyCodeListEntry
 	err := dbService.collectionStudyCodeLists(instanceID).FindOneAndDelete(ctx, filter).Decode(&result)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {

@@ -86,14 +86,13 @@ func DBConfigFromYamlObj(yamlObj DBConfigYaml, instanceIDs []string) DBConfig {
 	DBNamePrefix := yamlObj.DBNamePrefix
 
 	return DBConfig{
-		URI:              URI,
-		Timeout:          Timeout,
-		IdleConnTimeout:  IdleConnTimeout,
-		MaxPoolSize:      MaxPoolSize,
-		NoCursorTimeout:  noCursorTimeout,
-		DBNamePrefix:     DBNamePrefix,
-		InstanceIDs:      instanceIDs,
-		RunIndexCreation: yamlObj.RunIndexCreation,
+		URI:             URI,
+		Timeout:         Timeout,
+		IdleConnTimeout: IdleConnTimeout,
+		MaxPoolSize:     MaxPoolSize,
+		NoCursorTimeout: noCursorTimeout,
+		DBNamePrefix:    DBNamePrefix,
+		InstanceIDs:     instanceIDs,
 	}
 
 }

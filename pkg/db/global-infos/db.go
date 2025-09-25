@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/db"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -54,9 +55,6 @@ func NewGlobalInfosDBService(configs db.DBConfig) (*GlobalInfosDBService, error)
 		InstanceIDs:     configs.InstanceIDs,
 	}
 
-	if configs.RunIndexCreation {
-		giDBSc.ensureIndexes()
-	}
 	return giDBSc, nil
 }
 
@@ -76,16 +74,39 @@ func (dbService *GlobalInfosDBService) collectionBlockedJwts() *mongo.Collection
 	return dbService.DBClient.Database(dbService.getDBName()).Collection(COLLECTION_NAME_BLOCKED_JWTS)
 }
 
-func (dbService *GlobalInfosDBService) ensureIndexes() {
-	slog.Debug("Ensuring indexes for global infos DB")
+func (dbService *GlobalInfosDBService) DropIndexes(all bool) {
+	start := time.Now()
+	slog.Info("Dropping indexes for global infos DB")
+	dbService.DropIndexForBlockedJwtsCollection(all)
+	dbService.DropIndexForTemptokensCollection(all)
+	slog.Info("Indexes dropped for global infos DB", slog.String("duration", time.Since(start).String()))
+}
 
-	err := dbService.CreateIndexForTemptokens()
+func (dbService *GlobalInfosDBService) CreateDefaultIndexes() {
+	start := time.Now()
+	slog.Info("Creating default indexes for global infos DB")
+	dbService.CreateDefaultIndexesForBlockedJwtsCollection()
+	dbService.CreateDefaultIndexesForTemptokensCollection()
+	slog.Info("Default indexes created for global infos DB", slog.String("duration", time.Since(start).String()))
+
+}
+
+func (dbService *GlobalInfosDBService) GetIndexes() (map[string][]bson.M, error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	blockedJwts, err := db.ListCollectionIndexes(ctx, dbService.collectionBlockedJwts())
 	if err != nil {
-		slog.Debug("Error creating indexes for temp tokens: ", slog.String("error", err.Error()))
+		return nil, err
 	}
 
-	err = dbService.CreateIndexForBlockedJwts()
+	tempTokens, err := db.ListCollectionIndexes(ctx, dbService.collectionTemptokens())
 	if err != nil {
-		slog.Debug("Error creating indexes for blocked jwts: ", slog.String("error", err.Error()))
+		return nil, err
 	}
+
+	return map[string][]bson.M{
+		COLLECTION_NAME_BLOCKED_JWTS: blockedJwts,
+		COLLECTION_NAME_TEMPTOKENS:   tempTokens,
+	}, nil
 }

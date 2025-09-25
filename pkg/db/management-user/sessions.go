@@ -1,6 +1,7 @@
 package managementuser
 
 import (
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -14,23 +15,45 @@ func (dbService *ManagementUserDBService) collectionSessions(instanceID string) 
 	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_SESSIONS)
 }
 
-func (dbService *ManagementUserDBService) createIndexForSessions(instanceID string) error {
+var indexesForSessionsCollection = []mongo.IndexModel{
+	{
+		Keys:    bson.D{{Key: "createdAt", Value: 1}},
+		Options: options.Index().SetExpireAfterSeconds(REMOVE_SESSIONS_AFTER).SetName("createdAt_1"),
+	},
+}
+
+func (dbService *ManagementUserDBService) DropIndexForSessionsCollection(instanceID string, dropAll bool) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	if _, err := dbService.collectionSessions(instanceID).Indexes().DropAll(ctx); err != nil {
-		slog.Error("Error dropping indexes for sessions", slog.String("error", err.Error()))
+	if dropAll {
+		_, err := dbService.collectionSessions(instanceID).Indexes().DropAll(ctx)
+		if err != nil {
+			slog.Error("Error dropping all indexes for sessions", slog.String("error", err.Error()))
+		}
+	} else {
+		for _, index := range indexesForSessionsCollection {
+			if index.Options == nil || index.Options.Name == nil {
+				slog.Error("Index name is nil for sessions collection: ", slog.String("index", fmt.Sprintf("%+v", index)))
+				continue
+			}
+			indexName := *index.Options.Name
+			_, err := dbService.collectionSessions(instanceID).Indexes().DropOne(ctx, indexName)
+			if err != nil {
+				slog.Error("Error dropping index for sessions", slog.String("error", err.Error()), slog.String("indexName", indexName))
+			}
+		}
 	}
+}
 
-	_, err := dbService.collectionSessions(instanceID).Indexes().CreateMany(
-		ctx, []mongo.IndexModel{
-			{
-				Keys:    bson.D{{Key: "createdAt", Value: 1}},
-				Options: options.Index().SetExpireAfterSeconds(REMOVE_SESSIONS_AFTER),
-			},
-		},
-	)
-	return err
+func (dbService *ManagementUserDBService) CreateDefaultIndexesForSessionsCollection(instanceID string) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	_, err := dbService.collectionSessions(instanceID).Indexes().CreateMany(ctx, indexesForSessionsCollection)
+	if err != nil {
+		slog.Error("Error creating index for sessions: ", slog.String("error", err.Error()))
+	}
 }
 
 // Session represents a user session, created when a user logs in
@@ -68,7 +91,7 @@ func (dbService *ManagementUserDBService) GetSession(
 	if err != nil {
 		return nil, err
 	}
-	err = dbService.collectionSessions(instanceID).FindOne(ctx, primitive.M{"_id": objID}).Decode(&session)
+	err = dbService.collectionSessions(instanceID).FindOne(ctx, bson.M{"_id": objID}).Decode(&session)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +110,7 @@ func (dbService *ManagementUserDBService) DeleteSession(
 	if err != nil {
 		return err
 	}
-	_, err = dbService.collectionSessions(instanceID).DeleteOne(ctx, primitive.M{"_id": objID})
+	_, err = dbService.collectionSessions(instanceID).DeleteOne(ctx, bson.M{"_id": objID})
 	return err
 }
 
@@ -99,6 +122,6 @@ func (dbService *ManagementUserDBService) DeleteSessionsByUserID(
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_, err := dbService.collectionSessions(instanceID).DeleteMany(ctx, primitive.M{"userId": userID})
+	_, err := dbService.collectionSessions(instanceID).DeleteMany(ctx, bson.M{"userId": userID})
 	return err
 }

@@ -59,12 +59,6 @@ func NewMessagingDBService(configs db.DBConfig) (*MessagingDBService, error) {
 		InstanceIDs:     configs.InstanceIDs,
 	}
 
-	if configs.RunIndexCreation {
-		if err := messagingDBSc.ensureIndexes(); err != nil {
-			slog.Error("Error ensuring indexes for messaging DB: ", slog.String("error", err.Error()))
-		}
-	}
-
 	return messagingDBSc, nil
 }
 
@@ -100,47 +94,65 @@ func (dbService *MessagingDBService) getContext() (ctx context.Context, cancel c
 	return context.WithTimeout(context.Background(), time.Duration(dbService.timeout)*time.Second)
 }
 
-func (dbService *MessagingDBService) ensureIndexes() error {
-	slog.Debug("Ensuring indexes for messaging DB")
+func (dbService *MessagingDBService) CreateDefaultIndexes() {
 	for _, instanceID := range dbService.InstanceIDs {
-		ctx, cancel := dbService.getContext()
-		defer cancel()
+		start := time.Now()
+		slog.Info("Creating default indexes for messaging DB", slog.String("instanceID", instanceID))
+		dbService.CreateDefaultIndexesForEmailTemplatesCollection(instanceID)
+		dbService.CreateDefaultIndexesForSMSTemplatesCollection(instanceID)
+		// email schedules collection has no default indexes at the moment
+		// outgoing emails collection has no default indexes at the moment
+		dbService.CreateDefaultIndexesForSentEmailsCollection(instanceID)
+		dbService.CreateDefaultIndexesForSentSMSCollection(instanceID)
+		slog.Info("Default indexes created for messaging DB", slog.String("instanceID", instanceID), slog.String("duration", time.Since(start).String()))
+	}
+}
 
-		// Email Templates
-		if _, err := dbService.collectionEmailTemplates(instanceID).Indexes().DropAll(ctx); err != nil {
-			slog.Error("Error dropping indexes for email templates: ", slog.String("error", err.Error()))
+func (dbService *MessagingDBService) DropIndexes(dropAll bool) {
+	for _, instanceID := range dbService.InstanceIDs {
+		start := time.Now()
+		slog.Info("Dropping indexes for messaging DB", slog.String("instanceID", instanceID))
+		dbService.DropIndexForEmailTemplatesCollection(instanceID, dropAll)
+		dbService.DropIndexForSMSTemplatesCollection(instanceID, dropAll)
+		dbService.DropIndexForEmailSchedulesCollection(instanceID, dropAll)
+		dbService.DropIndexForOutgoingEmailsCollection(instanceID, dropAll)
+		dbService.DropIndexForSentEmailsCollection(instanceID, dropAll)
+		dbService.DropIndexForSentSMSCollection(instanceID, dropAll)
+		slog.Info("Indexes dropped for messaging DB", slog.String("instanceID", instanceID), slog.String("duration", time.Since(start).String()))
+	}
+}
+
+func (dbService *MessagingDBService) GetIndexes() (map[string]map[string][]bson.M, error) {
+	results := make(map[string]map[string][]bson.M, len(dbService.InstanceIDs))
+
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	for _, instanceID := range dbService.InstanceIDs {
+		collectionIndexes := make(map[string][]bson.M)
+
+		var err error
+		if collectionIndexes[COLLECTION_NAME_EMAIL_TEMPLATES], err = db.ListCollectionIndexes(ctx, dbService.collectionEmailTemplates(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_SMS_TEMPLATES], err = db.ListCollectionIndexes(ctx, dbService.collectionSMSTemplates(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_EMAIL_SCHEDULES], err = db.ListCollectionIndexes(ctx, dbService.collectionEmailSchedules(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_OUTGOING_EMAILS], err = db.ListCollectionIndexes(ctx, dbService.collectionOutgoingEmails(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_SENT_EMAILS], err = db.ListCollectionIndexes(ctx, dbService.collectionSentEmails(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_SENT_SMS], err = db.ListCollectionIndexes(ctx, dbService.collectionSentSMS(instanceID)); err != nil {
+			return nil, err
 		}
 
-		_, err := dbService.collectionEmailTemplates(instanceID).Indexes().CreateOne(
-			ctx,
-			// index unique on messageType and studyKey combo:
-			mongo.IndexModel{
-				Keys: bson.D{
-					{Key: "messageType", Value: 1},
-					{Key: "studyKey", Value: 1},
-				},
-				Options: options.Index().SetUnique(true),
-			},
-		)
-		if err != nil {
-			slog.Error("Error creating index for email templates: ", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
-		}
-
-		// Sent SMS
-		err = dbService.CreateSentSMSIndex(instanceID)
-		if err != nil {
-			slog.Error("Error creating index for sent SMS: ", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
-		}
-
-		// Outgoing Emails
-		// add index generation here if needed
-
-		// Sent Emails
-		// add index generation here if needed
-
-		// Email Schedules
-		// add index generation here if needed
+		results[instanceID] = collectionIndexes
 	}
 
-	return nil
+	return results, nil
 }

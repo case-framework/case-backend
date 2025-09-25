@@ -1,6 +1,7 @@
 package participantuser
 
 import (
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -18,30 +19,53 @@ type FailedOtpAttempt struct {
 	UserID    string    `json:"userId" bson:"userID"`
 }
 
-func (dbService *ParticipantUserDBService) CreateIndexForFailedOtpAttempts(instanceID string) error {
+var indexesForFailedOtpAttemptsCollection = []mongo.IndexModel{
+	{
+		Keys: bson.D{
+			{Key: "userID", Value: 1},
+		},
+		Options: options.Index().SetName("userID_1"),
+	},
+	{
+		Keys: bson.D{
+			{Key: "timestamp", Value: 1},
+		},
+		Options: options.Index().SetExpireAfterSeconds(FAILED_OTP_ATTEMP_WINDOW).SetName("timestamp_1"),
+	},
+}
+
+func (dbService *ParticipantUserDBService) DropIndexForFailedOtpAttemptsCollection(instanceID string, dropAll bool) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	if _, err := dbService.collectionFailedOtpAttempts(instanceID).Indexes().DropAll(ctx); err != nil {
-		slog.Error("Error dropping indexes for FailedOtpAttempts", slog.String("error", err.Error()))
+	if dropAll {
+		_, err := dbService.collectionFailedOtpAttempts(instanceID).Indexes().DropAll(ctx)
+		if err != nil {
+			slog.Error("Error dropping all indexes for FailedOtpAttempts", slog.String("error", err.Error()))
+		}
+	} else {
+		for _, index := range indexesForFailedOtpAttemptsCollection {
+			if index.Options == nil || index.Options.Name == nil {
+				slog.Error("Index name is nil for FailedOtpAttempts collection", slog.String("index", fmt.Sprintf("%+v", index)))
+				continue
+			}
+			indexName := *index.Options.Name
+			_, err := dbService.collectionFailedOtpAttempts(instanceID).Indexes().DropOne(ctx, indexName)
+			if err != nil {
+				slog.Error("Error dropping index for FailedOtpAttempts", slog.String("error", err.Error()), slog.String("indexName", indexName))
+			}
+		}
 	}
+}
 
-	_, err := dbService.collectionFailedOtpAttempts(instanceID).Indexes().CreateMany(
-		ctx, []mongo.IndexModel{
-			{
-				Keys: bson.D{
-					{Key: "userID", Value: 1},
-				},
-			},
-			{
-				Keys: bson.D{
-					{Key: "timestamp", Value: 1},
-				},
-				Options: options.Index().SetExpireAfterSeconds(FAILED_OTP_ATTEMP_WINDOW),
-			},
-		},
-	)
-	return err
+func (dbService *ParticipantUserDBService) CreateDefaultIndexesForFailedOtpAttemptsCollection(instanceID string) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	_, err := dbService.collectionFailedOtpAttempts(instanceID).Indexes().CreateMany(ctx, indexesForFailedOtpAttemptsCollection)
+	if err != nil {
+		slog.Error("Error creating index for FailedOtpAttempts", slog.String("error", err.Error()))
+	}
 }
 
 func (dbService *ParticipantUserDBService) CountFailedOtpAttempts(instanceID string, userID string) (int64, error) {

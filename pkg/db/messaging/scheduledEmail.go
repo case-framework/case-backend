@@ -1,6 +1,7 @@
 package messaging
 
 import (
+	"log/slog"
 	"time"
 
 	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
@@ -9,6 +10,20 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+func (dbService *MessagingDBService) DropIndexForEmailSchedulesCollection(instanceID string, dropAll bool) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	if dropAll {
+		_, err := dbService.collectionEmailSchedules(instanceID).Indexes().DropAll(ctx)
+		if err != nil {
+			slog.Error("Error dropping all indexes for email schedules", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
+		}
+	} else {
+		slog.Warn("email schedules collection has no default indexes at the moment")
+	}
+}
 
 // get all scheduled emails
 func (dbService *MessagingDBService) GetAllScheduledEmails(instanceID string) ([]messagingTypes.ScheduledEmail, error) {

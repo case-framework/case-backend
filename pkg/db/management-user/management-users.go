@@ -1,6 +1,7 @@
 package managementuser
 
 import (
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -10,22 +11,44 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func (dbService *ManagementUserDBService) createIndexForManagementUsers(instanceID string) error {
+var indexesForManagementUsersCollection = []mongo.IndexModel{
+	{
+		Keys:    bson.D{{Key: "sub", Value: 1}},
+		Options: options.Index().SetUnique(true).SetName("uniq_sub_1"),
+	},
+}
+
+func (dbService *ManagementUserDBService) DropIndexForManagementUsersCollection(instanceID string, dropAll bool) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	if _, err := dbService.collectionManagementUsers(instanceID).Indexes().DropAll(ctx); err != nil {
-		slog.Error("Error dropping indexes for management users: ", slog.String("error", err.Error()))
+	if dropAll {
+		_, err := dbService.collectionManagementUsers(instanceID).Indexes().DropAll(ctx)
+		if err != nil {
+			slog.Error("Error dropping all indexes for management users", slog.String("error", err.Error()))
+		}
+	} else {
+		for _, index := range indexesForManagementUsersCollection {
+			if index.Options == nil || index.Options.Name == nil {
+				slog.Error("Index name is nil for management users collection", slog.String("index", fmt.Sprintf("%+v", index)), slog.String("instanceID", instanceID))
+				continue
+			}
+			indexName := *index.Options.Name
+			_, err := dbService.collectionManagementUsers(instanceID).Indexes().DropOne(ctx, indexName)
+			if err != nil {
+				slog.Error("Error dropping index for management users", slog.String("error", err.Error()), slog.String("indexName", indexName), slog.String("instanceID", instanceID))
+			}
+		}
 	}
+}
 
-	_, err := dbService.collectionManagementUsers(instanceID).Indexes().CreateOne(
-		ctx,
-		mongo.IndexModel{
-			Keys:    bson.D{{Key: "sub", Value: 1}},
-			Options: options.Index().SetUnique(true),
-		},
-	)
-	return err
+func (dbService *ManagementUserDBService) CreateDefaultIndexesForManagementUsersCollection(instanceID string) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+	_, err := dbService.collectionManagementUsers(instanceID).Indexes().CreateMany(ctx, indexesForManagementUsersCollection)
+	if err != nil {
+		slog.Error("Error creating index for management users", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
+	}
 }
 
 func (dbService *ManagementUserDBService) CreateUser(

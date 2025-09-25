@@ -2,12 +2,27 @@ package messaging
 
 import (
 	"errors"
+	"log/slog"
 	"time"
 
 	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
+
+func (dbService *MessagingDBService) DropIndexForOutgoingEmailsCollection(instanceID string, dropAll bool) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	if dropAll {
+		_, err := dbService.collectionOutgoingEmails(instanceID).Indexes().DropAll(ctx)
+		if err != nil {
+			slog.Error("Error dropping all indexes for outgoing emails", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
+		}
+	} else {
+		slog.Warn("outgoing emails collection has no default indexes at the moment")
+	}
+}
 
 func (dbService *MessagingDBService) AddToOutgoingEmails(instanceID string, email messagingTypes.OutgoingEmail) (messagingTypes.OutgoingEmail, error) {
 	ctx, cancel := dbService.getContext()
@@ -18,22 +33,6 @@ func (dbService *MessagingDBService) AddToOutgoingEmails(instanceID string, emai
 	}
 
 	res, err := dbService.collectionOutgoingEmails(instanceID).InsertOne(ctx, email)
-	if err != nil {
-		return email, err
-	}
-	email.ID = res.InsertedID.(primitive.ObjectID)
-	return email, nil
-}
-
-func (dbService *MessagingDBService) AddToSentEmails(instanceID string, email messagingTypes.OutgoingEmail) (messagingTypes.OutgoingEmail, error) {
-	ctx, cancel := dbService.getContext()
-	defer cancel()
-	email.Content = ""
-	email.SentAt = time.Now().UTC()
-	email.To = []string{}
-
-	email.ID = primitive.NilObjectID
-	res, err := dbService.collectionSentEmails(instanceID).InsertOne(ctx, email)
 	if err != nil {
 		return email, err
 	}

@@ -28,10 +28,6 @@ const (
 	COLLECTION_NAME_STUDY_COUNTERS                = "studyCounters"
 )
 
-const (
-	REMOVE_TASK_FROM_QUEUE_AFTER = 60 * 60 * 24 * 2 // 2 days
-)
-
 type StudyDBService struct {
 	DBClient        *mongo.Client
 	timeout         int
@@ -70,13 +66,11 @@ func NewStudyDBService(configs db.DBConfig) (*StudyDBService, error) {
 		InstanceIDs:     configs.InstanceIDs,
 	}
 
-	if configs.RunIndexCreation {
-		if err := studyDBSc.ensureIndexes(); err != nil {
-			slog.Error("Error ensuring indexes for study DB", slog.String("error", err.Error()))
-		}
-	}
-
 	return studyDBSc, nil
+}
+
+func collectionNameWithStudyKeyPrefix(studyKey string, collectionName string) string {
+	return studyKey + "_" + collectionName
 }
 
 func (dbService *StudyDBService) getDBName(instanceID string) string {
@@ -96,19 +90,19 @@ func (dbService *StudyDBService) collectionTaskQueue(instanceID string) *mongo.C
 }
 
 func (dbService *StudyDBService) collectionSurveys(instanceID string, studyKey string) *mongo.Collection {
-	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(studyKey + "_" + COLLECTION_NAME_SUFFIX_SURVEYS)
+	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(collectionNameWithStudyKeyPrefix(studyKey, COLLECTION_NAME_SUFFIX_SURVEYS))
 }
 
 func (dbService *StudyDBService) collectionResponses(instanceID string, studyKey string) *mongo.Collection {
-	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(studyKey + "_" + COLLECTION_NAME_SUFFIX_RESPONSES)
+	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(collectionNameWithStudyKeyPrefix(studyKey, COLLECTION_NAME_SUFFIX_RESPONSES))
 }
 
 func (dbService *StudyDBService) collectionParticipants(instanceID string, studyKey string) *mongo.Collection {
-	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(studyKey + "_" + COLLECTION_NAME_SUFFIX_PARTICIPANTS)
+	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(collectionNameWithStudyKeyPrefix(studyKey, COLLECTION_NAME_SUFFIX_PARTICIPANTS))
 }
 
 func (dbService *StudyDBService) collectionConfidentialResponses(instanceID string, studyKey string) *mongo.Collection {
-	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(studyKey + "_" + COLLECTION_NAME_SUFFIX_CONFIDENTIAL_RESPONSES)
+	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(collectionNameWithStudyKeyPrefix(studyKey, COLLECTION_NAME_SUFFIX_CONFIDENTIAL_RESPONSES))
 }
 
 func (dbService *StudyDBService) collectionConfidentialIDMap(instanceID string) *mongo.Collection {
@@ -116,15 +110,15 @@ func (dbService *StudyDBService) collectionConfidentialIDMap(instanceID string) 
 }
 
 func (dbService *StudyDBService) collectionReports(instanceID string, studyKey string) *mongo.Collection {
-	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(studyKey + "_" + COLLECTION_NAME_SUFFIX_REPORTS)
+	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(collectionNameWithStudyKeyPrefix(studyKey, COLLECTION_NAME_SUFFIX_REPORTS))
 }
 
 func (dbService *StudyDBService) collectionFiles(instanceID string, studyKey string) *mongo.Collection {
-	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(studyKey + "_" + COLLECTION_NAME_SUFFIX_FILES)
+	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(collectionNameWithStudyKeyPrefix(studyKey, COLLECTION_NAME_SUFFIX_FILES))
 }
 
 func (dbService *StudyDBService) collectionResearcherMessages(instanceID string, studyKey string) *mongo.Collection {
-	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(studyKey + "_" + COLLECTION_NAME_SUFFIX_RESEARCHER_MESSAGES)
+	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(collectionNameWithStudyKeyPrefix(studyKey, COLLECTION_NAME_SUFFIX_RESEARCHER_MESSAGES))
 }
 
 func (dbService *StudyDBService) collectionStudyCodeLists(instanceID string) *mongo.Collection {
@@ -139,112 +133,145 @@ func (dbService *StudyDBService) getContext() (ctx context.Context, cancel conte
 	return context.WithTimeout(context.Background(), time.Duration(dbService.timeout)*time.Second)
 }
 
-func (dbService *StudyDBService) ensureIndexes() error {
-	slog.Debug("Ensuring indexes for study DB")
+func (dbService *StudyDBService) dropIndexes(all bool) {
 	for _, instanceID := range dbService.InstanceIDs {
-		ctx, cancel := dbService.getContext()
-		defer cancel()
+		start := time.Now()
+		slog.Info("Dropping indexes for study DB", slog.String("instanceID", instanceID))
 
-		// task queue: auto delete on creation date
-		if _, err := dbService.collectionTaskQueue(instanceID).Indexes().DropAll(ctx); err != nil {
-			slog.Error("Error dropping indexes for task queue", slog.String("error", err.Error()))
-		}
-
-		_, err := dbService.collectionTaskQueue(instanceID).Indexes().CreateOne(
-			ctx,
-			mongo.IndexModel{
-				Keys:    bson.D{{Key: "updatedAt", Value: 1}},
-				Options: options.Index().SetExpireAfterSeconds(REMOVE_TASK_FROM_QUEUE_AFTER),
-			},
-		)
-		if err != nil {
-			slog.Error("Error creating index for createdAt in userDB.sessions", slog.String("error", err.Error()))
-		}
-
-		// index on studyInfos
-		err = dbService.createIndexForStudyInfosCollection(instanceID)
-		if err != nil {
-			slog.Error("Error creating index for studyInfos", slog.String("error", err.Error()))
-		}
-
-		// index on confidentialIDMap
-		if _, err := dbService.collectionConfidentialIDMap(instanceID).Indexes().DropAll(ctx); err != nil {
-			slog.Error("Error dropping indexes for confidentialIDMap", slog.String("error", err.Error()))
-		}
-
-		_, err = dbService.collectionConfidentialIDMap(instanceID).Indexes().CreateOne(
-			ctx,
-			mongo.IndexModel{
-				Keys: bson.D{
-					{Key: "confidentialID", Value: 1},
-					{Key: "studyKey", Value: 1},
-				},
-				Options: options.Index().SetUnique(true),
-			},
-		)
-		if err != nil {
-			slog.Error("Error creating index for confidentialIDMap", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
-		}
+		dbService.DropIndexForConfidentialIDMapCollection(instanceID, all)
+		dbService.DropIndexForStudyCodeListsCollection(instanceID, all)
+		dbService.DropIndexForStudyCountersCollection(instanceID, all)
+		dbService.DropIndexForStudyInfosCollection(instanceID, all)
+		dbService.DropIndexForStudyRulesCollection(instanceID, all)
+		dbService.DropIndexForTaskQueueCollection(instanceID, all)
+		// participant files has no default indexes at the moment
+		// researcher messages has no default indexes at the moment
 
 		//fetch studyKeys from studyInfos
 		studies, err := dbService.GetStudies(instanceID, "", true)
 		if err != nil {
 			slog.Error("Error fetching studies", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
-			return err
+			continue
 		}
 
-		// index on studyRules
-		err = dbService.CreateIndexForStudyRulesCollection(instanceID)
-		if err != nil {
-			slog.Error("Error creating index for studyRules: ", slog.String("error", err.Error()))
+		for _, study := range studies {
+			studyKey := study.Key
+			dbService.DropIndexForSurveysCollection(instanceID, studyKey, all)
+			dbService.DropIndexForResponsesCollection(instanceID, studyKey, all)
+			dbService.DropIndexForConfidentialResponsesCollection(instanceID, studyKey, all)
+			dbService.DropIndexForReportsCollection(instanceID, studyKey, all)
+			dbService.DropIndexForParticipantsCollection(instanceID, studyKey, all)
 		}
 
-		// index on studyCodeLists
-		err = dbService.CreateIndexForStudyCodeListsCollection(instanceID)
+		slog.Info("Indexes dropped for study DB", slog.String("instanceID", instanceID), slog.String("duration", time.Since(start).String()))
+	}
+}
+
+// DropAllIndexes drops all indexes for all instanceIDs and all collections
+func (dbService *StudyDBService) DropAllIndexes() {
+	dbService.dropIndexes(true)
+}
+
+// DropDefaultIndexes drops all default indexes for all instanceIDs and all collections
+func (dbService *StudyDBService) DropDefaultIndexes() {
+	dbService.dropIndexes(false)
+}
+
+// CreateDefaultIndexes creates all default indexes for all instanceIDs and all collections
+func (dbService *StudyDBService) CreateDefaultIndexes() {
+	for _, instanceID := range dbService.InstanceIDs {
+		start := time.Now()
+		slog.Info("Creating default indexes for study DB", slog.String("instanceID", instanceID))
+
+		//fetch studyKeys from studyInfos
+		studies, err := dbService.GetStudies(instanceID, "", true)
 		if err != nil {
-			slog.Error("Error creating index for studyCodeLists: ", slog.String("error", err.Error()))
+			slog.Error("Error fetching studies", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
+			continue
 		}
 
-		// index on studyCounters
-		err = dbService.CreateIndexForStudyCountersCollection(instanceID)
+		dbService.CreateDefaultIndexesForConfidentialIDMapCollection(instanceID)
+		dbService.CreateDefaultIndexesForStudyCodeListsCollection(instanceID)
+		dbService.CreateDefaultIndexesForStudyCountersCollection(instanceID)
+		dbService.CreateDefaultIndexesForStudyInfosCollection(instanceID)
+		dbService.CreateDefaultIndexesForStudyRulesCollection(instanceID)
+		dbService.CreateDefaultIndexesForTaskQueueCollection(instanceID)
+		// participant files has no default indexes at the moment
+		// researcher messages has no default indexes at the moment
+
+		for _, study := range studies {
+			studyKey := study.Key
+
+			dbService.CreateDefaultIndexesForSurveysCollection(instanceID, studyKey)
+			dbService.CreateDefaultIndexesForResponsesCollection(instanceID, studyKey)
+			dbService.CreateDefaultIndexesForConfidentialResponsesCollection(instanceID, studyKey)
+			dbService.CreateDefaultIndexesForReportsCollection(instanceID, studyKey)
+			dbService.CreateDefaultIndexesForParticipantsCollection(instanceID, studyKey)
+		}
+		slog.Info("Default indexes created for study DB", slog.String("instanceID", instanceID), slog.String("duration", time.Since(start).String()))
+	}
+}
+
+func (dbService *StudyDBService) GetIndexes() (map[string]map[string][]bson.M, error) {
+	results := make(map[string]map[string][]bson.M, len(dbService.InstanceIDs))
+
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	for _, instanceID := range dbService.InstanceIDs {
+		collectionIndexes := make(map[string][]bson.M)
+
+		var err error
+		if collectionIndexes[COLLECTION_NAME_CONFIDENTIAL_ID_MAP], err = db.ListCollectionIndexes(ctx, dbService.collectionConfidentialIDMap(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_STUDY_CODE_LISTS], err = db.ListCollectionIndexes(ctx, dbService.collectionStudyCodeLists(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_STUDY_COUNTERS], err = db.ListCollectionIndexes(ctx, dbService.collectionStudyCounters(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_STUDY_INFOS], err = db.ListCollectionIndexes(ctx, dbService.collectionStudyInfos(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_STUDY_RULES], err = db.ListCollectionIndexes(ctx, dbService.collectionStudyRules(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_TASK_QUEUE], err = db.ListCollectionIndexes(ctx, dbService.collectionTaskQueue(instanceID)); err != nil {
+			return nil, err
+		}
+
+		studies, err := dbService.GetStudies(instanceID, "", true)
 		if err != nil {
-			slog.Error("Error creating index for studyCounters: ", slog.String("error", err.Error()))
+			return nil, err
 		}
 
 		for _, study := range studies {
 			studyKey := study.Key
 
-			// index on surveys
-			err = dbService.CreateIndexForSurveyCollection(instanceID, studyKey)
-			if err != nil {
-				slog.Error("Error creating index for surveys: ", slog.String("error", err.Error()))
+			if collectionIndexes[collectionNameWithStudyKeyPrefix(studyKey, COLLECTION_NAME_SUFFIX_SURVEYS)], err = db.ListCollectionIndexes(ctx, dbService.collectionSurveys(instanceID, studyKey)); err != nil {
+				return nil, err
 			}
 
-			// index on participants
-			err = dbService.CreateIndexForParticipantsCollection(instanceID, studyKey)
-			if err != nil {
-				slog.Error("Error creating index for participants: ", slog.String("error", err.Error()))
+			if collectionIndexes[collectionNameWithStudyKeyPrefix(studyKey, COLLECTION_NAME_SUFFIX_RESPONSES)], err = db.ListCollectionIndexes(ctx, dbService.collectionResponses(instanceID, studyKey)); err != nil {
+				return nil, err
 			}
 
-			// index on responses
-			err = dbService.CreateIndexForResponsesCollection(instanceID, studyKey)
-			if err != nil {
-				slog.Error("Error creating index for responses: ", slog.String("error", err.Error()))
+			if collectionIndexes[collectionNameWithStudyKeyPrefix(studyKey, COLLECTION_NAME_SUFFIX_CONFIDENTIAL_RESPONSES)], err = db.ListCollectionIndexes(ctx, dbService.collectionConfidentialResponses(instanceID, studyKey)); err != nil {
+				return nil, err
 			}
 
-			// index on confidentialResponses
-			err = dbService.CreateIndexForConfidentialResponsesCollection(instanceID, studyKey)
-			if err != nil {
-				slog.Error("Error creating index for confidentialResponses: ", slog.String("error", err.Error()))
+			if collectionIndexes[collectionNameWithStudyKeyPrefix(studyKey, COLLECTION_NAME_SUFFIX_REPORTS)], err = db.ListCollectionIndexes(ctx, dbService.collectionReports(instanceID, studyKey)); err != nil {
+				return nil, err
 			}
 
-			// index on reports
-			err = dbService.CreateIndexForReportsCollection(instanceID, studyKey)
-			if err != nil {
-				slog.Error("Error creating index for reports: ", slog.String("error", err.Error()))
+			if collectionIndexes[collectionNameWithStudyKeyPrefix(studyKey, COLLECTION_NAME_SUFFIX_PARTICIPANTS)], err = db.ListCollectionIndexes(ctx, dbService.collectionParticipants(instanceID, studyKey)); err != nil {
+				return nil, err
 			}
 		}
 
+		results[instanceID] = collectionIndexes
 	}
-	return nil
+
+	return results, nil
 }

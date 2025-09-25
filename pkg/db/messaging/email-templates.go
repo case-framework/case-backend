@@ -1,12 +1,59 @@
 package messaging
 
 import (
+	"fmt"
+	"log/slog"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 )
+
+var indexesForEmailTemplatesCollection = []mongo.IndexModel{
+	{
+		Keys: bson.D{
+			{Key: "messageType", Value: 1},
+			{Key: "studyKey", Value: 1},
+		},
+		Options: options.Index().SetUnique(true).SetName("messageType_1_studyKey_1"),
+	},
+}
+
+func (messagingDBService *MessagingDBService) DropIndexForEmailTemplatesCollection(instanceID string, dropAll bool) {
+	ctx, cancel := messagingDBService.getContext()
+	defer cancel()
+
+	if dropAll {
+		_, err := messagingDBService.collectionEmailTemplates(instanceID).Indexes().DropAll(ctx)
+		if err != nil {
+			slog.Error("Error dropping all indexes for email templates", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
+		}
+	} else {
+		for _, index := range indexesForEmailTemplatesCollection {
+			if index.Options == nil || index.Options.Name == nil {
+				slog.Error("Index name is nil for email templates collection", slog.String("index", fmt.Sprintf("%+v", index)))
+				continue
+			}
+			indexName := *index.Options.Name
+			_, err := messagingDBService.collectionEmailTemplates(instanceID).Indexes().DropOne(ctx, indexName)
+			if err != nil {
+				slog.Error("Error dropping index for email templates", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("indexName", indexName))
+			}
+		}
+	}
+}
+
+func (messagingDBService *MessagingDBService) CreateDefaultIndexesForEmailTemplatesCollection(instanceID string) {
+	ctx, cancel := messagingDBService.getContext()
+	defer cancel()
+	_, err := messagingDBService.collectionEmailTemplates(instanceID).Indexes().CreateMany(ctx, indexesForEmailTemplatesCollection)
+	if err != nil {
+		slog.Error("Error creating index for email templates", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
+	}
+}
 
 // find all email templates with study key empty
 func (messagingDBService *MessagingDBService) GetGlobalEmailTemplates(instanceID string) ([]messagingTypes.EmailTemplate, error) {

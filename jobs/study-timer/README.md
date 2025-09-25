@@ -53,7 +53,7 @@ logging:
   max_age: 28
   max_backups: 3
   compress_old_logs: true
-  include_build_info: true
+  include_build_info: "once" # one of: never, always, once
 
 # Database configurations
 db_configs:
@@ -67,7 +67,6 @@ db_configs:
     max_pool_size: 4
     use_no_cursor_timeout: false
     db_name_prefix: ""
-    run_index_creation: false
 
 # List of instance IDs to process
 instance_ids:

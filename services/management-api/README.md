@@ -49,7 +49,7 @@ db_configs:
     max_pool_size: 4
     use_no_cursor_timeout: false
     db_name_prefix: ""
-    run_index_creation: false
+
   management_user_db:
     connection_str: "<connection_str>"
     username: "<env var MANAGEMENT_USER_DB_USERNAME>"
@@ -60,7 +60,7 @@ db_configs:
     max_pool_size: 4
     use_no_cursor_timeout: false
     db_name_prefix: ""
-    run_index_creation: false
+
   global_infos_db:
     connection_str: "<connection_str>"
     username: "<env var GLOBAL_INFOS_DB_USERNAME>"
@@ -71,7 +71,7 @@ db_configs:
     max_pool_size: 4
     use_no_cursor_timeout: false
     db_name_prefix: ""
-    run_index_creation: false
+
   messaging_db:
     connection_str: "<connection_str>"
     username: "<env var MESSAGING_DB_USERNAME>"
@@ -82,7 +82,7 @@ db_configs:
     max_pool_size: 4
     use_no_cursor_timeout: false
     db_name_prefix: ""
-    run_index_creation: false
+
   study_db:
     connection_str: "<connection_str>"
     username: "<env var STUDY_DB_USERNAME>"
@@ -93,7 +93,6 @@ db_configs:
     max_pool_size: 4
     use_no_cursor_timeout: false
     db_name_prefix: ""
-    run_index_creation: false
 
 study_configs:
   global_secret: "your-study-global-secret"

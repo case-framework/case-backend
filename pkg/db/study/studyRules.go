@@ -1,6 +1,7 @@
 package study
 
 import (
+	"fmt"
 	"log/slog"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -11,30 +12,57 @@ import (
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
-func (dbService *StudyDBService) CreateIndexForStudyRulesCollection(instanceID string) error {
+var indexesForStudyRulesCollection = []mongo.IndexModel{
+	{
+		Keys: bson.D{
+			{Key: "studyKey", Value: 1},
+		},
+		Options: options.Index().SetName("studyKey_1"),
+	},
+	{
+		Keys: bson.D{
+			{Key: "uploadedAt", Value: 1},
+			{Key: "studyKey", Value: 1},
+		},
+		Options: options.Index().SetName("uploadedAt_1_studyKey_1"),
+	},
+}
+
+func (dbService *StudyDBService) DropIndexForStudyRulesCollection(instanceID string, dropAll bool) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	if _, err := dbService.collectionStudyRules(instanceID).Indexes().DropAll(ctx); err != nil {
-		slog.Error("Error dropping indexes for studyRules", slog.String("error", err.Error()))
+	collection := dbService.collectionStudyRules(instanceID)
+
+	if dropAll {
+		_, err := collection.Indexes().DropAll(ctx)
+		if err != nil {
+			slog.Error("Error dropping all indexes for studyRules", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
+		}
+	} else {
+		for _, index := range indexesForStudyRulesCollection {
+			if index.Options == nil || index.Options.Name == nil {
+				slog.Error("Index name is nil for studyRules collection", slog.String("index", fmt.Sprintf("%+v", index)))
+				continue
+			}
+			indexName := *index.Options.Name
+			_, err := collection.Indexes().DropOne(ctx, indexName)
+			if err != nil {
+				slog.Error("Error dropping index for studyRules", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("indexName", indexName))
+			}
+		}
 	}
+}
+
+func (dbService *StudyDBService) CreateDefaultIndexesForStudyRulesCollection(instanceID string) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
 
 	collection := dbService.collectionStudyRules(instanceID)
-	indexes := []mongo.IndexModel{
-		{
-			Keys: bson.D{
-				{Key: "studyKey", Value: 1},
-			},
-		},
-		{
-			Keys: bson.D{
-				{Key: "uploadedAt", Value: 1},
-				{Key: "studyKey", Value: 1},
-			},
-		},
+	_, err := collection.Indexes().CreateMany(ctx, indexesForStudyRulesCollection)
+	if err != nil {
+		slog.Error("Error creating index for studyRules", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 	}
-	_, err := collection.Indexes().CreateMany(ctx, indexes)
-	return err
 }
 
 func (dbService *StudyDBService) deleteStudyRules(instanceID string, studyKey string) error {

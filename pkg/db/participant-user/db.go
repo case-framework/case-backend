@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/db"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -56,10 +57,6 @@ func NewParticipantUserDBService(configs db.DBConfig) (*ParticipantUserDBService
 		DBNamePrefix:    configs.DBNamePrefix,
 		InstanceIDs:     configs.InstanceIDs,
 	}
-
-	if configs.RunIndexCreation {
-		puDBSc.ensureIndexes()
-	}
 	return puDBSc, nil
 }
 
@@ -91,39 +88,60 @@ func (dbService *ParticipantUserDBService) collectionFailedOtpAttempts(instanceI
 	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_FAILED_OTP_ATTEMPTS)
 }
 
-func (dbService *ParticipantUserDBService) ensureIndexes() {
-	slog.Debug("Ensuring indexes for participant user DB")
+func (dbService *ParticipantUserDBService) CreateDefaultIndexes() {
 	for _, instanceID := range dbService.InstanceIDs {
-
-		err := dbService.CreateIndexForParticipantUsers(instanceID)
-		if err != nil {
-			slog.Debug("Error creating indexes for participant users: ", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
-		}
-
-		err = dbService.CreateIndexForParticipantUserAttributes(instanceID)
-		if err != nil {
-			slog.Debug("Error creating indexes for participant user attributes: ", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
-		}
-
-		err = dbService.CreateIndexForRenewTokens(instanceID)
-		if err != nil {
-			slog.Debug("Error creating indexes for renew tokens: ", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
-		}
-
-		err = dbService.CreateIndexForOTPs(instanceID)
-		if err != nil {
-			slog.Debug("Error creating indexes for OTPs: ", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
-		}
-
-		err = dbService.CreateIndexForFailedOtpAttempts(instanceID)
-		if err != nil {
-			slog.Debug("Error creating indexes for failed OTP attempts: ", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
-		}
-
-		// Fix field name for contactInfos
-		err = dbService.FixFieldNameForContactInfos(instanceID)
-		if err != nil {
-			slog.Debug("Error fixing field name for contactInfos: ", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
-		}
+		start := time.Now()
+		slog.Info("Creating default indexes for participant user DB", slog.String("instanceID", instanceID))
+		dbService.CreateDefaultIndexesForParticipantUsersCollection(instanceID)
+		dbService.CreateDefaultIndexesForParticipantUserAttributesCollection(instanceID)
+		dbService.CreateDefaultIndexesForRenewTokensCollection(instanceID)
+		dbService.CreateDefaultIndexesForOTPsCollection(instanceID)
+		dbService.CreateDefaultIndexesForFailedOtpAttemptsCollection(instanceID)
+		slog.Info("Default indexes created for participant user DB", slog.String("instanceID", instanceID), slog.String("duration", time.Since(start).String()))
 	}
+}
+
+func (dbService *ParticipantUserDBService) DropIndexes(dropAll bool) {
+	for _, instanceID := range dbService.InstanceIDs {
+		start := time.Now()
+		slog.Info("Dropping indexes for participant user DB", slog.String("instanceID", instanceID))
+		dbService.DropIndexForParticipantUsersCollection(instanceID, dropAll)
+		dbService.DropIndexForParticipantUserAttributesCollection(instanceID, dropAll)
+		dbService.DropIndexForRenewTokensCollection(instanceID, dropAll)
+		dbService.DropIndexForOTPsCollection(instanceID, dropAll)
+		dbService.DropIndexForFailedOtpAttemptsCollection(instanceID, dropAll)
+		slog.Info("Indexes dropped for participant user DB", slog.String("instanceID", instanceID), slog.String("duration", time.Since(start).String()))
+	}
+}
+
+func (dbService *ParticipantUserDBService) GetIndexes() (map[string]map[string][]bson.M, error) {
+	results := make(map[string]map[string][]bson.M, len(dbService.InstanceIDs))
+
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	for _, instanceID := range dbService.InstanceIDs {
+		collectionIndexes := make(map[string][]bson.M)
+
+		var err error
+		if collectionIndexes[COLLECTION_NAME_PARTICIPANT_USERS], err = db.ListCollectionIndexes(ctx, dbService.collectionParticipantUsers(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_PARTICIPANT_USER_ATTRIBUTES], err = db.ListCollectionIndexes(ctx, dbService.collectionParticipantUserAttributes(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_RENEW_TOKENS], err = db.ListCollectionIndexes(ctx, dbService.collectionRenewTokens(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_OTPS], err = db.ListCollectionIndexes(ctx, dbService.collectionOTPs(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_FAILED_OTP_ATTEMPTS], err = db.ListCollectionIndexes(ctx, dbService.collectionFailedOtpAttempts(instanceID)); err != nil {
+			return nil, err
+		}
+
+		results[instanceID] = collectionIndexes
+	}
+
+	return results, nil
 }
