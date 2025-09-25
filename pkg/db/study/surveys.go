@@ -21,14 +21,14 @@ var indexesForSurveysCollection = []mongo.IndexModel{
 			{Key: "unpublished", Value: 1},
 			{Key: "published", Value: -1},
 		},
-		Options: options.Index().SetName("surveyDefinition.key_unpublished_published_1"),
+		Options: options.Index().SetName("surveyDefinition.key_1_unpublished_1_published_-1"),
 	},
 	{
 		Keys: bson.D{
 			{Key: "published", Value: 1},
 			{Key: "surveyDefinition.key", Value: 1},
 		},
-		Options: options.Index().SetName("published_surveyDefinition.key_1"),
+		Options: options.Index().SetName("published_1_surveyDefinition.key_1"),
 	},
 	{
 		Keys: bson.D{
@@ -41,7 +41,7 @@ var indexesForSurveysCollection = []mongo.IndexModel{
 			{Key: "surveyDefinition.key", Value: 1},
 			{Key: "versionID", Value: 1},
 		},
-		Options: options.Index().SetName("surveyDefinition.key_versionID_1").SetUnique(true),
+		Options: options.Index().SetName("surveyDefinition.key_1_versionID_1").SetUnique(true),
 	},
 }
 
