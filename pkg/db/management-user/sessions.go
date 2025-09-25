@@ -91,7 +91,7 @@ func (dbService *ManagementUserDBService) GetSession(
 	if err != nil {
 		return nil, err
 	}
-	err = dbService.collectionSessions(instanceID).FindOne(ctx, primitive.M{"_id": objID}).Decode(&session)
+	err = dbService.collectionSessions(instanceID).FindOne(ctx, bson.M{"_id": objID}).Decode(&session)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func (dbService *ManagementUserDBService) DeleteSession(
 	if err != nil {
 		return err
 	}
-	_, err = dbService.collectionSessions(instanceID).DeleteOne(ctx, primitive.M{"_id": objID})
+	_, err = dbService.collectionSessions(instanceID).DeleteOne(ctx, bson.M{"_id": objID})
 	return err
 }
 
@@ -122,6 +122,6 @@ func (dbService *ManagementUserDBService) DeleteSessionsByUserID(
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_, err := dbService.collectionSessions(instanceID).DeleteMany(ctx, primitive.M{"userId": userID})
+	_, err := dbService.collectionSessions(instanceID).DeleteMany(ctx, bson.M{"userId": userID})
 	return err
 }

@@ -15,7 +15,7 @@ var indexesForConfidentialIDMapCollection = []mongo.IndexModel{
 			{Key: "confidentialID", Value: 1},
 			{Key: "studyKey", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("confidentialID_studyKey_1"),
+		Options: options.Index().SetUnique(true).SetName("confidentialID_1_studyKey_1"),
 	},
 }
 

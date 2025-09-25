@@ -41,7 +41,7 @@ var indexesForReportsCollection = []mongo.IndexModel{
 			{Key: "key", Value: 1},
 			{Key: "timestamp", Value: 1},
 		},
-		Options: options.Index().SetName("participantID_key_timestamp_1"),
+		Options: options.Index().SetName("participantID_1_key_1_timestamp_1"),
 	},
 }
 

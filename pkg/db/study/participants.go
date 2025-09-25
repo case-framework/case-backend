@@ -39,13 +39,13 @@ var indexesForParticipantsCollection = []mongo.IndexModel{
 			{Key: "messages.scheduledFor", Value: 1},
 			{Key: "studyStatus", Value: 1},
 		},
-		Options: options.Index().SetName("messages_scheduledFor_studyStatus_1"),
+		Options: options.Index().SetName("messages.scheduledFor_1_studyStatus_1"),
 	},
 	{
 		Keys: bson.D{
 			{Key: "messages.scheduledFor", Value: 1},
 		},
-		Options: options.Index().SetName("messages_scheduledFor_1"),
+		Options: options.Index().SetName("messages.scheduledFor_1"),
 	},
 }
 

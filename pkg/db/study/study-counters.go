@@ -21,7 +21,7 @@ var indexesForStudyCountersCollection = []mongo.IndexModel{
 			{Key: "studyKey", Value: 1},
 			{Key: "scope", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("studyKey_scope_1"),
+		Options: options.Index().SetUnique(true).SetName("studyKey_1_scope_1"),
 	},
 }
 

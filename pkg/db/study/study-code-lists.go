@@ -19,7 +19,7 @@ var indexesForStudyCodeListsCollection = []mongo.IndexModel{
 			{Key: "listKey", Value: 1},
 			{Key: "code", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("studyKey_listKey_code_1"),
+		Options: options.Index().SetUnique(true).SetName("studyKey_1_listKey_1_code_1"),
 	},
 }
 
