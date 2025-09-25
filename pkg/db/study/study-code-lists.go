@@ -9,7 +9,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/case-framework/case-backend/pkg/study/types"
 	studytypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
@@ -181,7 +180,7 @@ func (dbService *StudyDBService) DrawStudyCode(instanceID string, studyKey strin
 		"listKey":  listKey,
 	}
 
-	var result types.StudyCodeListEntry
+	var result studytypes.StudyCodeListEntry
 	err := dbService.collectionStudyCodeLists(instanceID).FindOneAndDelete(ctx, filter).Decode(&result)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {

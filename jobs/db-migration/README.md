@@ -33,12 +33,12 @@ logging:
   log_level: "info"
   include_src: true
   log_to_file: true
-  filename: "messaging.log"
+  filename: "db-migration.log"
   max_size: 100
   max_age: 28
   max_backups: 3
   compress_old_logs: true
-  include_build_info: true
+  include_build_info: "once"
 
 # Database configurations
 db_configs:
@@ -146,7 +146,7 @@ The db migration job can run the following tasks (controlled by the `task_config
 
 - **Drop Indexes**: Drops indexes from the specified databases. For each database, the following options are available:
   - `all`: Drops all indexes
-  - `defaults`: Drops indexes with the specified name
-  - `none`: Does not drop any indexes (default)
+  - `defaults`: Drops indexes with the specified names (defaults configured in the code)
+  - `none`: Does not drop any indexes
 
 - **Create Indexes**: Creates indexes in the specified databases.

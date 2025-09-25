@@ -1,6 +1,7 @@
 package study
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -10,7 +11,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"golang.org/x/net/context"
 
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )

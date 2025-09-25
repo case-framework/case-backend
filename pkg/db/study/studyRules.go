@@ -24,7 +24,7 @@ var indexesForStudyRulesCollection = []mongo.IndexModel{
 			{Key: "uploadedAt", Value: 1},
 			{Key: "studyKey", Value: 1},
 		},
-		Options: options.Index().SetName("uploadedAt_studyKey_1"),
+		Options: options.Index().SetName("uploadedAt_1_studyKey_1"),
 	},
 }
 

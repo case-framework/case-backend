@@ -113,7 +113,7 @@ func (dbService *ParticipantUserDBService) DeleteRenewTokenByToken(instanceID st
 		return err
 	}
 	if res.DeletedCount < 1 {
-		return errors.New("no renew token oject found with the given token value")
+		return errors.New("no renew token object found with the given token value")
 	}
 	return nil
 }

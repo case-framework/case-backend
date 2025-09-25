@@ -76,7 +76,7 @@ func (dbService *GlobalInfosDBService) AddBlockedJwt(token string, expiresAt tim
 
 	_, err := dbService.collectionBlockedJwts().InsertOne(ctx, blockedJwt)
 	if err != nil {
-		slog.Error("Error adding JWT to blocked list", slog.String("error", err.Error()), slog.String("token", token))
+		slog.Error("Error adding JWT to blocked list", slog.String("error", err.Error()))
 		return err
 	}
 
@@ -94,7 +94,7 @@ func (dbService *GlobalInfosDBService) IsJwtBlocked(token string) bool {
 	// Use CountDocuments with limit 1 for a faster existence check
 	count, err := dbService.collectionBlockedJwts().CountDocuments(ctx, filter, options.Count().SetLimit(1))
 	if err != nil {
-		slog.Error("Error checking if JWT is blocked", slog.String("error", err.Error()), slog.String("token", token))
+		slog.Error("Error checking if JWT is blocked", slog.String("error", err.Error()))
 		return false
 	}
 	return count > 0

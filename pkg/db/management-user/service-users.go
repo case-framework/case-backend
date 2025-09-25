@@ -1,6 +1,7 @@
 package managementuser
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -86,7 +87,8 @@ func (dbService *ManagementUserDBService) CreateServiceUser(instanceID string, l
 	}
 
 	if result.InsertedID == nil {
-		slog.Error("Error creating service user", slog.String("error", "InsertedID is nil"))
+		err = errors.New("InsertedID is nil")
+		slog.Error("Error creating service user", slog.String("error", err.Error()))
 		return nil, err
 	}
 

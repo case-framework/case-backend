@@ -19,7 +19,7 @@ var indexesForPermissionsCollection = []mongo.IndexModel{
 			{Key: "resourceKey", Value: 1},
 			{Key: "action", Value: 1},
 		},
-		Options: options.Index().SetName("uniq_subjectId_subjectType_resourceType_resourceKey_action"),
+		Options: options.Index().SetName("subjectId_1_subjectType_1_resourceType_1_resourceKey_1_action_1"),
 	},
 }
 

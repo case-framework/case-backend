@@ -28,7 +28,7 @@ var indexesForResponsesCollection = []mongo.IndexModel{
 			{Key: "key", Value: 1},
 			{Key: "submittedAt", Value: 1},
 		},
-		Options: options.Index().SetName("participantID_key_submittedAt_1"),
+		Options: options.Index().SetName("participantID_1_key_1_submittedAt_1"),
 	},
 	{
 		Keys: bson.D{

@@ -28,18 +28,18 @@ func (dbService *ParticipantUserDBService) DropIndexForParticipantUserAttributes
 	if dropAll {
 		_, err := dbService.collectionParticipantUserAttributes(instanceID).Indexes().DropAll(ctx)
 		if err != nil {
-			slog.Error("Error dropping all indexes for participant user attributes", slog.String("error", err.Error()))
+			slog.Error("Error dropping all indexes for participant user attributes", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 		}
 	} else {
 		for _, index := range indexesForParticipantUserAttributesCollection {
 			if index.Options.Name == nil {
-				slog.Error("Index name is nil for participant user attributes collection", slog.String("index", fmt.Sprintf("%+v", index)))
+				slog.Error("Index name is nil for participant user attributes collection", slog.String("index", fmt.Sprintf("%+v", index)), slog.String("instanceID", instanceID))
 				continue
 			}
 			indexName := *index.Options.Name
 			_, err := dbService.collectionParticipantUserAttributes(instanceID).Indexes().DropOne(ctx, indexName)
 			if err != nil {
-				slog.Error("Error dropping index for participant user attributes", slog.String("error", err.Error()), slog.String("indexName", indexName))
+				slog.Error("Error dropping index for participant user attributes", slog.String("error", err.Error()), slog.String("indexName", indexName), slog.String("instanceID", instanceID))
 			}
 		}
 	}
@@ -51,7 +51,7 @@ func (dbService *ParticipantUserDBService) CreateDefaultIndexesForParticipantUse
 
 	_, err := dbService.collectionParticipantUserAttributes(instanceID).Indexes().CreateMany(ctx, indexesForParticipantUserAttributesCollection)
 	if err != nil {
-		slog.Error("Error creating index for participant user attributes", slog.String("error", err.Error()))
+		slog.Error("Error creating index for participant user attributes", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 	}
 }
 

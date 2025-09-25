@@ -25,18 +25,18 @@ func (dbService *ManagementUserDBService) DropIndexForManagementUsersCollection(
 	if dropAll {
 		_, err := dbService.collectionManagementUsers(instanceID).Indexes().DropAll(ctx)
 		if err != nil {
-			slog.Error("Error dropping all indexes for management users: ", slog.String("error", err.Error()))
+			slog.Error("Error dropping all indexes for management users", slog.String("error", err.Error()))
 		}
 	} else {
 		for _, index := range indexesForManagementUsersCollection {
 			if index.Options.Name == nil {
-				slog.Error("Index name is nil for management users collection: ", slog.String("index", fmt.Sprintf("%+v", index)))
+				slog.Error("Index name is nil for management users collection", slog.String("index", fmt.Sprintf("%+v", index)), slog.String("instanceID", instanceID))
 				continue
 			}
 			indexName := *index.Options.Name
 			_, err := dbService.collectionManagementUsers(instanceID).Indexes().DropOne(ctx, indexName)
 			if err != nil {
-				slog.Error("Error dropping index for management users: ", slog.String("error", err.Error()), slog.String("indexName", indexName))
+				slog.Error("Error dropping index for management users", slog.String("error", err.Error()), slog.String("indexName", indexName), slog.String("instanceID", instanceID))
 			}
 		}
 	}
@@ -47,7 +47,7 @@ func (dbService *ManagementUserDBService) CreateDefaultIndexesForManagementUsers
 	defer cancel()
 	_, err := dbService.collectionManagementUsers(instanceID).Indexes().CreateMany(ctx, indexesForManagementUsersCollection)
 	if err != nil {
-		slog.Error("Error creating index for management users: ", slog.String("error", err.Error()))
+		slog.Error("Error creating index for management users", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 	}
 }
 

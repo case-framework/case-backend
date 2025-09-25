@@ -63,7 +63,7 @@ logging:
   max_age: 28
   max_backups: 3
   compress_old_logs: true
-  include_build_info: true
+  include_build_info: "once" # one of: never, always, once
 
 # Database configurations
 db_configs:
