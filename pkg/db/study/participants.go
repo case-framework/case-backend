@@ -62,7 +62,7 @@ func (dbService *StudyDBService) DropIndexForParticipantsCollection(instanceID s
 		}
 	} else {
 		for _, index := range indexesForParticipantsCollection {
-			if index.Options.Name == nil {
+			if index.Options == nil || index.Options.Name == nil {
 				slog.Error("Index name is nil for participants collection", slog.String("index", fmt.Sprintf("%+v", index)))
 				continue
 			}

@@ -29,7 +29,7 @@ func (dbService *ManagementUserDBService) DropIndexForManagementUsersCollection(
 		}
 	} else {
 		for _, index := range indexesForManagementUsersCollection {
-			if index.Options.Name == nil {
+			if index.Options == nil || index.Options.Name == nil {
 				slog.Error("Index name is nil for management users collection", slog.String("index", fmt.Sprintf("%+v", index)), slog.String("instanceID", instanceID))
 				continue
 			}

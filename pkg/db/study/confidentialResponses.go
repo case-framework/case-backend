@@ -36,7 +36,7 @@ func (dbService *StudyDBService) DropIndexForConfidentialResponsesCollection(ins
 		}
 	} else {
 		for _, index := range indexesForConfidentialResponsesCollection {
-			if index.Options.Name == nil {
+			if index.Options == nil || index.Options.Name == nil {
 				slog.Error("Index name is nil for confidential responses collection", slog.String("index", fmt.Sprintf("%+v", index)))
 				continue
 			}

@@ -44,7 +44,7 @@ func (dbService *ParticipantUserDBService) DropIndexForOTPsCollection(instanceID
 		}
 	} else {
 		for _, index := range indexesForOTPsCollection {
-			if index.Options.Name == nil {
+			if index.Options == nil || index.Options.Name == nil {
 				slog.Error("Index name is nil for OTPs collection", slog.String("index", fmt.Sprintf("%+v", index)))
 				continue
 			}

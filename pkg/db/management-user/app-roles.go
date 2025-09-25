@@ -52,7 +52,7 @@ func (dbService *ManagementUserDBService) DropIndexForAppRolesCollection(instanc
 		}
 	} else {
 		for _, index := range indexesForAppRolesCollection {
-			if index.Options.Name == nil {
+			if index.Options == nil || index.Options.Name == nil {
 				slog.Error("Index name is nil for app roles collection", slog.String("index", fmt.Sprintf("%+v", index)))
 				continue
 			}
@@ -96,7 +96,7 @@ func (dbService *ManagementUserDBService) DropIndexForAppRoleTemplatesCollection
 		}
 	} else {
 		for _, index := range indexesForAppRoleTemplatesCollection {
-			if index.Options.Name == nil {
+			if index.Options == nil || index.Options.Name == nil {
 				slog.Error("Index name is nil for app role templates collection: ", slog.String("index", fmt.Sprintf("%+v", index)))
 				continue
 			}

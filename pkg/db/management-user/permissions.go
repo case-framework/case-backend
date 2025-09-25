@@ -34,7 +34,7 @@ func (dbService *ManagementUserDBService) DropIndexForPermissionsCollection(inst
 		}
 	} else {
 		for _, index := range indexesForPermissionsCollection {
-			if index.Options.Name == nil {
+			if index.Options == nil || index.Options.Name == nil {
 				slog.Error("Index name is nil for permissions collection: ", slog.String("index", fmt.Sprintf("%+v", index)))
 				continue
 			}

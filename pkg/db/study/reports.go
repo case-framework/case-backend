@@ -58,7 +58,7 @@ func (dbService *StudyDBService) DropIndexForReportsCollection(instanceID string
 		}
 	} else {
 		for _, index := range indexesForReportsCollection {
-			if index.Options.Name == nil {
+			if index.Options == nil || index.Options.Name == nil {
 				slog.Error("Index name is nil for reports collection", slog.String("index", fmt.Sprintf("%+v", index)))
 				continue
 			}

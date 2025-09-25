@@ -33,7 +33,7 @@ func (messagingDBService *MessagingDBService) DropIndexForEmailTemplatesCollecti
 		}
 	} else {
 		for _, index := range indexesForEmailTemplatesCollection {
-			if index.Options.Name == nil {
+			if index.Options == nil || index.Options.Name == nil {
 				slog.Error("Index name is nil for email templates collection", slog.String("index", fmt.Sprintf("%+v", index)))
 				continue
 			}

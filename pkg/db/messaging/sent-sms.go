@@ -34,7 +34,7 @@ func (dbService *MessagingDBService) DropIndexForSentSMSCollection(instanceID st
 		}
 	} else {
 		for _, index := range indexesForSentSMSCollection {
-			if index.Options.Name == nil {
+			if index.Options == nil || index.Options.Name == nil {
 				slog.Error("Index name is nil for sent SMS collection", slog.String("index", fmt.Sprintf("%+v", index)))
 				continue
 			}

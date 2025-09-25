@@ -45,7 +45,7 @@ func (dbService *ParticipantUserDBService) DropIndexForFailedOtpAttemptsCollecti
 		}
 	} else {
 		for _, index := range indexesForFailedOtpAttemptsCollection {
-			if index.Options.Name == nil {
+			if index.Options == nil || index.Options.Name == nil {
 				slog.Error("Index name is nil for FailedOtpAttempts collection", slog.String("index", fmt.Sprintf("%+v", index)))
 				continue
 			}

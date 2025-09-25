@@ -35,7 +35,7 @@ func (dbService *StudyDBService) DropIndexForTaskQueueCollection(instanceID stri
 		}
 	} else {
 		for _, index := range indexesForTaskQueueCollection {
-			if index.Options.Name == nil {
+			if index.Options == nil || index.Options.Name == nil {
 				slog.Error("Index name is nil for task queue collection", slog.String("index", fmt.Sprintf("%+v", index)))
 				continue
 			}
