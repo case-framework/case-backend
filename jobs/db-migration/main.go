@@ -1,6 +1,9 @@
 package main
 
-import "log/slog"
+import (
+	"log/slog"
+	"time"
+)
 
 func main() {
 	dropIndexes()
@@ -73,10 +76,13 @@ func migrationTasks() {
 	// Fix participant user contact infos
 	if conf.TaskConfigs.MigrationTasks.ParticipantUserContactInfosFix {
 		for _, instanceID := range participantUserDBService.InstanceIDs {
+			start := time.Now()
+			slog.Info("Fixing participant user contact infos", slog.String("instanceID", instanceID))
 			err := participantUserDBService.FixFieldNameForContactInfos(instanceID)
 			if err != nil {
 				slog.Error("Error fixing participant user contact infos", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
 			}
+			slog.Info("Participant user contact infos fixed", slog.String("instanceID", instanceID), slog.String("duration", time.Since(start).String()))
 		}
 	}
 }
