@@ -240,7 +240,6 @@ func (dbService *ParticipantUserDBService) DeleteUser(instanceID, userID string)
 	filter := bson.M{"_id": _id}
 	res, err := dbService.collectionParticipantUsers(instanceID).DeleteOne(ctx, filter)
 	if err != nil {
-		slog.Error("error deleting user", slog.String("error", err.Error()))
 		return err
 	}
 	if res.DeletedCount < 1 {
