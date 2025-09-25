@@ -26,7 +26,8 @@ var indexesForParticipantUsersCollection = []mongo.IndexModel{
 		Keys: bson.D{
 			{Key: "account.accountID", Value: 1},
 		},
-		Options: options.Index().SetName("account.accountID_1"),
+		Options: options.Index().SetUnique(true).
+			SetName("uniq_account.accountID_1"),
 	},
 	{
 		Keys: bson.D{
