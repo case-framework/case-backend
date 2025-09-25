@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/db"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -108,4 +109,39 @@ func (dbService *ManagementUserDBService) DropIndexes(dropAll bool) {
 		dbService.DropIndexForSessionsCollection(instanceID, dropAll)
 		slog.Info("Indexes dropped for management user DB", slog.String("instanceID", instanceID), slog.String("duration", time.Since(start).String()))
 	}
+}
+
+func (dbService *ManagementUserDBService) GetIndexes() (map[string]map[string][]bson.M, error) {
+	results := make(map[string]map[string][]bson.M, len(dbService.InstanceIDs))
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	for _, instanceID := range dbService.InstanceIDs {
+		collectionIndexes := make(map[string][]bson.M)
+
+		var err error
+
+		if collectionIndexes[COLLECTION_NAME_APP_ROLES], err = db.ListCollectionIndexes(ctx, dbService.collectionAppRoles(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_APP_ROLE_TEMPLATES], err = db.ListCollectionIndexes(ctx, dbService.collectionAppRoleTemplates(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_MANAGEMENT_USERS], err = db.ListCollectionIndexes(ctx, dbService.collectionManagementUsers(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_PERMISSIONS], err = db.ListCollectionIndexes(ctx, dbService.collectionPermissions(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_SERVICE_USER_API_KEYS], err = db.ListCollectionIndexes(ctx, dbService.collectionServiceUserAPIKeys(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_SESSIONS], err = db.ListCollectionIndexes(ctx, dbService.collectionSessions(instanceID)); err != nil {
+			return nil, err
+		}
+
+		results[instanceID] = collectionIndexes
+	}
+
+	return results, nil
 }

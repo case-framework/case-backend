@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/db"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -88,4 +89,24 @@ func (dbService *GlobalInfosDBService) CreateDefaultIndexes() {
 	dbService.CreateDefaultIndexesForTemptokensCollection()
 	slog.Info("Default indexes created for global infos DB", slog.String("duration", time.Since(start).String()))
 
+}
+
+func (dbService *GlobalInfosDBService) GetIndexes() (map[string][]bson.M, error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	blockedJwts, err := db.ListCollectionIndexes(ctx, dbService.collectionBlockedJwts())
+	if err != nil {
+		return nil, err
+	}
+
+	tempTokens, err := db.ListCollectionIndexes(ctx, dbService.collectionTemptokens())
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string][]bson.M{
+		COLLECTION_NAME_BLOCKED_JWTS: blockedJwts,
+		COLLECTION_NAME_TEMPTOKENS:   tempTokens,
+	}, nil
 }
