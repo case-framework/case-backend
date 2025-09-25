@@ -17,7 +17,7 @@ import (
 var indexesForParticipantUserAttributesCollection = []mongo.IndexModel{
 	{
 		Keys:    bson.D{{Key: "userId", Value: 1}, {Key: "type", Value: 1}},
-		Options: options.Index().SetName("idx_user_attributes_userId").SetUnique(true),
+		Options: options.Index().SetName("userId_1_type_1").SetUnique(true),
 	},
 }
 

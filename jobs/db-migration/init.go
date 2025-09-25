@@ -56,6 +56,7 @@ type config struct {
 type TaskConfigs struct {
 	DropIndexes    DropIndexesConfig    `json:"drop_indexes" yaml:"drop_indexes"`
 	CreateIndexes  CreateIndexesConfig  `json:"create_indexes" yaml:"create_indexes"`
+	GetIndexes     GetIndexesConfig     `json:"get_indexes" yaml:"get_indexes"`
 	MigrationTasks MigrationTasksConfig `json:"migration_tasks" yaml:"migration_tasks"`
 }
 
@@ -73,6 +74,14 @@ type CreateIndexesConfig struct {
 	ManagementUserDB  bool `json:"management_user_db" yaml:"management_user_db"`
 	GlobalInfosDB     bool `json:"global_infos_db" yaml:"global_infos_db"`
 	MessagingDB       bool `json:"messaging_db" yaml:"messaging_db"`
+}
+
+type GetIndexesConfig struct {
+	StudyDB           string `json:"study_db" yaml:"study_db"`
+	ParticipantUserDB string `json:"participant_user_db" yaml:"participant_user_db"`
+	ManagementUserDB  string `json:"management_user_db" yaml:"management_user_db"`
+	GlobalInfosDB     string `json:"global_infos_db" yaml:"global_infos_db"`
+	MessagingDB       string `json:"messaging_db" yaml:"messaging_db"`
 }
 
 type MigrationTasksConfig struct {
@@ -207,6 +216,26 @@ func secretsOverride() {
 	}
 }
 
+type GetIndexesDBs struct {
+	StudyDB           bool
+	ParticipantUserDB bool
+	ManagementUserDB  bool
+	GlobalInfosDB     bool
+	MessagingDB       bool
+}
+
+func shouldGetIndexesForDBs() GetIndexesDBs {
+	getIndexes := conf.TaskConfigs.GetIndexes
+
+	return GetIndexesDBs{
+		StudyDB:           getIndexes.StudyDB != "" && getIndexes.StudyDB != "false",
+		ParticipantUserDB: getIndexes.ParticipantUserDB != "" && getIndexes.ParticipantUserDB != "false",
+		ManagementUserDB:  getIndexes.ManagementUserDB != "" && getIndexes.ManagementUserDB != "false",
+		GlobalInfosDB:     getIndexes.GlobalInfosDB != "" && getIndexes.GlobalInfosDB != "false",
+		MessagingDB:       getIndexes.MessagingDB != "" && getIndexes.MessagingDB != "false",
+	}
+}
+
 // getRequiredDBs determines which databases need to be connected based on task configurations
 func getRequiredDBs() RequiredDBs {
 	requiredDBs := RequiredDBs{}
@@ -214,6 +243,7 @@ func getRequiredDBs() RequiredDBs {
 	dropIndexes := conf.TaskConfigs.DropIndexes
 	createIndexes := conf.TaskConfigs.CreateIndexes
 	migrationTasks := conf.TaskConfigs.MigrationTasks
+	shouldGetIndexes := shouldGetIndexesForDBs()
 
 	// Check drop_indexes configuration
 	if dropIndexes.StudyDB != DropIndexesModeNone {
@@ -246,6 +276,23 @@ func getRequiredDBs() RequiredDBs {
 		requiredDBs.GlobalInfosDB = true
 	}
 	if createIndexes.MessagingDB {
+		requiredDBs.MessagingDB = true
+	}
+
+	// Check get_indexes configuration
+	if shouldGetIndexes.StudyDB {
+		requiredDBs.StudyDB = true
+	}
+	if shouldGetIndexes.ParticipantUserDB {
+		requiredDBs.ParticipantUserDB = true
+	}
+	if shouldGetIndexes.ManagementUserDB {
+		requiredDBs.ManagementUserDB = true
+	}
+	if shouldGetIndexes.GlobalInfosDB {
+		requiredDBs.GlobalInfosDB = true
+	}
+	if shouldGetIndexes.MessagingDB {
 		requiredDBs.MessagingDB = true
 	}
 

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/db"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -111,4 +112,36 @@ func (dbService *ParticipantUserDBService) DropIndexes(dropAll bool) {
 		dbService.DropIndexForFailedOtpAttemptsCollection(instanceID, dropAll)
 		slog.Info("Indexes dropped for participant user DB", slog.String("instanceID", instanceID), slog.String("duration", time.Since(start).String()))
 	}
+}
+
+func (dbService *ParticipantUserDBService) GetIndexes() (map[string]map[string][]bson.M, error) {
+	results := make(map[string]map[string][]bson.M, len(dbService.InstanceIDs))
+
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	for _, instanceID := range dbService.InstanceIDs {
+		collectionIndexes := make(map[string][]bson.M)
+
+		var err error
+		if collectionIndexes[COLLECTION_NAME_PARTICIPANT_USERS], err = db.ListCollectionIndexes(ctx, dbService.collectionParticipantUsers(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_PARTICIPANT_USER_ATTRIBUTES], err = db.ListCollectionIndexes(ctx, dbService.collectionParticipantUserAttributes(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_RENEW_TOKENS], err = db.ListCollectionIndexes(ctx, dbService.collectionRenewTokens(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_OTPS], err = db.ListCollectionIndexes(ctx, dbService.collectionOTPs(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_FAILED_OTP_ATTEMPTS], err = db.ListCollectionIndexes(ctx, dbService.collectionFailedOtpAttempts(instanceID)); err != nil {
+			return nil, err
+		}
+
+		results[instanceID] = collectionIndexes
+	}
+
+	return results, nil
 }

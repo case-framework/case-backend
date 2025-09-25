@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/db"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -119,4 +120,39 @@ func (dbService *MessagingDBService) DropIndexes(dropAll bool) {
 		dbService.DropIndexForSentSMSCollection(instanceID, dropAll)
 		slog.Info("Indexes dropped for messaging DB", slog.String("instanceID", instanceID), slog.String("duration", time.Since(start).String()))
 	}
+}
+
+func (dbService *MessagingDBService) GetIndexes() (map[string]map[string][]bson.M, error) {
+	results := make(map[string]map[string][]bson.M, len(dbService.InstanceIDs))
+
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	for _, instanceID := range dbService.InstanceIDs {
+		collectionIndexes := make(map[string][]bson.M)
+
+		var err error
+		if collectionIndexes[COLLECTION_NAME_EMAIL_TEMPLATES], err = db.ListCollectionIndexes(ctx, dbService.collectionEmailTemplates(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_SMS_TEMPLATES], err = db.ListCollectionIndexes(ctx, dbService.collectionSMSTemplates(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_EMAIL_SCHEDULES], err = db.ListCollectionIndexes(ctx, dbService.collectionEmailSchedules(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_OUTGOING_EMAILS], err = db.ListCollectionIndexes(ctx, dbService.collectionOutgoingEmails(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_SENT_EMAILS], err = db.ListCollectionIndexes(ctx, dbService.collectionSentEmails(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_SENT_SMS], err = db.ListCollectionIndexes(ctx, dbService.collectionSentSMS(instanceID)); err != nil {
+			return nil, err
+		}
+
+		results[instanceID] = collectionIndexes
+	}
+
+	return results, nil
 }

@@ -19,7 +19,7 @@ var indexesForConfidentialResponsesCollection = []mongo.IndexModel{
 			{Key: "participantID", Value: 1},
 			{Key: "key", Value: 1},
 		},
-		Options: options.Index().SetName("participantID_key_1"),
+		Options: options.Index().SetName("participantID_1_key_1"),
 	},
 }
 

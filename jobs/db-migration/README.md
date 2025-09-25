@@ -120,6 +120,13 @@ task_configs:
     global_infos_db: true
     messaging_db: true
 
+  get_indexes:
+    study_db: ./storage/indexes/study_db.json # or false
+    participant_user_db: ./storage/indexes/participant_user_db.json # or false
+    management_user_db: ./storage/indexes/management_user_db.json # or false
+    global_infos_db: ./storage/indexes/global_infos_db.json # or false
+    messaging_db: ./storage/indexes/messaging_db.json # or false
+
   migration_tasks:
     participant_user_contact_infos_fix: false
 

@@ -19,7 +19,7 @@ var indexesForSentSMSCollection = []mongo.IndexModel{
 			{Key: "sentAt", Value: 1},
 			{Key: "messageType", Value: 1},
 		},
-		Options: options.Index().SetName("userID_sentAt_messageType_1"),
+		Options: options.Index().SetName("userID_1_sentAt_1_messageType_1"),
 	},
 }
 

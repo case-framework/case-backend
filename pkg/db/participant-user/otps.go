@@ -23,7 +23,7 @@ var indexesForOTPsCollection = []mongo.IndexModel{
 			{Key: "userID", Value: 1},
 			{Key: "code", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("userID_code_1"),
+		Options: options.Index().SetUnique(true).SetName("uniq_userID_1_code_1"),
 	},
 	{
 		Keys: bson.D{

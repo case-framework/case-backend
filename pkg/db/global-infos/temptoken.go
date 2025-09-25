@@ -21,7 +21,7 @@ var indexesForTemptokensCollection = []mongo.IndexModel{
 			{Key: "instanceID", Value: 1},
 			{Key: "purpose", Value: 1},
 		},
-		Options: options.Index().SetName("userID_instanceID_purpose_1"),
+		Options: options.Index().SetName("userID_1_instanceID_1_purpose_1"),
 	},
 	{
 		Keys: bson.D{
