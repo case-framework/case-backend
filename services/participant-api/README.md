@@ -146,7 +146,6 @@ db_configs:
     max_pool_size: 8
     use_no_cursor_timeout: false
     db_name_prefix: ""
-    run_index_creation: false
 
   participant_user_db:
     connection_str: "<connection_str>"
@@ -158,7 +157,6 @@ db_configs:
     max_pool_size: 8
     use_no_cursor_timeout: false
     db_name_prefix: ""
-    run_index_creation: false
 
   global_infos_db:
     connection_str: "<connection_str>"
@@ -170,7 +168,6 @@ db_configs:
     max_pool_size: 4
     use_no_cursor_timeout: false
     db_name_prefix: ""
-    run_index_creation: false
 
   messaging_db:
     connection_str: "<connection_str>"
@@ -182,7 +179,6 @@ db_configs:
     max_pool_size: 4
     use_no_cursor_timeout: false
     db_name_prefix: ""
-    run_index_creation: false
 
 # Study module configuration
 study_configs:

@@ -67,7 +67,6 @@ db_configs:
     max_pool_size: 4
     use_no_cursor_timeout: false
     db_name_prefix: ""
-    run_index_creation: false
 
 # List of instance IDs to process
 instance_ids:
