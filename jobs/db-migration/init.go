@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 
@@ -86,6 +87,29 @@ const (
 	DropIndexesModeNone     DropIndexesMode = "none"
 )
 
+func (mode DropIndexesMode) IsValid() bool {
+	switch mode {
+	case DropIndexesModeAll, DropIndexesModeDefaults, DropIndexesModeNone:
+		return true
+	default:
+		return false
+	}
+}
+
+func validateConfig() {
+	validateDropIndexesMode("task_configs.drop_indexes.study_db", conf.TaskConfigs.DropIndexes.StudyDB)
+	validateDropIndexesMode("task_configs.drop_indexes.participant_user_db", conf.TaskConfigs.DropIndexes.ParticipantUserDB)
+	validateDropIndexesMode("task_configs.drop_indexes.management_user_db", conf.TaskConfigs.DropIndexes.ManagementUserDB)
+	validateDropIndexesMode("task_configs.drop_indexes.global_infos_db", conf.TaskConfigs.DropIndexes.GlobalInfosDB)
+	validateDropIndexesMode("task_configs.drop_indexes.messaging_db", conf.TaskConfigs.DropIndexes.MessagingDB)
+}
+
+func validateDropIndexesMode(field string, mode DropIndexesMode) {
+	if !mode.IsValid() {
+		panic(fmt.Sprintf("invalid drop indexes mode for %s: %q. Use one of: %v", field, mode, []DropIndexesMode{DropIndexesModeAll, DropIndexesModeDefaults, DropIndexesModeNone}))
+	}
+}
+
 type RequiredDBs struct {
 	StudyDB           bool
 	ParticipantUserDB bool
@@ -116,6 +140,8 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+
+	validateConfig()
 
 	// Init logger:
 	utils.InitLogger(
