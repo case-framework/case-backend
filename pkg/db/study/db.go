@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/db"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -68,6 +69,10 @@ func NewStudyDBService(configs db.DBConfig) (*StudyDBService, error) {
 	return studyDBSc, nil
 }
 
+func collectionNameWithStudyKeyPrefix(studyKey string, collectionName string) string {
+	return studyKey + "_" + collectionName
+}
+
 func (dbService *StudyDBService) getDBName(instanceID string) string {
 	return dbService.DBNamePrefix + instanceID + "_studyDB"
 }
@@ -85,19 +90,19 @@ func (dbService *StudyDBService) collectionTaskQueue(instanceID string) *mongo.C
 }
 
 func (dbService *StudyDBService) collectionSurveys(instanceID string, studyKey string) *mongo.Collection {
-	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(studyKey + "_" + COLLECTION_NAME_SUFFIX_SURVEYS)
+	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(collectionNameWithStudyKeyPrefix(studyKey, COLLECTION_NAME_SUFFIX_SURVEYS))
 }
 
 func (dbService *StudyDBService) collectionResponses(instanceID string, studyKey string) *mongo.Collection {
-	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(studyKey + "_" + COLLECTION_NAME_SUFFIX_RESPONSES)
+	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(collectionNameWithStudyKeyPrefix(studyKey, COLLECTION_NAME_SUFFIX_RESPONSES))
 }
 
 func (dbService *StudyDBService) collectionParticipants(instanceID string, studyKey string) *mongo.Collection {
-	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(studyKey + "_" + COLLECTION_NAME_SUFFIX_PARTICIPANTS)
+	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(collectionNameWithStudyKeyPrefix(studyKey, COLLECTION_NAME_SUFFIX_PARTICIPANTS))
 }
 
 func (dbService *StudyDBService) collectionConfidentialResponses(instanceID string, studyKey string) *mongo.Collection {
-	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(studyKey + "_" + COLLECTION_NAME_SUFFIX_CONFIDENTIAL_RESPONSES)
+	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(collectionNameWithStudyKeyPrefix(studyKey, COLLECTION_NAME_SUFFIX_CONFIDENTIAL_RESPONSES))
 }
 
 func (dbService *StudyDBService) collectionConfidentialIDMap(instanceID string) *mongo.Collection {
@@ -105,15 +110,15 @@ func (dbService *StudyDBService) collectionConfidentialIDMap(instanceID string) 
 }
 
 func (dbService *StudyDBService) collectionReports(instanceID string, studyKey string) *mongo.Collection {
-	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(studyKey + "_" + COLLECTION_NAME_SUFFIX_REPORTS)
+	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(collectionNameWithStudyKeyPrefix(studyKey, COLLECTION_NAME_SUFFIX_REPORTS))
 }
 
 func (dbService *StudyDBService) collectionFiles(instanceID string, studyKey string) *mongo.Collection {
-	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(studyKey + "_" + COLLECTION_NAME_SUFFIX_FILES)
+	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(collectionNameWithStudyKeyPrefix(studyKey, COLLECTION_NAME_SUFFIX_FILES))
 }
 
 func (dbService *StudyDBService) collectionResearcherMessages(instanceID string, studyKey string) *mongo.Collection {
-	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(studyKey + "_" + COLLECTION_NAME_SUFFIX_RESEARCHER_MESSAGES)
+	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(collectionNameWithStudyKeyPrefix(studyKey, COLLECTION_NAME_SUFFIX_RESEARCHER_MESSAGES))
 }
 
 func (dbService *StudyDBService) collectionStudyCodeLists(instanceID string) *mongo.Collection {
@@ -205,4 +210,68 @@ func (dbService *StudyDBService) CreateDefaultIndexes() {
 		}
 		slog.Info("Default indexes created for study DB", slog.String("instanceID", instanceID), slog.String("duration", time.Since(start).String()))
 	}
+}
+
+func (dbService *StudyDBService) GetIndexes() (map[string]map[string][]bson.M, error) {
+	results := make(map[string]map[string][]bson.M, len(dbService.InstanceIDs))
+
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	for _, instanceID := range dbService.InstanceIDs {
+		collectionIndexes := make(map[string][]bson.M)
+
+		var err error
+		if collectionIndexes[COLLECTION_NAME_CONFIDENTIAL_ID_MAP], err = db.ListCollectionIndexes(ctx, dbService.collectionConfidentialIDMap(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_STUDY_CODE_LISTS], err = db.ListCollectionIndexes(ctx, dbService.collectionStudyCodeLists(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_STUDY_COUNTERS], err = db.ListCollectionIndexes(ctx, dbService.collectionStudyCounters(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_STUDY_INFOS], err = db.ListCollectionIndexes(ctx, dbService.collectionStudyInfos(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_STUDY_RULES], err = db.ListCollectionIndexes(ctx, dbService.collectionStudyRules(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_TASK_QUEUE], err = db.ListCollectionIndexes(ctx, dbService.collectionTaskQueue(instanceID)); err != nil {
+			return nil, err
+		}
+
+		studies, err := dbService.GetStudies(instanceID, "", true)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, study := range studies {
+			studyKey := study.Key
+
+			if collectionIndexes[collectionNameWithStudyKeyPrefix(studyKey, COLLECTION_NAME_SUFFIX_SURVEYS)], err = db.ListCollectionIndexes(ctx, dbService.collectionSurveys(instanceID, studyKey)); err != nil {
+				return nil, err
+			}
+
+			if collectionIndexes[collectionNameWithStudyKeyPrefix(studyKey, COLLECTION_NAME_SUFFIX_RESPONSES)], err = db.ListCollectionIndexes(ctx, dbService.collectionResponses(instanceID, studyKey)); err != nil {
+				return nil, err
+			}
+
+			if collectionIndexes[collectionNameWithStudyKeyPrefix(studyKey, COLLECTION_NAME_SUFFIX_CONFIDENTIAL_RESPONSES)], err = db.ListCollectionIndexes(ctx, dbService.collectionConfidentialResponses(instanceID, studyKey)); err != nil {
+				return nil, err
+			}
+
+			if collectionIndexes[collectionNameWithStudyKeyPrefix(studyKey, COLLECTION_NAME_SUFFIX_REPORTS)], err = db.ListCollectionIndexes(ctx, dbService.collectionReports(instanceID, studyKey)); err != nil {
+				return nil, err
+			}
+
+			if collectionIndexes[collectionNameWithStudyKeyPrefix(studyKey, COLLECTION_NAME_SUFFIX_PARTICIPANTS)], err = db.ListCollectionIndexes(ctx, dbService.collectionParticipants(instanceID, studyKey)); err != nil {
+				return nil, err
+			}
+		}
+
+		results[instanceID] = collectionIndexes
+	}
+
+	return results, nil
 }
