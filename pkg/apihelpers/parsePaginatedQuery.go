@@ -123,6 +123,7 @@ func ParseResponseExportQueryFromCtx(c *gin.Context) (*ResponseExportQuery, erro
 
 	extraCtxColsQuery := c.DefaultQuery("extraContextColumns", "")
 	if extraCtxColsQuery != "" {
+		q.ExtraCtxCols = &[]string{}
 		*q.ExtraCtxCols = strings.Split(extraCtxColsQuery, ",")
 	}
 
