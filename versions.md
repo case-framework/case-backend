@@ -4,7 +4,7 @@
 ## Latest Versions
 
 - db-migration-job: [`v0.1.0`](https://github.com/case-framework/case-backend/releases/tag/db-migration-job@v0.1.0)
-- management-api: [`v0.22.0`](https://github.com/case-framework/case-backend/releases/tag/management-api@v0.22.0)
+- management-api: [`v0.22.1`](https://github.com/case-framework/case-backend/releases/tag/management-api@v0.22.1)
 - messaging-job: [`v1.1.1`](https://github.com/case-framework/case-backend/releases/tag/messaging-job@v1.1.1)
 - participant-api: [`v0.24.0`](https://github.com/case-framework/case-backend/releases/tag/participant-api@v0.24.0)
 - smtp-bridge: [`v1.2.1`](https://github.com/case-framework/case-backend/releases/tag/smtp-bridge@v1.2.1)
