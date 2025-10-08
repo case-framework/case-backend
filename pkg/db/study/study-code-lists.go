@@ -102,7 +102,13 @@ func (dbService *StudyDBService) GetUniqueStudyCodeListKeysForStudy(instanceID s
 	return listKeys, nil
 }
 
-func (dbService *StudyDBService) GetStudyCodeListEntries(instanceID string, studyKey string, listKey string) ([]studytypes.StudyCodeListEntry, error) {
+func (dbService *StudyDBService) GetStudyCodeListEntries(
+	instanceID string,
+	studyKey string,
+	listKey string,
+	page int64,
+	limit int64,
+) ([]studytypes.StudyCodeListEntry, *PaginationInfos, error) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
@@ -111,15 +117,35 @@ func (dbService *StudyDBService) GetStudyCodeListEntries(instanceID string, stud
 		"listKey":  listKey,
 	}
 
-	var entries []studytypes.StudyCodeListEntry
-	cursor, err := dbService.collectionStudyCodeLists(instanceID).Find(ctx, filter)
+	totalCount, err := dbService.collectionStudyCodeLists(instanceID).CountDocuments(ctx, filter)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+
+	paginationInfo := prepPaginationInfos(
+		totalCount,
+		page,
+		limit,
+	)
+
+	skip := (paginationInfo.CurrentPage - 1) * paginationInfo.PageSize
+
+	opts := options.Find().
+		SetSkip(skip).
+		SetLimit(paginationInfo.PageSize).
+		SetSort(bson.D{
+			{Key: "_id", Value: 1},
+		})
+
+	var entries []studytypes.StudyCodeListEntry
+	cursor, err := dbService.collectionStudyCodeLists(instanceID).Find(ctx, filter, opts)
+	if err != nil {
+		return nil, nil, err
 	}
 	defer cursor.Close(ctx)
 
 	err = cursor.All(ctx, &entries)
-	return entries, err
+	return entries, paginationInfo, err
 }
 
 func (dbService *StudyDBService) StudyCodeListEntryExists(instanceID string, studyKey string, listKey string, code string) (bool, error) {
