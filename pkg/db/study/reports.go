@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -105,6 +106,52 @@ func (dbService *StudyDBService) GetReportByID(instanceID string, studyKey strin
 
 	err = dbService.collectionReports(instanceID, studyKey).FindOne(ctx, filter).Decode(&report)
 	return report, err
+}
+
+type UpdateParticipantReportMode string
+
+const (
+	UpdateParticipantReportModeAppend  UpdateParticipantReportMode = "append"
+	UpdateParticipantReportModeReplace UpdateParticipantReportMode = "replace"
+)
+
+// update report data
+func (dbService *StudyDBService) UpdateReportData(
+	instanceID string,
+	studyKey string,
+	reportID string,
+	participantID string,
+	data []studyTypes.ReportData,
+	mode UpdateParticipantReportMode,
+) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	_id, err := primitive.ObjectIDFromHex(reportID)
+	if err != nil {
+		return err
+	}
+
+	filter := bson.M{"_id": _id, "participantID": participantID}
+	update := bson.M{}
+	switch mode {
+	case UpdateParticipantReportModeAppend:
+		update["$push"] = bson.M{"data": bson.M{"$each": data}}
+		update["$set"] = bson.M{"modifiedAt": time.Now()}
+	case UpdateParticipantReportModeReplace:
+		update["$set"] = bson.M{"data": data, "modifiedAt": time.Now()}
+	default:
+		return fmt.Errorf("invalid mode: %s", mode)
+	}
+
+	res, err := dbService.collectionReports(instanceID, studyKey).UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+	if res.ModifiedCount == 0 {
+		return errors.New("report not found, does not belong to participant or could not be updated")
+	}
+	return nil
 }
 
 var reportSortOnTimestamp = bson.D{

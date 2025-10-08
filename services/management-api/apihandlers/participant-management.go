@@ -7,6 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/case-framework/case-backend/pkg/apihelpers"
+	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
+	dbStudy "github.com/case-framework/case-backend/pkg/db/study"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	pc "github.com/case-framework/case-backend/pkg/permission-checker"
 	studyService "github.com/case-framework/case-backend/pkg/study"
@@ -16,27 +18,30 @@ import (
 func (h *HttpEndpoints) addParticipantManagementEndpoints(rg *gin.RouterGroup) {
 	participantGroup := rg.Group("/participants")
 
-	participantGroup.POST("/virtual", h.useAuthorisedHandler(
-		RequiredPermission{
-			ResourceType:        pc.RESOURCE_TYPE_STUDY,
-			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
-			ExtractResourceKeys: getStudyKeyFromParams,
-			Action:              pc.ACTION_CREATE_VIRTUAL_PARTICIPANT,
-		},
-		nil,
-		h.createVirtualParticipant,
-	))
+	participantGroup.POST("/virtual",
+		h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_CREATE_VIRTUAL_PARTICIPANT,
+			},
+			nil,
+			h.createVirtualParticipant,
+		))
 
-	participantGroup.POST("/:participantID/responses", h.useAuthorisedHandler(
-		RequiredPermission{
-			ResourceType:        pc.RESOURCE_TYPE_STUDY,
-			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
-			ExtractResourceKeys: getStudyKeyFromParams,
-			Action:              pc.ACTION_EDIT_PARTICIPANT_DATA,
-		},
-		nil,
-		h.submitParticipantResponse,
-	))
+	participantGroup.POST("/:participantID/responses",
+		mw.RequirePayload(),
+		h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_EDIT_PARTICIPANT_DATA,
+			},
+			nil,
+			h.submitParticipantResponse,
+		))
 
 	participantGroup.GET("/:participantID/responses", h.useAuthorisedHandler(
 		RequiredPermission{
@@ -49,49 +54,69 @@ func (h *HttpEndpoints) addParticipantManagementEndpoints(rg *gin.RouterGroup) {
 		h.getParticipantResponses,
 	))
 
-	participantGroup.POST("/:participantID/events", h.useAuthorisedHandler(
-		RequiredPermission{
-			ResourceType:        pc.RESOURCE_TYPE_STUDY,
-			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
-			ExtractResourceKeys: getStudyKeyFromParams,
-			Action:              pc.ACTION_EDIT_PARTICIPANT_DATA,
-		},
-		nil,
-		h.submitParticipantEvent,
-	))
+	participantGroup.POST("/:participantID/events",
+		mw.RequirePayload(),
+		h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_EDIT_PARTICIPANT_DATA,
+			},
+			nil,
+			h.submitParticipantEvent,
+		))
 
-	participantGroup.POST("/:participantID/reports", h.useAuthorisedHandler(
-		RequiredPermission{
-			ResourceType:        pc.RESOURCE_TYPE_STUDY,
-			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
-			ExtractResourceKeys: getStudyKeyFromParams,
-			Action:              pc.ACTION_EDIT_PARTICIPANT_DATA,
-		},
-		nil,
-		h.submitParticipantReport,
-	))
+	participantGroup.POST("/:participantID/reports",
+		mw.RequirePayload(),
+		h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_EDIT_PARTICIPANT_DATA,
+			},
+			nil,
+			h.submitParticipantReport,
+		))
 
-	participantGroup.POST("/merge", h.useAuthorisedHandler(
-		RequiredPermission{
-			ResourceType:        pc.RESOURCE_TYPE_STUDY,
-			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
-			ExtractResourceKeys: getStudyKeyFromParams,
-			Action:              pc.ACTION_MERGE_PARTICIPANTS,
-		},
-		nil,
-		h.mergeParticipants,
-	))
+	participantGroup.PUT("/:participantID/reports/:reportID", mw.RequirePayload(),
+		h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_EDIT_PARTICIPANT_DATA,
+			},
+			nil,
+			h.updateParticipantReport,
+		))
 
-	participantGroup.PUT("/:participantID", h.useAuthorisedHandler(
-		RequiredPermission{
-			ResourceType:        pc.RESOURCE_TYPE_STUDY,
-			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
-			ExtractResourceKeys: getStudyKeyFromParams,
-			Action:              pc.ACTION_EDIT_PARTICIPANT_DATA,
-		},
-		nil,
-		h.editStudyParticipant,
-	))
+	participantGroup.POST("/merge",
+		mw.RequirePayload(),
+		h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_MERGE_PARTICIPANTS,
+			},
+			nil,
+			h.mergeParticipants,
+		))
+
+	participantGroup.PUT("/:participantID",
+		mw.RequirePayload(),
+		h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_EDIT_PARTICIPANT_DATA,
+			},
+			nil,
+			h.editStudyParticipant,
+		))
 }
 
 func (h *HttpEndpoints) createVirtualParticipant(c *gin.Context) {
@@ -232,6 +257,40 @@ func (h *HttpEndpoints) submitParticipantReport(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "report submitted"})
+}
+
+type UpdateParticipantReportRequest struct {
+	Data []studyTypes.ReportData             `json:"data"`
+	Mode dbStudy.UpdateParticipantReportMode `json:"mode"`
+}
+
+func (h *HttpEndpoints) updateParticipantReport(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+	participantID := c.Param("participantID")
+	reportID := c.Param("reportID")
+
+	var req UpdateParticipantReportRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if req.Mode == "" {
+		req.Mode = dbStudy.UpdateParticipantReportModeAppend
+	}
+	slog.Info("updating report for participant", slog.String("participantID", participantID), slog.String("studyKey", studyKey), slog.String("userID", token.Subject), slog.String("instanceID", token.InstanceID), slog.String("reportID", reportID))
+
+	err := h.studyDBConn.UpdateReportData(token.InstanceID, studyKey, reportID, participantID, req.Data, req.Mode)
+	if err != nil {
+		slog.Error("failed to update report", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update report"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "report updated"})
 }
 
 type MergeParticipantsRequest struct {
