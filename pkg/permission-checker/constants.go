@@ -49,6 +49,7 @@ const (
 	ACTION_GET_PARTICIPANT_STATES     = "get-participant-states"
 	ACTION_MERGE_PARTICIPANTS         = "merge-participants"
 	ACTION_GET_REPORTS                = "get-reports"
+	ACTION_UPDATE_REPORTS             = "update-reports"
 	ACTION_DELETE_REPORTS             = "delete-reports"
 
 	ACTION_DELETE_USERS = "delete-users"
