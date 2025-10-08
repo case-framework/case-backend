@@ -355,7 +355,7 @@ func (h *HttpEndpoints) addStudyConfigEndpoints(rg *gin.RouterGroup) {
 				Action:              pc.ACTION_READ_STUDY_CONFIG,
 			},
 			nil,
-			h.getStudyCodeListEntriesHandler, // ?listKey=xxx
+			h.getStudyCodeListEntriesHandler, // ?listKey=xxx&page=1&limit=10
 		))
 
 	// add study codes
@@ -1763,6 +1763,13 @@ func (h *HttpEndpoints) getStudyCodeListEntriesHandler(c *gin.Context) {
 	studyKey := c.Param("studyKey")
 	listKey := c.DefaultQuery("listKey", "")
 
+	query, err := apihelpers.ParsePaginatedQueryFromCtx(c)
+	if err != nil || query == nil {
+		slog.Error("failed to parse query", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
 	if studyKey == "" || listKey == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "studyKey and listKey must be provided"})
 		return
@@ -1770,14 +1777,14 @@ func (h *HttpEndpoints) getStudyCodeListEntriesHandler(c *gin.Context) {
 
 	slog.Info("getting study code list entries", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("listKey", listKey))
 
-	entries, err := h.studyDBConn.GetStudyCodeListEntries(token.InstanceID, studyKey, listKey)
+	entries, paginationInfo, err := h.studyDBConn.GetStudyCodeListEntries(token.InstanceID, studyKey, listKey, query.Page, query.Limit)
 	if err != nil {
 		slog.Error("failed to get study code list entries", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("listKey", listKey), slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"codeList": entries})
+	c.JSON(http.StatusOK, gin.H{"codeList": entries, "pagination": paginationInfo})
 }
 
 type AddStudyCodeListEntriesRequest struct {
