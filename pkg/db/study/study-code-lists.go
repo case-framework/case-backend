@@ -134,7 +134,7 @@ func (dbService *StudyDBService) GetStudyCodeListEntries(
 		SetSkip(skip).
 		SetLimit(paginationInfo.PageSize).
 		SetSort(bson.D{
-			{Key: "_id", Value: -1},
+			{Key: "_id", Value: 1},
 		})
 
 	var entries []studytypes.StudyCodeListEntry
