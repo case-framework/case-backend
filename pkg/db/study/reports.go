@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -105,6 +106,22 @@ func (dbService *StudyDBService) GetReportByID(instanceID string, studyKey strin
 
 	err = dbService.collectionReports(instanceID, studyKey).FindOne(ctx, filter).Decode(&report)
 	return report, err
+}
+
+// update report data
+func (dbService *StudyDBService) UpdateReportData(instanceID string, studyKey string, reportID string, participantID string, data []studyTypes.ReportData) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	_id, err := primitive.ObjectIDFromHex(reportID)
+	if err != nil {
+		return err
+	}
+
+	filter := bson.M{"_id": _id, "participantID": participantID}
+	update := bson.M{"$set": bson.M{"data": data, "modifiedAt": time.Now()}}
+	_, err = dbService.collectionReports(instanceID, studyKey).UpdateOne(ctx, filter, update)
+	return err
 }
 
 var reportSortOnTimestamp = bson.D{
