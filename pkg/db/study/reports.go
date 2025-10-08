@@ -108,8 +108,22 @@ func (dbService *StudyDBService) GetReportByID(instanceID string, studyKey strin
 	return report, err
 }
 
+type UpdateParticipantReportMode string
+
+const (
+	UpdateParticipantReportModeAppend  UpdateParticipantReportMode = "append"
+	UpdateParticipantReportModeReplace UpdateParticipantReportMode = "replace"
+)
+
 // update report data
-func (dbService *StudyDBService) UpdateReportData(instanceID string, studyKey string, reportID string, participantID string, data []studyTypes.ReportData) error {
+func (dbService *StudyDBService) UpdateReportData(
+	instanceID string,
+	studyKey string,
+	reportID string,
+	participantID string,
+	data []studyTypes.ReportData,
+	mode UpdateParticipantReportMode,
+) error {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
@@ -119,7 +133,14 @@ func (dbService *StudyDBService) UpdateReportData(instanceID string, studyKey st
 	}
 
 	filter := bson.M{"_id": _id, "participantID": participantID}
-	update := bson.M{"$set": bson.M{"data": data, "modifiedAt": time.Now()}}
+	update := bson.M{}
+	switch mode {
+	case UpdateParticipantReportModeAppend:
+		update["$push"] = bson.M{"data": bson.M{"$each": data}}
+		update["$set"] = bson.M{"modifiedAt": time.Now()}
+	case UpdateParticipantReportModeReplace:
+		update["$set"] = bson.M{"data": data, "modifiedAt": time.Now()}
+	}
 	res, err := dbService.collectionReports(instanceID, studyKey).UpdateOne(ctx, filter, update)
 	if err != nil {
 		return err

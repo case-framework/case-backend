@@ -8,6 +8,7 @@ import (
 
 	"github.com/case-framework/case-backend/pkg/apihelpers"
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
+	dbStudy "github.com/case-framework/case-backend/pkg/db/study"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	pc "github.com/case-framework/case-backend/pkg/permission-checker"
 	studyService "github.com/case-framework/case-backend/pkg/study"
@@ -259,7 +260,8 @@ func (h *HttpEndpoints) submitParticipantReport(c *gin.Context) {
 }
 
 type UpdateParticipantReportRequest struct {
-	Data []studyTypes.ReportData `json:"data"`
+	Data []studyTypes.ReportData             `json:"data"`
+	Mode dbStudy.UpdateParticipantReportMode `json:"mode"`
 }
 
 func (h *HttpEndpoints) updateParticipantReport(c *gin.Context) {
@@ -276,9 +278,12 @@ func (h *HttpEndpoints) updateParticipantReport(c *gin.Context) {
 		return
 	}
 
+	if req.Mode == "" {
+		req.Mode = dbStudy.UpdateParticipantReportModeAppend
+	}
 	slog.Info("updating report for participant", slog.String("participantID", participantID), slog.String("studyKey", studyKey), slog.String("userID", token.Subject), slog.String("instanceID", token.InstanceID), slog.String("reportID", reportID))
 
-	err := h.studyDBConn.UpdateReportData(token.InstanceID, studyKey, reportID, participantID, req.Data)
+	err := h.studyDBConn.UpdateReportData(token.InstanceID, studyKey, reportID, participantID, req.Data, req.Mode)
 	if err != nil {
 		slog.Error("failed to update report", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update report"})
