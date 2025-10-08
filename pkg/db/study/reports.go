@@ -140,7 +140,10 @@ func (dbService *StudyDBService) UpdateReportData(
 		update["$set"] = bson.M{"modifiedAt": time.Now()}
 	case UpdateParticipantReportModeReplace:
 		update["$set"] = bson.M{"data": data, "modifiedAt": time.Now()}
+	default:
+		return fmt.Errorf("invalid mode: %s", mode)
 	}
+
 	res, err := dbService.collectionReports(instanceID, studyKey).UpdateOne(ctx, filter, update)
 	if err != nil {
 		return err
