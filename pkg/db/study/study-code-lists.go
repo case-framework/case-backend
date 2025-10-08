@@ -130,7 +130,12 @@ func (dbService *StudyDBService) GetStudyCodeListEntries(
 
 	skip := (paginationInfo.CurrentPage - 1) * paginationInfo.PageSize
 
-	opts := options.Find().SetSkip(skip).SetLimit(paginationInfo.PageSize)
+	opts := options.Find().
+		SetSkip(skip).
+		SetLimit(paginationInfo.PageSize).
+		SetSort(bson.D{
+			{Key: "_id", Value: -1},
+		})
 
 	var entries []studytypes.StudyCodeListEntry
 	cursor, err := dbService.collectionStudyCodeLists(instanceID).Find(ctx, filter, opts)
