@@ -18,7 +18,6 @@ func (h *HttpEndpoints) addParticipantManagementEndpoints(rg *gin.RouterGroup) {
 	participantGroup := rg.Group("/participants")
 
 	participantGroup.POST("/virtual",
-		mw.RequirePayload(),
 		h.useAuthorisedHandler(
 			RequiredPermission{
 				ResourceType:        pc.RESOURCE_TYPE_STUDY,

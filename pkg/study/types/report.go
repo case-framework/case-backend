@@ -12,7 +12,7 @@ type Report struct {
 	ParticipantID string             `bson:"participantID" json:"participantID"` // reference to the study specific participant ID
 	ResponseID    string             `bson:"responseID" json:"responseID"`       // reference to the report
 	Timestamp     int64              `bson:"timestamp" json:"timestamp"`
-	ModifiedAt    time.Time          `bson:"modifiedAt" json:"modifiedAt"` // if report is updated later, this is the time of the update
+	ModifiedAt    time.Time          `bson:"modifiedAt,omitempty" json:"modifiedAt,omitempty"` // if report is updated later, this is the time of the update
 	Data          []ReportData       `bson:"data" json:"data,omitempty"`
 }
 

@@ -120,8 +120,14 @@ func (dbService *StudyDBService) UpdateReportData(instanceID string, studyKey st
 
 	filter := bson.M{"_id": _id, "participantID": participantID}
 	update := bson.M{"$set": bson.M{"data": data, "modifiedAt": time.Now()}}
-	_, err = dbService.collectionReports(instanceID, studyKey).UpdateOne(ctx, filter, update)
-	return err
+	res, err := dbService.collectionReports(instanceID, studyKey).UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+	if res.ModifiedCount == 0 {
+		return errors.New("report not found, does not belong to participant or could not be updated")
+	}
+	return nil
 }
 
 var reportSortOnTimestamp = bson.D{
