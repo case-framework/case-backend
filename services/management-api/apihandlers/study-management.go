@@ -2087,7 +2087,7 @@ func (h *HttpEndpoints) addStudyVariable(c *gin.Context) {
 }
 
 type UpdateStudyVariableDefRequest struct {
-	VariableDef studyTypes.StudyVariables `json:"variableDef"`
+	VariableDef studyTypes.StudyVariables `json:"variableDef"` // ignore value and key fields
 }
 
 func (h *HttpEndpoints) updateStudyVariableDef(c *gin.Context) {
@@ -2121,7 +2121,7 @@ func (h *HttpEndpoints) updateStudyVariableDef(c *gin.Context) {
 }
 
 type UpdateStudyVariableValueRequest struct {
-	Variable studyTypes.StudyVariables `json:"variable"`
+	Variable studyTypes.StudyVariables `json:"variable"` // only value is updated
 }
 
 func (h *HttpEndpoints) updateStudyVariableValue(c *gin.Context) {
