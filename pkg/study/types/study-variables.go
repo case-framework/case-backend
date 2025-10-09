@@ -26,6 +26,8 @@ type StudyVariables struct {
 	ConfigUpdatedAt time.Time          `bson:"configUpdatedAt" json:"configUpdatedAt"`
 	ValueUpdatedAt  time.Time          `bson:"valueUpdatedAt" json:"valueUpdatedAt"`
 
+	StudyKey string `bson:"studyKey" json:"studyKey"`
+
 	Key   string             `bson:"key" json:"key"`
 	Value any                `bson:"value" json:"value"`
 	Type  StudyVariablesType `bson:"type" json:"type"`
@@ -48,9 +50,10 @@ func (sv *StudyVariables) UnmarshalJSON(data []byte) error {
 		ConfigUpdatedAt time.Time          `json:"configUpdatedAt"`
 		ValueUpdatedAt  time.Time          `json:"valueUpdatedAt"`
 
-		Key   string             `json:"key"`
-		Value json.RawMessage    `json:"value"`
-		Type  StudyVariablesType `json:"type"`
+		StudyKey string             `json:"studyKey"`
+		Key      string             `json:"key"`
+		Value    json.RawMessage    `json:"value"`
+		Type     StudyVariablesType `json:"type"`
 
 		Label       string `json:"label"`
 		Description string `json:"description"`
@@ -73,6 +76,7 @@ func (sv *StudyVariables) UnmarshalJSON(data []byte) error {
 	sv.CreatedAt = wire.CreatedAt
 	sv.ConfigUpdatedAt = wire.ConfigUpdatedAt
 	sv.ValueUpdatedAt = wire.ValueUpdatedAt
+	sv.StudyKey = wire.StudyKey
 	sv.Key = wire.Key
 	sv.Value = normalizedValue
 	sv.Type = wire.Type
