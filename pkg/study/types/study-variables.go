@@ -257,8 +257,7 @@ func parseJSONNumberAsInt64(numStr string) (int64, error) {
 		intPart = "0"
 	}
 
-	// Remove underscores if any (JSON numbers shouldn't have, but be defensive)
-	// and validate digits-only
+	// Validate digits-only
 	for _, ch := range intPart {
 		if ch < '0' || ch > '9' {
 			return 0, errors.New("invalid digits")
@@ -270,23 +269,37 @@ func parseJSONNumberAsInt64(numStr string) (int64, error) {
 		}
 	}
 
-	digits := intPart + fracPart
-	// Strip leading zeros to keep the big.Int small; keep at least one digit
-	i := 0
-	for i < len(digits) && digits[i] == '0' {
-		i++
+	// Fast-path zero: if both parts are all zeros, value is zero regardless of exponent
+	isAllZeros := func(str string) bool {
+		for _, ch := range str {
+			if ch != '0' {
+				return false
+			}
+		}
+		return len(str) > 0
 	}
-	digits = digits[i:]
+	if isAllZeros(intPart) && (fracPart == "" || isAllZeros(fracPart)) {
+		return 0, nil
+	}
 
+	// Work on the full digit sequence without trimming leading zeros yet
+	digits := intPart + fracPart
+
+	// Positive scale means digits still contain fractional information after exponent shift
 	scale := int64(len(fracPart)) - exp
 	if scale > 0 {
 		// Integer only if the last 'scale' digits are zeros
-		if len(digits) < int(scale) {
-			// Only integer if all existing digits are zeros (i.e., value equals 0)
+		if int(scale) > len(digits) {
+			// Only integer if all existing digits are zeros (i.e., numeric value equals 0)
+			allZero := true
 			for _, ch := range digits {
 				if ch != '0' {
-					return 0, errors.New("not integer")
+					allZero = false
+					break
 				}
+			}
+			if !allZero {
+				return 0, errors.New("not integer")
 			}
 			return 0, nil
 		}
@@ -295,11 +308,19 @@ func parseJSONNumberAsInt64(numStr string) (int64, error) {
 				return 0, errors.New("not integer")
 			}
 		}
+		// Remove the fractional zeros
 		digits = digits[:len(digits)-int(scale)]
 	} else if scale < 0 {
 		// Append zeros to shift decimal to the right
-		digits = digits + strings.Repeat("0", int(-scale))
+		digits += strings.Repeat("0", int(-scale))
 	}
+
+	// Now trim leading zeros to minimize the integer representation size
+	i := 0
+	for i < len(digits) && digits[i] == '0' {
+		i++
+	}
+	digits = digits[i:]
 
 	if digits == "" {
 		return 0, nil
