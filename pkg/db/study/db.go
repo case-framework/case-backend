@@ -247,6 +247,9 @@ func (dbService *StudyDBService) GetIndexes() (map[string]map[string][]bson.M, e
 		if collectionIndexes[COLLECTION_NAME_TASK_QUEUE], err = db.ListCollectionIndexes(ctx, dbService.collectionTaskQueue(instanceID)); err != nil {
 			return nil, err
 		}
+		if collectionIndexes[COLLECTION_NAME_STUDY_VARIABLES], err = db.ListCollectionIndexes(ctx, dbService.collectionStudyVariables(instanceID)); err != nil {
+			return nil, err
+		}
 
 		studies, err := dbService.GetStudies(instanceID, "", true)
 		if err != nil {
