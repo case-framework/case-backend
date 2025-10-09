@@ -417,6 +417,75 @@ func (h *HttpEndpoints) addStudyConfigEndpoints(rg *gin.RouterGroup) {
 		nil,
 		h.removeStudyCounter,
 	))
+
+	studyVariablesGroup := rg.Group("/variables")
+	{
+		studyVariablesGroup.GET("/", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_READ_STUDY_CONFIG,
+			},
+			nil,
+			h.getStudyVariables,
+		))
+
+		studyVariablesGroup.GET("/:variableKey", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_READ_STUDY_CONFIG,
+			},
+			nil,
+			h.getStudyVariable,
+		))
+
+		studyVariablesGroup.POST("/", mw.RequirePayload(), h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_MANAGE_STUDY_VARIABLES,
+			},
+			nil,
+			h.addStudyVariable,
+		))
+
+		studyVariablesGroup.PUT("/:variableKey", mw.RequirePayload(), h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_MANAGE_STUDY_VARIABLES,
+			},
+			nil,
+			h.updateStudyVariableDef,
+		))
+
+		studyVariablesGroup.PUT("/:variableKey/value", mw.RequirePayload(), h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_MANAGE_STUDY_VARIABLES,
+			},
+			nil,
+			h.updateStudyVariableValue,
+		))
+
+		studyVariablesGroup.DELETE("/:variableKey", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_MANAGE_STUDY_VARIABLES,
+			},
+			nil,
+			h.deleteStudyVariable,
+		))
+	}
 }
 
 func (h *HttpEndpoints) addStudyRuleEndpoints(rg *gin.RouterGroup) {
@@ -1937,6 +2006,171 @@ func (h *HttpEndpoints) removeStudyCounter(c *gin.Context) {
 	if err != nil {
 		slog.Error("failed to remove study counter", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to remove study counter"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+func (h *HttpEndpoints) getStudyVariables(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	studyKey := c.Param("studyKey")
+
+	slog.Info("getting study variables", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	variables, err := h.studyDBConn.GetStudyVariablesByStudyKey(token.InstanceID, studyKey, false)
+	if err != nil {
+		slog.Error("failed to get study variables", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study variables"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"variables": variables})
+}
+
+func (h *HttpEndpoints) getStudyVariable(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	studyKey := c.Param("studyKey")
+	variableKey := c.Param("variableKey")
+
+	if studyKey == "" || variableKey == "" {
+		slog.Error("studyKey and variableKey are required")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "studyKey and variableKey are required"})
+		return
+	}
+
+	slog.Info("getting study variable", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("variableKey", variableKey))
+
+	variable, err := h.studyDBConn.GetStudyVariableByStudyKeyAndKey(token.InstanceID, studyKey, variableKey, false)
+	if err != nil {
+		slog.Error("failed to get study variable", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study variable"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"variable": variable})
+}
+
+type AddStudyVariableRequest struct {
+	VariableDef studyTypes.StudyVariables `json:"variableDef"`
+}
+
+func (h *HttpEndpoints) addStudyVariable(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	studyKey := c.Param("studyKey")
+
+	if studyKey == "" {
+		slog.Error("studyKey is required")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "studyKey is required"})
+		return
+	}
+
+	var req AddStudyVariableRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	req.VariableDef.StudyKey = studyKey
+
+	slog.Info("creating study variable", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("variableKey", req.VariableDef.Key))
+
+	id, err := h.studyDBConn.CreateStudyVariable(token.InstanceID, req.VariableDef)
+	if err != nil {
+		slog.Error("failed to create study variable", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create study variable"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"id": id})
+}
+
+type UpdateStudyVariableDefRequest struct {
+	VariableDef studyTypes.StudyVariables `json:"variableDef"` // ignore value and key fields
+}
+
+func (h *HttpEndpoints) updateStudyVariableDef(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	studyKey := c.Param("studyKey")
+	variableKey := c.Param("variableKey")
+
+	if studyKey == "" || variableKey == "" {
+		slog.Error("studyKey and variableKey are required")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "studyKey and variableKey are required"})
+		return
+	}
+
+	var req UpdateStudyVariableDefRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	slog.Info("updating study variable definition", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("variableKey", variableKey))
+
+	_, err := h.studyDBConn.UpdateStudyVariableConfig(token.InstanceID, studyKey, variableKey, req.VariableDef.Label, req.VariableDef.Description, req.VariableDef.UIType, req.VariableDef.UIPriority, req.VariableDef.Configs)
+	if err != nil {
+		slog.Error("failed to update study variable definition", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update study variable definition"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "study variable definition updated"})
+}
+
+type UpdateStudyVariableValueRequest struct {
+	Variable studyTypes.StudyVariables `json:"variable"` // only value is updated
+}
+
+func (h *HttpEndpoints) updateStudyVariableValue(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	studyKey := c.Param("studyKey")
+	variableKey := c.Param("variableKey")
+
+	if studyKey == "" || variableKey == "" {
+		slog.Error("studyKey and variableKey are required")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "studyKey and variableKey are required"})
+		return
+	}
+
+	var req UpdateStudyVariableValueRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	slog.Info("updating study variable value", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("variableKey", variableKey))
+
+	_, err := h.studyDBConn.UpdateStudyVariableValue(token.InstanceID, studyKey, variableKey, req.Variable.Value)
+	if err != nil {
+		slog.Error("failed to update study variable value", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update study variable value"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "study variable value updated"})
+}
+
+func (h *HttpEndpoints) deleteStudyVariable(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	studyKey := c.Param("studyKey")
+	variableKey := c.Param("variableKey")
+
+	if studyKey == "" || variableKey == "" {
+		slog.Error("studyKey and variableKey are required")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "studyKey and variableKey are required"})
+		return
+	}
+
+	slog.Info("deleting study variable", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("variableKey", variableKey))
+
+	err := h.studyDBConn.DeleteStudyVariableByStudyKeyAndKey(token.InstanceID, studyKey, variableKey)
+	if err != nil {
+		slog.Error("failed to delete study variable", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete study variable"})
 		return
 	}
 

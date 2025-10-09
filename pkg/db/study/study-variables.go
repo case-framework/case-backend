@@ -85,14 +85,19 @@ func (dbService *StudyDBService) CreateStudyVariable(instanceID string, variable
 }
 
 // update a study variable's config by id
-func (dbService *StudyDBService) UpdateStudyVariableConfigByID(instanceID string, id string, label string, description string, uiType string, uiPriority int, configs any) (studytypes.StudyVariables, error) {
+func (dbService *StudyDBService) UpdateStudyVariableConfig(
+	instanceID string,
+	studyKey string,
+	key string,
+	label string,
+	description string,
+	uiType string,
+	uiPriority int,
+	configs any) (studytypes.StudyVariables, error) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return studytypes.StudyVariables{}, err
-	}
+	filter := bson.M{"studyKey": studyKey, "key": key}
 
 	update := bson.M{"$set": bson.M{
 		"label":           label,
@@ -104,9 +109,9 @@ func (dbService *StudyDBService) UpdateStudyVariableConfigByID(instanceID string
 	}}
 
 	var updated studytypes.StudyVariables
-	err = dbService.collectionStudyVariables(instanceID).FindOneAndUpdate(
+	err := dbService.collectionStudyVariables(instanceID).FindOneAndUpdate(
 		ctx,
-		bson.M{"_id": _id},
+		filter,
 		update,
 		options.FindOneAndUpdate().SetReturnDocument(options.After),
 	).Decode(&updated)
@@ -114,14 +119,15 @@ func (dbService *StudyDBService) UpdateStudyVariableConfigByID(instanceID string
 }
 
 // update a study variable's value by id
-func (dbService *StudyDBService) UpdateStudyVariableValueByID(instanceID string, id string, value any) (studytypes.StudyVariables, error) {
+func (dbService *StudyDBService) UpdateStudyVariableValue(
+	instanceID string,
+	studyKey string,
+	key string,
+	value any) (studytypes.StudyVariables, error) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return studytypes.StudyVariables{}, err
-	}
+	filter := bson.M{"studyKey": studyKey, "key": key}
 
 	update := bson.M{"$set": bson.M{
 		"value":          value,
@@ -129,9 +135,9 @@ func (dbService *StudyDBService) UpdateStudyVariableValueByID(instanceID string,
 	}}
 
 	var updated studytypes.StudyVariables
-	err = dbService.collectionStudyVariables(instanceID).FindOneAndUpdate(
+	err := dbService.collectionStudyVariables(instanceID).FindOneAndUpdate(
 		ctx,
-		bson.M{"_id": _id},
+		filter,
 		update,
 		options.FindOneAndUpdate().SetReturnDocument(options.After),
 	).Decode(&updated)
