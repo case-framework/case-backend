@@ -2029,7 +2029,26 @@ func (h *HttpEndpoints) getStudyVariables(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getStudyVariable(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	studyKey := c.Param("studyKey")
+	variableKey := c.Param("variableKey")
+
+	if studyKey == "" || variableKey == "" {
+		slog.Error("studyKey and variableKey are required")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "studyKey and variableKey are required"})
+		return
+	}
+
+	slog.Info("getting study variable", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("variableKey", variableKey))
+
+	variable, err := h.studyDBConn.GetStudyVariableByStudyKeyAndKey(token.InstanceID, studyKey, variableKey, false)
+	if err != nil {
+		slog.Error("failed to get study variable", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study variable"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"variable": variable})
 }
 
 func (h *HttpEndpoints) addStudyVariable(c *gin.Context) {
