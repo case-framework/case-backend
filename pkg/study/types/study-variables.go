@@ -1,10 +1,13 @@
 package types
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"strconv"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -103,27 +106,31 @@ func normalizeStudyVariableValue(raw json.RawMessage, t StudyVariablesType) (any
 		return s, nil
 
 	case STUDY_VARIABLES_TYPE_INT:
-		// Try number first
-		var i int
-		if err := json.Unmarshal(raw, &i); err == nil {
-			return i, nil
-		}
-		var f float64
-		if err := json.Unmarshal(raw, &f); err == nil {
-			// accept 1.0 as 1
-			if float64(int(f)) == f {
-				return int(f), nil
-			}
-			return nil, fmt.Errorf("value must be integer, got float: %v", f)
-		}
-		// Try string formatted integer
+		// Accept integers as JSON numbers or numeric strings without losing precision.
+		// 1) If it's a quoted string, parse as integer (supports forms like "1", "1.0", "1e3").
 		var s string
 		if err := json.Unmarshal(raw, &s); err == nil {
-			parsed, perr := strconv.Atoi(s)
-			if perr != nil {
-				return nil, fmt.Errorf("value string is not integer: %w", perr)
+			if parsed, perr := strconv.ParseInt(s, 10, 64); perr == nil {
+				return parsed, nil
 			}
-			return parsed, nil
+			if i64, perr := parseJSONNumberAsInt64(s); perr == nil {
+				return i64, nil
+			}
+			return nil, fmt.Errorf("value string is not integer")
+		}
+
+		// 2) Parse unquoted JSON number using json.Number to avoid float64 precision loss.
+		var num json.Number
+		dec := json.NewDecoder(bytes.NewReader(raw))
+		dec.UseNumber()
+		if err := dec.Decode(&num); err == nil {
+			if i64, ierr := num.Int64(); ierr == nil {
+				return i64, nil
+			}
+			if i64, ierr := parseJSONNumberAsInt64(num.String()); ierr == nil {
+				return i64, nil
+			}
+			return nil, fmt.Errorf("value must be integer, got number: %s", num.String())
 		}
 		return nil, errors.New("value must be integer")
 
@@ -200,6 +207,116 @@ func unixToTime(v int64) time.Time {
 		return time.Unix(sec, nsec).UTC()
 	}
 	return time.Unix(v, 0).UTC()
+}
+
+// parseJSONNumberAsInt64 parses a JSON number string (which may include a decimal
+// point or exponent) and returns an int64 if and only if the numeric value is an
+// exact integer that fits in the int64 range. Examples accepted: "1", "1.0",
+// "1e3", "-2.500e3" (equals -2500). Non-integer values are rejected.
+func parseJSONNumberAsInt64(numStr string) (int64, error) {
+	s := strings.TrimSpace(numStr)
+	if s == "" {
+		return 0, errors.New("empty number")
+	}
+
+	// Extract sign
+	negative := false
+	if s[0] == '+' {
+		s = s[1:]
+	} else if s[0] == '-' {
+		negative = true
+		s = s[1:]
+	}
+	if s == "" {
+		return 0, errors.New("invalid number")
+	}
+
+	// Split exponent if present
+	var exp int64
+	if idx := strings.IndexAny(s, "eE"); idx != -1 {
+		expPart := s[idx+1:]
+		s = s[:idx]
+		if expPart == "" {
+			return 0, errors.New("invalid exponent")
+		}
+		e, err := strconv.ParseInt(expPart, 10, 64)
+		if err != nil {
+			return 0, errors.New("invalid exponent")
+		}
+		exp = e
+	}
+
+	// Split integer and fractional parts
+	intPart := s
+	fracPart := ""
+	if dot := strings.IndexByte(s, '.'); dot != -1 {
+		intPart = s[:dot]
+		fracPart = s[dot+1:]
+	}
+	if intPart == "" {
+		intPart = "0"
+	}
+
+	// Remove underscores if any (JSON numbers shouldn't have, but be defensive)
+	// and validate digits-only
+	for _, ch := range intPart {
+		if ch < '0' || ch > '9' {
+			return 0, errors.New("invalid digits")
+		}
+	}
+	for _, ch := range fracPart {
+		if ch < '0' || ch > '9' {
+			return 0, errors.New("invalid digits")
+		}
+	}
+
+	digits := intPart + fracPart
+	// Strip leading zeros to keep the big.Int small; keep at least one digit
+	i := 0
+	for i < len(digits) && digits[i] == '0' {
+		i++
+	}
+	digits = digits[i:]
+
+	scale := int64(len(fracPart)) - exp
+	if scale > 0 {
+		// Integer only if the last 'scale' digits are zeros
+		if len(digits) < int(scale) {
+			// Only integer if all existing digits are zeros (i.e., value equals 0)
+			for _, ch := range digits {
+				if ch != '0' {
+					return 0, errors.New("not integer")
+				}
+			}
+			return 0, nil
+		}
+		for _, ch := range digits[len(digits)-int(scale):] {
+			if ch != '0' {
+				return 0, errors.New("not integer")
+			}
+		}
+		digits = digits[:len(digits)-int(scale)]
+	} else if scale < 0 {
+		// Append zeros to shift decimal to the right
+		digits = digits + strings.Repeat("0", int(-scale))
+	}
+
+	if digits == "" {
+		return 0, nil
+	}
+
+	bi := new(big.Int)
+	if _, ok := bi.SetString(digits, 10); !ok {
+		return 0, errors.New("invalid integer")
+	}
+	if negative {
+		bi.Neg(bi)
+	}
+
+	if !bi.IsInt64() {
+		return 0, errors.New("integer out of range")
+	}
+	return bi.Int64(), nil
 }
 
 type StudyVariableIntConfig struct {
