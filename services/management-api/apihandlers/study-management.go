@@ -417,6 +417,75 @@ func (h *HttpEndpoints) addStudyConfigEndpoints(rg *gin.RouterGroup) {
 		nil,
 		h.removeStudyCounter,
 	))
+
+	studyVariablesGroup := rg.Group("/variables")
+	{
+		studyVariablesGroup.GET("/", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_READ_STUDY_CONFIG,
+			},
+			nil,
+			h.getStudyVariables,
+		))
+
+		studyVariablesGroup.GET("/:variableKey", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_READ_STUDY_CONFIG,
+			},
+			nil,
+			h.getStudyVariable,
+		))
+
+		studyVariablesGroup.POST("/", mw.RequirePayload(), h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_MANAGE_STUDY_VARIABLES,
+			},
+			nil,
+			h.addStudyVariable,
+		))
+
+		studyVariablesGroup.PUT("/:variableKey", mw.RequirePayload(), h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_MANAGE_STUDY_VARIABLES,
+			},
+			nil,
+			h.updateStudyVariableDef,
+		))
+
+		studyVariablesGroup.PUT("/:variableKey/value", mw.RequirePayload(), h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_MANAGE_STUDY_VARIABLES,
+			},
+			nil,
+			h.updateStudyVariableValue,
+		))
+
+		studyVariablesGroup.DELETE("/:variableKey", h.useAuthorisedHandler(
+			RequiredPermission{
+				ResourceType:        pc.RESOURCE_TYPE_STUDY,
+				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+				ExtractResourceKeys: getStudyKeyFromParams,
+				Action:              pc.ACTION_MANAGE_STUDY_VARIABLES,
+			},
+			nil,
+			h.deleteStudyVariable,
+		))
+	}
 }
 
 func (h *HttpEndpoints) addStudyRuleEndpoints(rg *gin.RouterGroup) {
@@ -1941,6 +2010,30 @@ func (h *HttpEndpoints) removeStudyCounter(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+func (h *HttpEndpoints) getStudyVariables(c *gin.Context) {
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) getStudyVariable(c *gin.Context) {
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) addStudyVariable(c *gin.Context) {
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) updateStudyVariableDef(c *gin.Context) {
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) updateStudyVariableValue(c *gin.Context) {
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) deleteStudyVariable(c *gin.Context) {
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
 
 func (h *HttpEndpoints) getCurrentStudyRules(c *gin.Context) {
