@@ -2155,7 +2155,26 @@ func (h *HttpEndpoints) updateStudyVariableValue(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) deleteStudyVariable(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	studyKey := c.Param("studyKey")
+	variableKey := c.Param("variableKey")
+
+	if studyKey == "" || variableKey == "" {
+		slog.Error("studyKey and variableKey are required")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "studyKey and variableKey are required"})
+		return
+	}
+
+	slog.Info("deleting study variable", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("variableKey", variableKey))
+
+	err := h.studyDBConn.DeleteStudyVariableByID(token.InstanceID, variableKey)
+	if err != nil {
+		slog.Error("failed to delete study variable", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete study variable"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
 func (h *HttpEndpoints) getCurrentStudyRules(c *gin.Context) {
