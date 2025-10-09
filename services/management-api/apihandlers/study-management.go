@@ -2013,7 +2013,19 @@ func (h *HttpEndpoints) removeStudyCounter(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getStudyVariables(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	studyKey := c.Param("studyKey")
+
+	slog.Info("getting study variables", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+
+	variables, err := h.studyDBConn.GetStudyVariablesByStudyKey(token.InstanceID, studyKey, false)
+	if err != nil {
+		slog.Error("failed to get study variables", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study variables"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"variables": variables})
 }
 
 func (h *HttpEndpoints) getStudyVariable(c *gin.Context) {
