@@ -2110,7 +2110,7 @@ func (h *HttpEndpoints) updateStudyVariableDef(c *gin.Context) {
 
 	slog.Info("updating study variable definition", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("variableKey", variableKey))
 
-	_, err := h.studyDBConn.UpdateStudyVariableConfigByID(token.InstanceID, variableKey, req.VariableDef.Label, req.VariableDef.Description, req.VariableDef.UIType, req.VariableDef.UIPriority, req.VariableDef.Configs)
+	_, err := h.studyDBConn.UpdateStudyVariableConfig(token.InstanceID, studyKey, variableKey, req.VariableDef.Label, req.VariableDef.Description, req.VariableDef.UIType, req.VariableDef.UIPriority, req.VariableDef.Configs)
 	if err != nil {
 		slog.Error("failed to update study variable definition", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update study variable definition"})
@@ -2144,7 +2144,7 @@ func (h *HttpEndpoints) updateStudyVariableValue(c *gin.Context) {
 
 	slog.Info("updating study variable value", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("variableKey", variableKey))
 
-	_, err := h.studyDBConn.UpdateStudyVariableValueByID(token.InstanceID, variableKey, req.Variable.Value)
+	_, err := h.studyDBConn.UpdateStudyVariableValue(token.InstanceID, studyKey, variableKey, req.Variable.Value)
 	if err != nil {
 		slog.Error("failed to update study variable value", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update study variable value"})
@@ -2167,7 +2167,7 @@ func (h *HttpEndpoints) deleteStudyVariable(c *gin.Context) {
 
 	slog.Info("deleting study variable", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("variableKey", variableKey))
 
-	err := h.studyDBConn.DeleteStudyVariableByID(token.InstanceID, variableKey)
+	err := h.studyDBConn.DeleteStudyVariableByStudyKeyAndKey(token.InstanceID, studyKey, variableKey)
 	if err != nil {
 		slog.Error("failed to delete study variable", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete study variable"})
