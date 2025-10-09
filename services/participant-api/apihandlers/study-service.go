@@ -243,11 +243,48 @@ func (h *HttpEndpoints) studyHasCodeListCode(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getStudyVariables(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+	studyKey := c.Param("studyKey")
+
+	if studyKey == "" {
+		slog.Error("studyKey is required", slog.String("instanceID", token.InstanceID))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "studyKey is required"})
+		return
+	}
+
+	slog.Debug("getting study variables", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey))
+
+	variables, err := h.studyDBConn.GetStudyVariablesByStudyKey(token.InstanceID, studyKey, true)
+	if err != nil {
+		slog.Error("failed to get study variables", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study variables"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"variables": variables})
 }
 
 func (h *HttpEndpoints) getStudyVariable(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+	studyKey := c.Param("studyKey")
+	variableKey := c.Param("variableKey")
+
+	if studyKey == "" || variableKey == "" {
+		slog.Error("studyKey and variableKey are required", slog.String("instanceID", token.InstanceID))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "studyKey and variableKey are required"})
+		return
+	}
+
+	slog.Debug("getting study variable", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("variableKey", variableKey))
+
+	variable, err := h.studyDBConn.GetStudyVariableByStudyKeyAndKey(token.InstanceID, studyKey, variableKey, true)
+	if err != nil {
+		slog.Error("failed to get study variable", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study variable"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"variable": variable})
 }
 
 func (h *HttpEndpoints) enterStudy(c *gin.Context) {

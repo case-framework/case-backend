@@ -25,8 +25,8 @@ const (
 
 type StudyVariables struct {
 	ID              primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	CreatedAt       time.Time          `bson:"createdAt" json:"createdAt"`
-	ConfigUpdatedAt time.Time          `bson:"configUpdatedAt" json:"configUpdatedAt"`
+	CreatedAt       time.Time          `bson:"createdAt" json:"createdAt,omitempty"`
+	ConfigUpdatedAt time.Time          `bson:"configUpdatedAt" json:"configUpdatedAt,omitempty"`
 	ValueUpdatedAt  time.Time          `bson:"valueUpdatedAt" json:"valueUpdatedAt"`
 
 	StudyKey string `bson:"studyKey" json:"studyKey"`
@@ -36,11 +36,11 @@ type StudyVariables struct {
 	Type  StudyVariablesType `bson:"type" json:"type"`
 
 	// Metadata for editor
-	Label       string `bson:"label" json:"label"`
-	Description string `bson:"description" json:"description"`
-	UIType      string `bson:"uiType" json:"uiType"`
-	UIPriority  int    `bson:"uiPriority" json:"uiPriority"`
-	Configs     any    `bson:"configs" json:"configs"`
+	Label       string `bson:"label" json:"label,omitempty"`
+	Description string `bson:"description" json:"description,omitempty"`
+	UIType      string `bson:"uiType" json:"uiType,omitempty"`
+	UIPriority  int    `bson:"uiPriority" json:"uiPriority,omitempty"`
+	Configs     any    `bson:"configs" json:"configs,omitempty"`
 }
 
 // UnmarshalJSON normalizes the Value field to the correct Go type based on Type.
