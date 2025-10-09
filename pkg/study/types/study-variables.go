@@ -25,8 +25,8 @@ const (
 
 type StudyVariables struct {
 	ID              primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	CreatedAt       time.Time          `bson:"createdAt" json:"createdAt,omitempty"`
-	ConfigUpdatedAt time.Time          `bson:"configUpdatedAt" json:"configUpdatedAt,omitempty"`
+	CreatedAt       time.Time          `bson:"createdAt" json:"createdAt"`
+	ConfigUpdatedAt time.Time          `bson:"configUpdatedAt" json:"configUpdatedAt"`
 	ValueUpdatedAt  time.Time          `bson:"valueUpdatedAt" json:"valueUpdatedAt"`
 
 	StudyKey string `bson:"studyKey" json:"studyKey"`
