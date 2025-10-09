@@ -29,6 +29,9 @@ func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
 		studiesGroup.GET("/:studyKey", h.getStudy)
 		studiesGroup.GET("/participating", mw.GetAndValidateParticipantUserJWT(h.tokenSignKey, h.globalInfosDBConn), h.getParticipatingStudies)
 		studiesGroup.GET("/:studyKey/code-lists/has-code", h.studyHasCodeListCode) // ?code=code&listKey=listKey?instanceID=test
+
+		studiesGroup.GET("/:studyKey/variables", h.getStudyVariables)
+		studiesGroup.GET("/:studyKey/variables/:variableKey", h.getStudyVariable)
 	}
 
 	// study events
@@ -237,6 +240,14 @@ func (h *HttpEndpoints) studyHasCodeListCode(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"exists": exists})
+}
+
+func (h *HttpEndpoints) getStudyVariables(c *gin.Context) {
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+}
+
+func (h *HttpEndpoints) getStudyVariable(c *gin.Context) {
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }
 
 func (h *HttpEndpoints) enterStudy(c *gin.Context) {
