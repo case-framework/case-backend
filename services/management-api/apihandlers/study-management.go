@@ -2086,8 +2086,38 @@ func (h *HttpEndpoints) addStudyVariable(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"id": id})
 }
 
+type UpdateStudyVariableDefRequest struct {
+	VariableDef studyTypes.StudyVariables `json:"variableDef"`
+}
+
 func (h *HttpEndpoints) updateStudyVariableDef(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	studyKey := c.Param("studyKey")
+	variableKey := c.Param("variableKey")
+
+	if studyKey == "" || variableKey == "" {
+		slog.Error("studyKey and variableKey are required")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "studyKey and variableKey are required"})
+		return
+	}
+
+	var req UpdateStudyVariableDefRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	slog.Info("updating study variable definition", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("variableKey", variableKey))
+
+	_, err := h.studyDBConn.UpdateStudyVariableConfigByID(token.InstanceID, variableKey, req.VariableDef.Label, req.VariableDef.Description, req.VariableDef.UIType, req.VariableDef.UIPriority, req.VariableDef.Configs)
+	if err != nil {
+		slog.Error("failed to update study variable definition", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update study variable definition"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "study variable definition updated"})
 }
 
 func (h *HttpEndpoints) updateStudyVariableValue(c *gin.Context) {
