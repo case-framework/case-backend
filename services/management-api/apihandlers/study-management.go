@@ -2051,8 +2051,39 @@ func (h *HttpEndpoints) getStudyVariable(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"variable": variable})
 }
 
+type AddStudyVariableRequest struct {
+	VariableDef studyTypes.StudyVariables `json:"variableDef"`
+}
+
 func (h *HttpEndpoints) addStudyVariable(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	studyKey := c.Param("studyKey")
+
+	if studyKey == "" {
+		slog.Error("studyKey is required")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "studyKey is required"})
+		return
+	}
+
+	var req AddStudyVariableRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	req.VariableDef.StudyKey = studyKey
+
+	slog.Info("creating study variable", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("variableKey", req.VariableDef.Key))
+
+	id, err := h.studyDBConn.CreateStudyVariable(token.InstanceID, req.VariableDef)
+	if err != nil {
+		slog.Error("failed to create study variable", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create study variable"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"id": id})
 }
 
 func (h *HttpEndpoints) updateStudyVariableDef(c *gin.Context) {
