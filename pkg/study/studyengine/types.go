@@ -57,6 +57,10 @@ type StudyDBService interface {
 	GetCurrentStudyCounterValue(instanceID string, studyKey string, scope string) (int64, error)
 	IncrementAndGetStudyCounterValue(instanceID string, studyKey string, scope string) (int64, error)
 	RemoveStudyCounterValue(instanceID string, studyKey string, scope string) error
+
+	// Study variables:
+	GetStudyVariableByStudyKeyAndKey(instanceID string, studyKey string, key string, onlyValue bool) (studyTypes.StudyVariables, error)
+	UpdateStudyVariableValue(instanceID string, studyKey string, key string, value any) (studyTypes.StudyVariables, error)
 }
 
 type ActionData struct {

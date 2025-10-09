@@ -242,6 +242,14 @@ func (db MockStudyDBService) RemoveStudyCounterValue(instanceID string, studyKey
 	return nil
 }
 
+func (db MockStudyDBService) GetStudyVariableByStudyKeyAndKey(instanceID string, studyKey string, key string, onlyValue bool) (studyTypes.StudyVariables, error) {
+	return studyTypes.StudyVariables{}, nil
+}
+
+func (db MockStudyDBService) UpdateStudyVariableValue(instanceID string, studyKey string, key string, value any) (studyTypes.StudyVariables, error) {
+	return studyTypes.StudyVariables{}, nil
+}
+
 func TestEvalCheckConditionForOldResponses(t *testing.T) {
 
 	testResponses := []studyTypes.SurveyResponse{
