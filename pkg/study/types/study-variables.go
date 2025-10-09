@@ -244,17 +244,30 @@ func parseJSONNumberAsInt64(numStr string) (int64, error) {
 			return 0, errors.New("invalid exponent")
 		}
 		exp = e
+		if s == "" {
+			// No mantissa before exponent, e.g., "e10"
+			return 0, errors.New("invalid number")
+		}
 	}
 
 	// Split integer and fractional parts
 	intPart := s
 	fracPart := ""
+	hadDot := false
 	if dot := strings.IndexByte(s, '.'); dot != -1 {
+		hadDot = true
 		intPart = s[:dot]
 		fracPart = s[dot+1:]
 	}
 	if intPart == "" {
 		intPart = "0"
+	}
+	// Reject formats with no digits around a dot (".") or trailing dot ("1.")
+	if hadDot && (len(intPart) == 0 && len(fracPart) == 0) {
+		return 0, errors.New("invalid number")
+	}
+	if hadDot && len(fracPart) == 0 && len(intPart) > 0 {
+		return 0, errors.New("invalid number")
 	}
 
 	// Validate digits-only
