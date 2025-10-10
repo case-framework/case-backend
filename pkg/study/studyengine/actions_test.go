@@ -673,3 +673,119 @@ func TestReportActions(t *testing.T) {
 		}
 	})
 }
+
+func TestUpdateStudyVariableActions(t *testing.T) {
+	mock := &MockStudyDBService{}
+	CurrentStudyEngine = &StudyEngine{studyDBService: mock}
+
+	actionData := ActionData{
+		PState:          studyTypes.Participant{ParticipantID: "p1"},
+		ReportsToCreate: map[string]studyTypes.Report{},
+	}
+	event := StudyEvent{InstanceID: "i1", StudyKey: "s1"}
+
+	t.Run("UPDATE_STUDY_VARIABLE_BOOLEAN", func(t *testing.T) {
+		action := studyTypes.Expression{
+			Name: "UPDATE_STUDY_VARIABLE_BOOLEAN",
+			Data: []studyTypes.ExpressionArg{
+				{DType: "str", Str: "boolVar"},
+				{DType: "exp", Exp: &studyTypes.Expression{Name: "eq", Data: []studyTypes.ExpressionArg{{DType: "num", Num: 1}, {DType: "num", Num: 1}}}},
+			},
+		}
+		_, err := ActionEval(action, actionData, event)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(mock.Updated) < 1 {
+			t.Fatalf("expected an update call")
+		}
+		if mock.Updated[0].Key != "boolVar" {
+			t.Fatalf("unexpected key: %s", mock.Updated[0].Key)
+		}
+		if v, ok := mock.Updated[0].Value.(bool); !ok || v != true {
+			t.Fatalf("unexpected value: %#v", mock.Updated[0].Value)
+		}
+	})
+
+	t.Run("UPDATE_STUDY_VARIABLE_INT", func(t *testing.T) {
+		action := studyTypes.Expression{
+			Name: "UPDATE_STUDY_VARIABLE_INT",
+			Data: []studyTypes.ExpressionArg{
+				{DType: "str", Str: "intVar"},
+				{DType: "num", Num: 7},
+			},
+		}
+		_, err := ActionEval(action, actionData, event)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(mock.Updated) < 2 {
+			t.Fatalf("expected a second update call")
+		}
+		if v, ok := mock.Updated[1].Value.(int); !ok || v != 7 {
+			t.Fatalf("unexpected value: %#v", mock.Updated[1].Value)
+		}
+	})
+
+	t.Run("UPDATE_STUDY_VARIABLE_FLOAT", func(t *testing.T) {
+		action := studyTypes.Expression{
+			Name: "UPDATE_STUDY_VARIABLE_FLOAT",
+			Data: []studyTypes.ExpressionArg{
+				{DType: "str", Str: "floatVar"},
+				{DType: "num", Num: 3.14},
+			},
+		}
+		_, err := ActionEval(action, actionData, event)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(mock.Updated) < 3 {
+			t.Fatalf("expected a third update call")
+		}
+		if v, ok := mock.Updated[2].Value.(float64); !ok || v != 3.14 {
+			t.Fatalf("unexpected value: %#v", mock.Updated[2].Value)
+		}
+	})
+
+	t.Run("UPDATE_STUDY_VARIABLE_STRING", func(t *testing.T) {
+		action := studyTypes.Expression{
+			Name: "UPDATE_STUDY_VARIABLE_STRING",
+			Data: []studyTypes.ExpressionArg{
+				{DType: "str", Str: "stringVar"},
+				{DType: "str", Str: "abc"},
+			},
+		}
+		_, err := ActionEval(action, actionData, event)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(mock.Updated) < 4 {
+			t.Fatalf("expected a fourth update call")
+		}
+		if v, ok := mock.Updated[3].Value.(string); !ok || v != "abc" {
+			t.Fatalf("unexpected value: %#v", mock.Updated[3].Value)
+		}
+	})
+
+	t.Run("UPDATE_STUDY_VARIABLE_DATE", func(t *testing.T) {
+		ts := time.Unix(1710000000, 0).Unix()
+		action := studyTypes.Expression{
+			Name: "UPDATE_STUDY_VARIABLE_DATE",
+			Data: []studyTypes.ExpressionArg{
+				{DType: "str", Str: "dateVar"},
+				{DType: "num", Num: float64(ts)},
+			},
+		}
+		_, err := ActionEval(action, actionData, event)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(mock.Updated) < 5 {
+			t.Fatalf("expected a fifth update call")
+		}
+		tv, ok := mock.Updated[4].Value.(time.Time)
+		if !ok || tv.Unix() != ts {
+			t.Fatalf("unexpected value: %#v", mock.Updated[4].Value)
+		}
+	})
+}

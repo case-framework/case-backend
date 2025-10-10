@@ -193,6 +193,11 @@ func TestEvalHasEventPayload(t *testing.T) {
 
 type MockStudyDBService struct {
 	Responses []studyTypes.SurveyResponse
+	Variables map[string]studyTypes.StudyVariables
+	Updated   []struct {
+		Key   string
+		Value any
+	}
 }
 
 func (db MockStudyDBService) GetResponses(instanceID string, studyKey string, filter bson.M, sort bson.M, page int64, limit int64) (responses []studyTypes.SurveyResponse, paginationInfo *studyDB.PaginationInfos, err error) {
@@ -243,10 +248,23 @@ func (db MockStudyDBService) RemoveStudyCounterValue(instanceID string, studyKey
 }
 
 func (db MockStudyDBService) GetStudyVariableByStudyKeyAndKey(instanceID string, studyKey string, key string, onlyValue bool) (studyTypes.StudyVariables, error) {
-	return studyTypes.StudyVariables{}, nil
+	if db.Variables == nil {
+		return studyTypes.StudyVariables{}, nil
+	}
+	v, ok := db.Variables[key]
+	if !ok {
+		return studyTypes.StudyVariables{}, nil
+	}
+	return v, nil
 }
 
-func (db MockStudyDBService) UpdateStudyVariableValue(instanceID string, studyKey string, key string, value any) (studyTypes.StudyVariables, error) {
+func (db *MockStudyDBService) UpdateStudyVariableValue(instanceID string, studyKey string, key string, value any) (studyTypes.StudyVariables, error) {
+	// Note: Using value receiver; copy then append to Updated for assertions
+	entry := struct {
+		Key   string
+		Value any
+	}{Key: key, Value: value}
+	db.Updated = append(db.Updated, entry)
 	return studyTypes.StudyVariables{}, nil
 }
 
@@ -304,7 +322,7 @@ func TestEvalCheckConditionForOldResponses(t *testing.T) {
 	}
 
 	CurrentStudyEngine = &StudyEngine{
-		studyDBService: MockStudyDBService{
+		studyDBService: &MockStudyDBService{
 			Responses: testResponses,
 		},
 	}
@@ -3493,6 +3511,79 @@ func TestEvalGetMessageNextTime(t *testing.T) {
 		resTS := ret.(int64)
 		if resTS != 200 {
 			t.Errorf("unexpected value: %d", ret)
+		}
+	})
+}
+
+func TestStudyVariableExpressions(t *testing.T) {
+	// Prepare mock study DB with predefined variables
+	dateVal := time.Unix(1700000000, 0)
+	CurrentStudyEngine = &StudyEngine{
+		studyDBService: &MockStudyDBService{
+			Variables: map[string]studyTypes.StudyVariables{
+				"boolVar":   {Key: "boolVar", Type: studyTypes.STUDY_VARIABLES_TYPE_BOOLEAN, Value: true},
+				"intVar":    {Key: "intVar", Type: studyTypes.STUDY_VARIABLES_TYPE_INT, Value: int(42)},
+				"floatVar":  {Key: "floatVar", Type: studyTypes.STUDY_VARIABLES_TYPE_FLOAT, Value: 3.5},
+				"stringVar": {Key: "stringVar", Type: studyTypes.STUDY_VARIABLES_TYPE_STRING, Value: "hello"},
+				"dateVar":   {Key: "dateVar", Type: studyTypes.STUDY_VARIABLES_TYPE_DATE, Value: dateVal},
+			},
+		},
+	}
+
+	evalCtx := EvalContext{Event: StudyEvent{InstanceID: "i1", StudyKey: "s1"}}
+
+	t.Run("getStudyVariableBoolean", func(t *testing.T) {
+		exp := studyTypes.Expression{Name: "getStudyVariableBoolean", Data: []studyTypes.ExpressionArg{{DType: "str", Str: "boolVar"}}}
+		v, err := ExpressionEval(exp, evalCtx)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if vb, ok := v.(bool); !ok || vb != true {
+			t.Fatalf("unexpected value: %#v", v)
+		}
+	})
+
+	t.Run("getStudyVariableInt", func(t *testing.T) {
+		exp := studyTypes.Expression{Name: "getStudyVariableInt", Data: []studyTypes.ExpressionArg{{DType: "str", Str: "intVar"}}}
+		v, err := ExpressionEval(exp, evalCtx)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if vf, ok := v.(float64); !ok || vf != 42 {
+			t.Fatalf("unexpected value: %#v", v)
+		}
+	})
+
+	t.Run("getStudyVariableFloat", func(t *testing.T) {
+		exp := studyTypes.Expression{Name: "getStudyVariableFloat", Data: []studyTypes.ExpressionArg{{DType: "str", Str: "floatVar"}}}
+		v, err := ExpressionEval(exp, evalCtx)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if vf, ok := v.(float64); !ok || vf != 3.5 {
+			t.Fatalf("unexpected value: %#v", v)
+		}
+	})
+
+	t.Run("getStudyVariableString", func(t *testing.T) {
+		exp := studyTypes.Expression{Name: "getStudyVariableString", Data: []studyTypes.ExpressionArg{{DType: "str", Str: "stringVar"}}}
+		v, err := ExpressionEval(exp, evalCtx)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if vs, ok := v.(string); !ok || vs != "hello" {
+			t.Fatalf("unexpected value: %#v", v)
+		}
+	})
+
+	t.Run("getStudyVariableDate", func(t *testing.T) {
+		exp := studyTypes.Expression{Name: "getStudyVariableDate", Data: []studyTypes.ExpressionArg{{DType: "str", Str: "dateVar"}}}
+		v, err := ExpressionEval(exp, evalCtx)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if vf, ok := v.(float64); !ok || int64(vf) != dateVal.Unix() {
+			t.Fatalf("unexpected value: %#v", v)
 		}
 	})
 }
