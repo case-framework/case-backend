@@ -348,13 +348,13 @@ func (ctx EvalContext) getNextStudyCounterValue(exp studyTypes.Expression) (val 
 	return float64(value), nil
 }
 
-func (ctx EvalContext) getStudyVariableBoolean(exp studyTypes.Expression) (val bool, err error) {
+func (ctx EvalContext) getStudyVariable(exp studyTypes.Expression, asType studyTypes.StudyVariablesType) (val studyTypes.StudyVariables, err error) {
 	if CurrentStudyEngine == nil || CurrentStudyEngine.studyDBService == nil {
-		return val, errors.New("getStudyVariableBoolean: DB connection not available in the context")
+		return val, errors.New("getStudyVariable: DB connection not available in the context")
 	}
 
 	if len(exp.Data) != 1 {
-		return val, errors.New("getStudyVariableBoolean: invalid number of arguments")
+		return val, errors.New("getStudyVariable: invalid number of arguments")
 	}
 
 	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
@@ -363,17 +363,62 @@ func (ctx EvalContext) getStudyVariableBoolean(exp studyTypes.Expression) (val b
 	}
 	key, ok := arg1.(string)
 	if !ok {
-		return val, errors.New("could not cast arguments")
+		return val, errors.New("getStudyVariable: could not cast arguments")
 	}
 
-	variable, err := CurrentStudyEngine.studyDBService.GetStudyVariableByStudyKeyAndKey(ctx.Event.InstanceID, ctx.Event.StudyKey, key, true)
+	val, err = CurrentStudyEngine.studyDBService.GetStudyVariableByStudyKeyAndKey(ctx.Event.InstanceID, ctx.Event.StudyKey, key, true)
 	if err != nil {
 		return val, err
 	}
-	if variable.Type != studyTypes.STUDY_VARIABLES_TYPE_BOOLEAN {
-		return val, fmt.Errorf("getStudyVariableBoolean: expected boolean, got %s", variable.Type)
+	if val.Type != asType {
+		return val, fmt.Errorf("getStudyVariable: expected boolean, got %s", val.Type)
+	}
+	return
+}
+
+func (ctx EvalContext) getStudyVariableBoolean(exp studyTypes.Expression) (val bool, err error) {
+	variable, err := ctx.getStudyVariable(exp, studyTypes.STUDY_VARIABLES_TYPE_BOOLEAN)
+	if err != nil {
+		return val, err
 	}
 	return variable.Value.(bool), nil
+}
+
+func (ctx EvalContext) getStudyVariableInt(exp studyTypes.Expression) (val float64, err error) {
+	variable, err := ctx.getStudyVariable(exp, studyTypes.STUDY_VARIABLES_TYPE_INT)
+	if err != nil {
+		return val, err
+	}
+	floatVal := float64(variable.Value.(int))
+	return floatVal, nil
+}
+
+func (ctx EvalContext) getStudyVariableFloat(exp studyTypes.Expression) (val float64, err error) {
+	variable, err := ctx.getStudyVariable(exp, studyTypes.STUDY_VARIABLES_TYPE_FLOAT)
+	if err != nil {
+		return val, err
+	}
+	return variable.Value.(float64), nil
+}
+
+func (ctx EvalContext) getStudyVariableString(exp studyTypes.Expression) (val string, err error) {
+	variable, err := ctx.getStudyVariable(exp, studyTypes.STUDY_VARIABLES_TYPE_STRING)
+	if err != nil {
+		return val, err
+	}
+	return variable.Value.(string), nil
+}
+
+func (ctx EvalContext) getStudyVariableDate(exp studyTypes.Expression) (val float64, err error) {
+	variable, err := ctx.getStudyVariable(exp, studyTypes.STUDY_VARIABLES_TYPE_DATE)
+	if err != nil {
+		return val, err
+	}
+	timeVal, ok := variable.Value.(time.Time)
+	if !ok {
+		return val, errors.New("getStudyVariableDate: could not cast arguments")
+	}
+	return float64(timeVal.Unix()), nil
 }
 
 func (ctx EvalContext) checkConditionForOldResponses(exp studyTypes.Expression) (val bool, err error) {
