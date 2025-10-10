@@ -371,7 +371,7 @@ func (ctx EvalContext) getStudyVariable(exp studyTypes.Expression, asType studyT
 		return val, err
 	}
 	if val.Type != asType {
-		return val, fmt.Errorf("getStudyVariable: expected boolean, got %s", val.Type)
+		return val, fmt.Errorf("getStudyVariable: wrong type, expected %s, got %s", asType, val.Type)
 	}
 	return
 }
@@ -381,7 +381,11 @@ func (ctx EvalContext) getStudyVariableBoolean(exp studyTypes.Expression) (val b
 	if err != nil {
 		return val, err
 	}
-	return variable.Value.(bool), nil
+	bVal, ok := variable.Value.(bool)
+	if !ok {
+		return val, errors.New("getStudyVariableBoolean: could not cast arguments")
+	}
+	return bVal, nil
 }
 
 func (ctx EvalContext) getStudyVariableInt(exp studyTypes.Expression) (val float64, err error) {
@@ -389,8 +393,19 @@ func (ctx EvalContext) getStudyVariableInt(exp studyTypes.Expression) (val float
 	if err != nil {
 		return val, err
 	}
-	floatVal := float64(variable.Value.(int))
-	return floatVal, nil
+	switch v := variable.Value.(type) {
+	case int:
+		return float64(v), nil
+	case int32:
+		return float64(v), nil
+	case int64:
+		return float64(v), nil
+	case float64:
+		// Be tolerant if stored as float
+		return v, nil
+	default:
+		return val, errors.New("getStudyVariableInt: could not cast arguments")
+	}
 }
 
 func (ctx EvalContext) getStudyVariableFloat(exp studyTypes.Expression) (val float64, err error) {
@@ -398,7 +413,11 @@ func (ctx EvalContext) getStudyVariableFloat(exp studyTypes.Expression) (val flo
 	if err != nil {
 		return val, err
 	}
-	return variable.Value.(float64), nil
+	floatVal, ok := variable.Value.(float64)
+	if !ok {
+		return val, errors.New("getStudyVariableFloat: could not cast arguments")
+	}
+	return floatVal, nil
 }
 
 func (ctx EvalContext) getStudyVariableString(exp studyTypes.Expression) (val string, err error) {
@@ -406,7 +425,11 @@ func (ctx EvalContext) getStudyVariableString(exp studyTypes.Expression) (val st
 	if err != nil {
 		return val, err
 	}
-	return variable.Value.(string), nil
+	sVal, ok := variable.Value.(string)
+	if !ok {
+		return val, errors.New("getStudyVariableString: could not cast arguments")
+	}
+	return sVal, nil
 }
 
 func (ctx EvalContext) getStudyVariableDate(exp studyTypes.Expression) (val float64, err error) {
