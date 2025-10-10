@@ -87,6 +87,16 @@ func ActionEval(action studyTypes.Expression, oldState ActionData, event StudyEv
 		newState, err = getNextStudyCounterAsLinkingCode(action, oldState, event)
 	case "RESET_STUDY_COUNTER":
 		newState, err = resetStudyCounter(action, oldState, event)
+	case "UPDATE_STUDY_VARIABLE_BOOLEAN":
+		newState, err = updateStudyVariableBoolean(action, oldState, event)
+	case "UPDATE_STUDY_VARIABLE_INT":
+		newState, err = updateStudyVariableInt(action, oldState, event)
+	case "UPDATE_STUDY_VARIABLE_FLOAT":
+		newState, err = updateStudyVariableFloat(action, oldState, event)
+	case "UPDATE_STUDY_VARIABLE_STRING":
+		newState, err = updateStudyVariableString(action, oldState, event)
+	case "UPDATE_STUDY_VARIABLE_DATE":
+		newState, err = updateStudyVariableDate(action, oldState, event)
 	default:
 		newState = oldState
 		err = errors.New("action name not known")
@@ -1350,4 +1360,91 @@ func resetStudyCounter(action studyTypes.Expression, oldState ActionData, event 
 	}
 
 	return newState, nil
+}
+
+func updateStudyVariable(action studyTypes.Expression, oldState ActionData, event StudyEvent, asType studyTypes.StudyVariablesType) (newState ActionData, err error) {
+	newState = oldState
+
+	if len(action.Data) != 2 {
+		return newState, errors.New("UPDATE_STUDY_VARIABLE must have exactly two arguments")
+	}
+
+	EvalContext := EvalContext{
+		Event:            event,
+		ParticipantState: newState.PState,
+	}
+
+	arg1, err := EvalContext.ExpressionArgResolver(action.Data[0])
+	if err != nil {
+		return newState, err
+	}
+
+	variableKey, ok := arg1.(string)
+	if !ok {
+		return newState, errors.New("could not parse variableKey")
+	}
+
+	arg2, err := EvalContext.ExpressionArgResolver(action.Data[1])
+	if err != nil {
+		return newState, err
+	}
+
+	var value any
+	switch asType {
+	case studyTypes.STUDY_VARIABLES_TYPE_BOOLEAN:
+		value, ok = arg2.(bool)
+		if !ok {
+			return newState, errors.New("could not parse value")
+		}
+
+	case studyTypes.STUDY_VARIABLES_TYPE_FLOAT:
+		value, ok = arg2.(float64)
+		if !ok {
+			return newState, errors.New("could not parse value")
+		}
+	case studyTypes.STUDY_VARIABLES_TYPE_INT:
+		fV, ok := arg2.(float64)
+		if !ok {
+			return newState, errors.New("could not parse value")
+		}
+		value = int(fV)
+	case studyTypes.STUDY_VARIABLES_TYPE_STRING:
+		value, ok = arg2.(string)
+		if !ok {
+			return newState, errors.New("could not parse value")
+		}
+	case studyTypes.STUDY_VARIABLES_TYPE_DATE:
+		fV, ok := arg2.(float64)
+		if !ok {
+			return newState, errors.New("could not parse value")
+		}
+		value = time.Unix(int64(fV), 0)
+	}
+
+	_, err = CurrentStudyEngine.studyDBService.UpdateStudyVariableValue(event.InstanceID, event.StudyKey, variableKey, value)
+	if err != nil {
+		return newState, err
+	}
+
+	return newState, nil
+}
+
+func updateStudyVariableBoolean(action studyTypes.Expression, oldState ActionData, event StudyEvent) (newState ActionData, err error) {
+	return updateStudyVariable(action, oldState, event, studyTypes.STUDY_VARIABLES_TYPE_BOOLEAN)
+}
+
+func updateStudyVariableInt(action studyTypes.Expression, oldState ActionData, event StudyEvent) (newState ActionData, err error) {
+	return updateStudyVariable(action, oldState, event, studyTypes.STUDY_VARIABLES_TYPE_INT)
+}
+
+func updateStudyVariableFloat(action studyTypes.Expression, oldState ActionData, event StudyEvent) (newState ActionData, err error) {
+	return updateStudyVariable(action, oldState, event, studyTypes.STUDY_VARIABLES_TYPE_FLOAT)
+}
+
+func updateStudyVariableString(action studyTypes.Expression, oldState ActionData, event StudyEvent) (newState ActionData, err error) {
+	return updateStudyVariable(action, oldState, event, studyTypes.STUDY_VARIABLES_TYPE_STRING)
+}
+
+func updateStudyVariableDate(action studyTypes.Expression, oldState ActionData, event StudyEvent) (newState ActionData, err error) {
+	return updateStudyVariable(action, oldState, event, studyTypes.STUDY_VARIABLES_TYPE_DATE)
 }

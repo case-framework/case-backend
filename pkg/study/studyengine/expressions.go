@@ -52,6 +52,17 @@ func ExpressionEval(expression studyTypes.Expression, evalCtx EvalContext) (val 
 		val, err = evalCtx.getCurrentStudyCounterValue(expression)
 	case "getNextStudyCounterValue":
 		val, err = evalCtx.getNextStudyCounterValue(expression)
+	// Study variables:
+	case "getStudyVariableBoolean":
+		val, err = evalCtx.getStudyVariableBoolean(expression)
+	case "getStudyVariableInt":
+		val, err = evalCtx.getStudyVariableInt(expression)
+	case "getStudyVariableFloat":
+		val, err = evalCtx.getStudyVariableFloat(expression)
+	case "getStudyVariableString":
+		val, err = evalCtx.getStudyVariableString(expression)
+	case "getStudyVariableDate":
+		val, err = evalCtx.getStudyVariableDate(expression)
 	// Access event payload:
 	case "hasEventPayload":
 		val, err = evalCtx.hasEventPayload()
@@ -335,6 +346,102 @@ func (ctx EvalContext) getNextStudyCounterValue(exp studyTypes.Expression) (val 
 		return val, err
 	}
 	return float64(value), nil
+}
+
+func (ctx EvalContext) getStudyVariable(exp studyTypes.Expression, asType studyTypes.StudyVariablesType) (val studyTypes.StudyVariables, err error) {
+	if CurrentStudyEngine == nil || CurrentStudyEngine.studyDBService == nil {
+		return val, errors.New("getStudyVariable: DB connection not available in the context")
+	}
+
+	if len(exp.Data) != 1 {
+		return val, errors.New("getStudyVariable: invalid number of arguments")
+	}
+
+	arg1, err := ctx.ExpressionArgResolver(exp.Data[0])
+	if err != nil {
+		return val, err
+	}
+	key, ok := arg1.(string)
+	if !ok {
+		return val, errors.New("getStudyVariable: could not cast arguments")
+	}
+
+	val, err = CurrentStudyEngine.studyDBService.GetStudyVariableByStudyKeyAndKey(ctx.Event.InstanceID, ctx.Event.StudyKey, key, true)
+	if err != nil {
+		return val, err
+	}
+	if val.Type != asType {
+		return val, fmt.Errorf("getStudyVariable: wrong type, expected %s, got %s", asType, val.Type)
+	}
+	return
+}
+
+func (ctx EvalContext) getStudyVariableBoolean(exp studyTypes.Expression) (val bool, err error) {
+	variable, err := ctx.getStudyVariable(exp, studyTypes.STUDY_VARIABLES_TYPE_BOOLEAN)
+	if err != nil {
+		return val, err
+	}
+	bVal, ok := variable.Value.(bool)
+	if !ok {
+		return val, errors.New("getStudyVariableBoolean: could not cast arguments")
+	}
+	return bVal, nil
+}
+
+func (ctx EvalContext) getStudyVariableInt(exp studyTypes.Expression) (val float64, err error) {
+	variable, err := ctx.getStudyVariable(exp, studyTypes.STUDY_VARIABLES_TYPE_INT)
+	if err != nil {
+		return val, err
+	}
+	switch v := variable.Value.(type) {
+	case int:
+		return float64(v), nil
+	case int32:
+		return float64(v), nil
+	case int64:
+		return float64(v), nil
+	case float64:
+		// Be tolerant if stored as float
+		return v, nil
+	default:
+		return val, errors.New("getStudyVariableInt: could not cast arguments")
+	}
+}
+
+func (ctx EvalContext) getStudyVariableFloat(exp studyTypes.Expression) (val float64, err error) {
+	variable, err := ctx.getStudyVariable(exp, studyTypes.STUDY_VARIABLES_TYPE_FLOAT)
+	if err != nil {
+		return val, err
+	}
+	floatVal, ok := variable.Value.(float64)
+	if !ok {
+		return val, errors.New("getStudyVariableFloat: could not cast arguments")
+	}
+	return floatVal, nil
+}
+
+func (ctx EvalContext) getStudyVariableString(exp studyTypes.Expression) (val string, err error) {
+	variable, err := ctx.getStudyVariable(exp, studyTypes.STUDY_VARIABLES_TYPE_STRING)
+	if err != nil {
+		return val, err
+	}
+	sVal, ok := variable.Value.(string)
+	if !ok {
+		return val, errors.New("getStudyVariableString: could not cast arguments")
+	}
+	return sVal, nil
+}
+
+func (ctx EvalContext) getStudyVariableDate(exp studyTypes.Expression) (val float64, err error) {
+	variable, err := ctx.getStudyVariable(exp, studyTypes.STUDY_VARIABLES_TYPE_DATE)
+	if err != nil {
+		return val, err
+	}
+	timeVal, ok := variable.Value.(time.Time)
+	if !ok {
+		return val, errors.New("getStudyVariableDate: could not cast arguments")
+	}
+	return float64(timeVal.Unix()), nil
 }
 
 func (ctx EvalContext) checkConditionForOldResponses(exp studyTypes.Expression) (val bool, err error) {
