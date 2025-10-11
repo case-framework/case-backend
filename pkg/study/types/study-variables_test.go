@@ -246,7 +246,7 @@ func TestStudyVariables_UnmarshalJSON_MetadataRoundtrip(t *testing.T) {
 		t.Fatalf("metadata mismatch")
 	}
 	// Configs is any; ensure it unmarshals into map
-	if _, ok := sv.Configs.(map[string]any); !ok {
+	if sv.Configs == nil {
 		t.Fatalf("configs should be map[string]any, got %T", sv.Configs)
 	}
 }

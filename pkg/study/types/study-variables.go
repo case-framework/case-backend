@@ -36,11 +36,11 @@ type StudyVariables struct {
 	Type  StudyVariablesType `bson:"type" json:"type"`
 
 	// Metadata for editor
-	Label       string `bson:"label" json:"label,omitempty"`
-	Description string `bson:"description" json:"description,omitempty"`
-	UIType      string `bson:"uiType" json:"uiType,omitempty"`
-	UIPriority  int    `bson:"uiPriority" json:"uiPriority,omitempty"`
-	Configs     any    `bson:"configs" json:"configs,omitempty"`
+	Label       string         `bson:"label" json:"label,omitempty"`
+	Description string         `bson:"description" json:"description,omitempty"`
+	UIType      string         `bson:"uiType" json:"uiType,omitempty"`
+	UIPriority  int            `bson:"uiPriority" json:"uiPriority,omitempty"`
+	Configs     map[string]any `bson:"configs" json:"configs,omitempty"`
 }
 
 // UnmarshalJSON normalizes the Value field to the correct Go type based on Type.
@@ -58,11 +58,11 @@ func (sv *StudyVariables) UnmarshalJSON(data []byte) error {
 		Value    json.RawMessage    `json:"value"`
 		Type     StudyVariablesType `json:"type"`
 
-		Label       string `json:"label"`
-		Description string `json:"description"`
-		UIType      string `json:"uiType"`
-		UIPriority  int    `json:"uiPriority"`
-		Configs     any    `json:"configs"`
+		Label       string         `json:"label"`
+		Description string         `json:"description"`
+		UIType      string         `json:"uiType"`
+		UIPriority  int            `json:"uiPriority"`
+		Configs     map[string]any `json:"configs"`
 	}
 
 	var wire studyVariablesWire
