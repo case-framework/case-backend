@@ -1407,7 +1407,7 @@ func updateStudyVariable(action studyTypes.Expression, oldState ActionData, even
 		if !ok {
 			return newState, errors.New("could not parse value")
 		}
-		value = int(fV)
+		value = int64(fV)
 	case studyTypes.STUDY_VARIABLES_TYPE_STRING:
 		value, ok = arg2.(string)
 		if !ok {

@@ -722,7 +722,7 @@ func TestUpdateStudyVariableActions(t *testing.T) {
 		if len(mock.Updated) < 2 {
 			t.Fatalf("expected a second update call")
 		}
-		if v, ok := mock.Updated[1].Value.(int); !ok || v != 7 {
+		if v, ok := mock.Updated[1].Value.(int64); !ok || v != 7 {
 			t.Fatalf("unexpected value: %#v", mock.Updated[1].Value)
 		}
 	})
