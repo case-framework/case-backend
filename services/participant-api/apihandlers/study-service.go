@@ -29,6 +29,9 @@ func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
 		studiesGroup.GET("/:studyKey", h.getStudy)
 		studiesGroup.GET("/participating", mw.GetAndValidateParticipantUserJWT(h.tokenSignKey, h.globalInfosDBConn), h.getParticipatingStudies)
 		studiesGroup.GET("/:studyKey/code-lists/has-code", h.studyHasCodeListCode) // ?code=code&listKey=listKey?instanceID=test
+
+		studiesGroup.GET("/:studyKey/variables", h.getStudyVariables)             // ?instanceID=test
+		studiesGroup.GET("/:studyKey/variables/:variableKey", h.getStudyVariable) // ?instanceID=test
 	}
 
 	// study events
@@ -237,6 +240,63 @@ func (h *HttpEndpoints) studyHasCodeListCode(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"exists": exists})
+}
+
+func (h *HttpEndpoints) getStudyVariables(c *gin.Context) {
+	instanceID := c.DefaultQuery("instanceID", "")
+	studyKey := c.Param("studyKey")
+
+	if !h.isInstanceAllowed(instanceID) {
+		slog.Error("instance not allowed", slog.String("instanceID", instanceID))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "instance not allowed"})
+		return
+	}
+
+	if studyKey == "" {
+		slog.Error("studyKey is required", slog.String("instanceID", instanceID))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "studyKey is required"})
+		return
+	}
+
+	slog.Debug("getting study variables", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
+
+	variables, err := h.studyDBConn.GetStudyVariablesByStudyKey(instanceID, studyKey, true)
+	if err != nil {
+		slog.Error("failed to get study variables", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study variables"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"variables": variables})
+}
+
+func (h *HttpEndpoints) getStudyVariable(c *gin.Context) {
+	studyKey := c.Param("studyKey")
+	variableKey := c.Param("variableKey")
+	instanceID := c.DefaultQuery("instanceID", "")
+
+	if !h.isInstanceAllowed(instanceID) {
+		slog.Error("instance not allowed", slog.String("instanceID", instanceID))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "instance not allowed"})
+		return
+	}
+
+	if studyKey == "" || variableKey == "" {
+		slog.Error("studyKey and variableKey are required", slog.String("instanceID", instanceID))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "studyKey and variableKey are required"})
+		return
+	}
+
+	slog.Debug("getting study variable", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("variableKey", variableKey))
+
+	variable, err := h.studyDBConn.GetStudyVariableByStudyKeyAndKey(instanceID, studyKey, variableKey, true)
+	if err != nil {
+		slog.Error("failed to get study variable", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study variable"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"variable": variable})
 }
 
 func (h *HttpEndpoints) enterStudy(c *gin.Context) {

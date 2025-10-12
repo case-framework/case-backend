@@ -26,6 +26,7 @@ const (
 	COLLECTION_NAME_TASK_QUEUE                    = "taskQueue"
 	COLLECTION_NAME_STUDY_CODE_LISTS              = "studyCodeLists"
 	COLLECTION_NAME_STUDY_COUNTERS                = "studyCounters"
+	COLLECTION_NAME_STUDY_VARIABLES               = "studyVariables"
 )
 
 type StudyDBService struct {
@@ -129,6 +130,10 @@ func (dbService *StudyDBService) collectionStudyCounters(instanceID string) *mon
 	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_STUDY_COUNTERS)
 }
 
+func (dbService *StudyDBService) collectionStudyVariables(instanceID string) *mongo.Collection {
+	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_STUDY_VARIABLES)
+}
+
 func (dbService *StudyDBService) getContext() (ctx context.Context, cancel context.CancelFunc) {
 	return context.WithTimeout(context.Background(), time.Duration(dbService.timeout)*time.Second)
 }
@@ -144,6 +149,7 @@ func (dbService *StudyDBService) dropIndexes(all bool) {
 		dbService.DropIndexForStudyInfosCollection(instanceID, all)
 		dbService.DropIndexForStudyRulesCollection(instanceID, all)
 		dbService.DropIndexForTaskQueueCollection(instanceID, all)
+		dbService.DropIndexForStudyVariablesCollection(instanceID, all)
 		// participant files has no default indexes at the moment
 		// researcher messages has no default indexes at the moment
 
@@ -196,6 +202,7 @@ func (dbService *StudyDBService) CreateDefaultIndexes() {
 		dbService.CreateDefaultIndexesForStudyInfosCollection(instanceID)
 		dbService.CreateDefaultIndexesForStudyRulesCollection(instanceID)
 		dbService.CreateDefaultIndexesForTaskQueueCollection(instanceID)
+		dbService.CreateDefaultIndexesForStudyVariablesCollection(instanceID)
 		// participant files has no default indexes at the moment
 		// researcher messages has no default indexes at the moment
 
@@ -238,6 +245,9 @@ func (dbService *StudyDBService) GetIndexes() (map[string]map[string][]bson.M, e
 			return nil, err
 		}
 		if collectionIndexes[COLLECTION_NAME_TASK_QUEUE], err = db.ListCollectionIndexes(ctx, dbService.collectionTaskQueue(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_STUDY_VARIABLES], err = db.ListCollectionIndexes(ctx, dbService.collectionStudyVariables(instanceID)); err != nil {
 			return nil, err
 		}
 
