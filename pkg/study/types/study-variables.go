@@ -221,9 +221,10 @@ func parseJSONNumberAsInt64(numStr string) (int64, error) {
 
 	// Extract sign
 	negative := false
-	if s[0] == '+' {
+	switch s[0] {
+	case '+':
 		s = s[1:]
-	} else if s[0] == '-' {
+	case '-':
 		negative = true
 		s = s[1:]
 	}
@@ -259,15 +260,17 @@ func parseJSONNumberAsInt64(numStr string) (int64, error) {
 		intPart = s[:dot]
 		fracPart = s[dot+1:]
 	}
-	if intPart == "" {
-		intPart = "0"
-	}
+
 	// Reject formats with no digits around a dot (".") or trailing dot ("1.")
+	// Perform these validations BEFORE normalizing empty intPart to "0".
 	if hadDot && (len(intPart) == 0 && len(fracPart) == 0) {
 		return 0, errors.New("invalid number")
 	}
 	if hadDot && len(fracPart) == 0 && len(intPart) > 0 {
 		return 0, errors.New("invalid number")
+	}
+	if intPart == "" {
+		intPart = "0"
 	}
 
 	// Validate digits-only

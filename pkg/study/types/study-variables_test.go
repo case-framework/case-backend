@@ -49,7 +49,7 @@ func TestParseJSONNumberAsInt64_ZeroAndIntegers(t *testing.T) {
 }
 
 func TestParseJSONNumberAsInt64_NonIntegersRejected(t *testing.T) {
-	nonIntegerInputs := []string{"0.001", "1.2", "1e-1", "1.0001", "", ".", "e10", "--1", "1e", "NaN"}
+	nonIntegerInputs := []string{"0.001", "1.2", "1e-1", "1.0001", " . ", "", ".", "e10", "--1", "1e", "NaN"}
 	for _, in := range nonIntegerInputs {
 		in := in
 		t.Run(in, func(t *testing.T) {
