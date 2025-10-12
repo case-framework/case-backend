@@ -24,6 +24,16 @@ var indexesForStudyVariablesCollection = []mongo.IndexModel{
 	},
 }
 
+func getValueProjection() bson.D {
+	return bson.D{
+		{Key: "type", Value: 1},
+		{Key: "value", Value: 1},
+		{Key: "studyKey", Value: 1},
+		{Key: "key", Value: 1},
+		{Key: "valueUpdatedAt", Value: 1},
+	}
+}
+
 func (dbService *StudyDBService) DropIndexForStudyVariablesCollection(instanceID string, dropAll bool) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
@@ -152,13 +162,7 @@ func (dbService *StudyDBService) GetStudyVariablesByStudyKey(instanceID string, 
 	filter := bson.M{"studyKey": studyKey}
 	opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}})
 	if onlyValue {
-		opts.SetProjection(bson.D{
-			{Key: "type", Value: 1},
-			{Key: "value", Value: 1},
-			{Key: "studyKey", Value: 1},
-			{Key: "key", Value: 1},
-			{Key: "valueUpdatedAt", Value: 1},
-		})
+		opts.SetProjection(getValueProjection())
 	}
 
 	cursor, err := dbService.collectionStudyVariables(instanceID).Find(ctx, filter, opts)
@@ -187,13 +191,7 @@ func (dbService *StudyDBService) GetStudyVariableByID(instanceID string, id stri
 	var v studytypes.StudyVariables
 	findOneOpts := options.FindOne()
 	if onlyValue {
-		findOneOpts.SetProjection(bson.D{
-			{Key: "type", Value: 1},
-			{Key: "value", Value: 1},
-			{Key: "studyKey", Value: 1},
-			{Key: "key", Value: 1},
-			{Key: "valueUpdatedAt", Value: 1},
-		})
+		findOneOpts.SetProjection(getValueProjection())
 	}
 	err = dbService.collectionStudyVariables(instanceID).FindOne(ctx, bson.M{"_id": _id}, findOneOpts).Decode(&v)
 	return v, err
@@ -207,13 +205,7 @@ func (dbService *StudyDBService) GetStudyVariableByStudyKeyAndKey(instanceID str
 	var v studytypes.StudyVariables
 	findOneOpts := options.FindOne()
 	if onlyValue {
-		findOneOpts.SetProjection(bson.D{
-			{Key: "type", Value: 1},
-			{Key: "value", Value: 1},
-			{Key: "studyKey", Value: 1},
-			{Key: "key", Value: 1},
-			{Key: "valueUpdatedAt", Value: 1},
-		})
+		findOneOpts.SetProjection(getValueProjection())
 	}
 	err := dbService.collectionStudyVariables(instanceID).FindOne(ctx, bson.M{"studyKey": studyKey, "key": key}, findOneOpts).Decode(&v)
 	return v, err
