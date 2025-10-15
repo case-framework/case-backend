@@ -18,10 +18,16 @@ type AssignedSurveyWithContext struct {
 	Prefill *studyTypes.SurveyResponse `json:"prefill,omitempty"`
 }
 
+type StudyVariableValue struct {
+	Type  string `json:"type"`
+	Value any    `json:"value"`
+}
+
 type SurveyContext struct {
-	Mode              string                      `json:"mode,omitempty"`
-	PreviousResponses []studyTypes.SurveyResponse `json:"previousResponses,omitempty"`
-	ParticipantFlags  map[string]string           `json:"participantFlags,omitempty"`
+	Mode              string                        `json:"mode,omitempty"`
+	PreviousResponses []studyTypes.SurveyResponse   `json:"previousResponses,omitempty"`
+	ParticipantFlags  map[string]string             `json:"participantFlags,omitempty"`
+	StudyVariables    map[string]StudyVariableValue `json:"studyVariables,omitempty"`
 }
 
 type SurveyInfo struct {
@@ -321,6 +327,16 @@ func GetSurveyWithContextForTempParticipant(instanceID string, studyKey string, 
 func resolveContextRules(instanceID string, studyKey string, pState studyTypes.Participant, contextRules *studyTypes.SurveyContextDef) (sCtx *SurveyContext, err error) {
 	sCtx = &SurveyContext{
 		ParticipantFlags: pState.Flags,
+		StudyVariables:   make(map[string]StudyVariableValue),
+	}
+
+	vars, err := studyDBService.GetStudyVariablesByStudyKey(instanceID, studyKey, true)
+	if err != nil {
+		slog.Error("error getting study variables", slog.String("error", err.Error()))
+		return sCtx, err
+	}
+	for _, v := range vars {
+		sCtx.StudyVariables[v.Key] = StudyVariableValue{Type: string(v.Type), Value: v.Value}
 	}
 
 	if contextRules == nil {
