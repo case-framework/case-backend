@@ -10,9 +10,9 @@ import (
 )
 
 type StudyCounter struct {
-	StudyKey string `bson:"studyKey"`
-	Scope    string `bson:"scope"`
-	Value    int64  `bson:"value"`
+	StudyKey string `json:"studyKey" bson:"studyKey"`
+	Scope    string `json:"scope" bson:"scope"`
+	Value    int64  `json:"value" bson:"value"`
 }
 
 var indexesForStudyCountersCollection = []mongo.IndexModel{
@@ -107,6 +107,31 @@ func (dbService *StudyDBService) IncrementAndGetStudyCounterValue(instanceID str
 		bson.M{
 			"$inc":         bson.M{"value": 1},
 			"$setOnInsert": bson.M{"studyKey": studyKey, "scope": scope},
+		},
+		options.FindOneAndUpdate().SetUpsert(true).SetReturnDocument(options.After),
+	).Decode(&counter)
+	if err != nil {
+		return 0, err
+	}
+
+	return counter.Value, nil
+}
+
+// Save counter value (upsert: update if exists, insert if not)
+func (dbService *StudyDBService) SaveStudyCounterValue(instanceID string, studyKey string, scope string, value int64) (int64, error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	counter := StudyCounter{}
+	err := dbService.collectionStudyCounters(instanceID).FindOneAndUpdate(
+		ctx,
+		bson.M{"studyKey": studyKey, "scope": scope},
+		bson.M{
+			"$set": bson.M{
+				"studyKey": studyKey,
+				"scope":    scope,
+				"value":    value,
+			},
 		},
 		options.FindOneAndUpdate().SetUpsert(true).SetReturnDocument(options.After),
 	).Decode(&counter)

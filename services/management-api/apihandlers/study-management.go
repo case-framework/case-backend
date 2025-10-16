@@ -396,7 +396,18 @@ func (h *HttpEndpoints) addStudyConfigEndpoints(rg *gin.RouterGroup) {
 		))
 	}
 
-	studyCounterGroup.POST("/:scope", h.useAuthorisedHandler(
+	studyCounterGroup.POST("/:scope", mw.RequirePayload(), h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType:        pc.RESOURCE_TYPE_STUDY,
+			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+			ExtractResourceKeys: getStudyKeyFromParams,
+			Action:              pc.ACTION_MANAGE_STUDY_COUNTERS,
+		},
+		nil,
+		h.saveStudyCounterValue,
+	))
+
+	studyCounterGroup.PUT("/:scope", h.useAuthorisedHandler(
 		RequiredPermission{
 			ResourceType:        pc.RESOURCE_TYPE_STUDY,
 			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
@@ -1962,6 +1973,38 @@ func (h *HttpEndpoints) getStudyCounterValues(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"values": values})
+}
+
+func (h *HttpEndpoints) saveStudyCounterValue(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+	studyKey := c.Param("studyKey")
+	scope := strings.TrimSpace(c.Param("scope"))
+
+	if scope == "" {
+		slog.Error("scope is required", slog.String("studyKey", studyKey), slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "scope is required"})
+		return
+	}
+
+	var req struct {
+		Value int64 `json:"value"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	slog.Info("saving study counter value", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("scope", scope), slog.String("value", fmt.Sprintf("%d", req.Value)))
+
+	value, err := h.studyDBConn.SaveStudyCounterValue(token.InstanceID, studyKey, scope, req.Value)
+	if err != nil {
+		slog.Error("failed to save study counter value", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save study counter value"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"value": value})
 }
 
 func (h *HttpEndpoints) incrementStudyCounter(c *gin.Context) {
