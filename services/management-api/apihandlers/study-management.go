@@ -1980,6 +1980,12 @@ func (h *HttpEndpoints) saveStudyCounterValue(c *gin.Context) {
 	studyKey := c.Param("studyKey")
 	scope := strings.TrimSpace(c.Param("scope"))
 
+	if scope == "" {
+		slog.Error("scope is required", slog.String("studyKey", studyKey), slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "scope is required"})
+		return
+	}
+
 	var req struct {
 		Value int64 `json:"value"`
 	}
