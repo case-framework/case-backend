@@ -546,11 +546,11 @@ func findSurveyItemDef(item *studyTypes.SurveyItem, key string) *studyTypes.Surv
 		return item
 	}
 
-	for _, itemDef := range item.Items {
-		if itemDef.Key == key {
-			return &itemDef
-		} else if strings.HasPrefix(key, itemDef.Key+".") {
-			return findSurveyItemDef(&itemDef, key)
+	for i := range item.Items {
+		if item.Items[i].Key == key {
+			return &item.Items[i]
+		} else if strings.HasPrefix(key, item.Items[i].Key+".") {
+			return findSurveyItemDef(&item.Items[i], key)
 		}
 	}
 	return nil
