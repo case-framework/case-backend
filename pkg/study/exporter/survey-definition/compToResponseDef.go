@@ -46,6 +46,8 @@ func mapToResponseDef(rItem *studytypes.ItemComponent, lang string) []ResponseDe
 			switch o.Role {
 			case "option":
 				option.OptionType = OPTION_TYPE_RADIO
+			case "formattedOption":
+				option.OptionType = OPTION_TYPE_RADIO
 			case "input":
 				option.OptionType = OPTION_TYPE_TEXT_INPUT
 			case "dateInput":
@@ -77,6 +79,8 @@ func mapToResponseDef(rItem *studytypes.ItemComponent, lang string) []ResponseDe
 			}
 			switch o.Role {
 			case "option":
+				option.OptionType = OPTION_TYPE_CHECKBOX
+			case "formattedOption":
 				option.OptionType = OPTION_TYPE_CHECKBOX
 			case "input":
 				option.OptionType = OPTION_TYPE_TEXT_INPUT
