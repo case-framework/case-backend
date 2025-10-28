@@ -103,6 +103,8 @@ func ExpressionEval(expression studyTypes.Expression, evalCtx EvalContext) (val 
 		val, err = evalCtx.hasMessageTypeAssigned(expression, false)
 	case "getMessageNextTime":
 		val, err = evalCtx.getMessageNextTime(expression, false)
+	case "getCurrentStudySession":
+		val, err = evalCtx.getCurrentStudySession(false)
 	// exprssions for merge participant states:
 	case "incomingState:getStudyEntryTime":
 		val, err = evalCtx.getStudyEntryTime(true)
@@ -132,6 +134,8 @@ func ExpressionEval(expression studyTypes.Expression, evalCtx EvalContext) (val 
 		val, err = evalCtx.hasMessageTypeAssigned(expression, true)
 	case "incomingState:getMessageNextTime":
 		val, err = evalCtx.getMessageNextTime(expression, true)
+	case "incomingState:getCurrentStudySession":
+		val, err = evalCtx.getCurrentStudySession(true)
 	// Logical and comparisions:
 	case "eq":
 		val, err = evalCtx.eq(expression)
@@ -1549,6 +1553,14 @@ func (ctx EvalContext) getMessageNextTime(exp studyTypes.Expression, withIncomin
 		return 0, errors.New("no message for this type found")
 	}
 	return nextTime, nil
+}
+
+func (ctx EvalContext) getCurrentStudySession(withIncomingParticipantState bool) (val string, err error) {
+	pState := ctx.ParticipantState
+	if withIncomingParticipantState {
+		pState = ctx.Event.MergeWithParticipant
+	}
+	return pState.CurrentStudySession, nil
 }
 
 func (ctx EvalContext) and(exp studyTypes.Expression) (val bool, err error) {
