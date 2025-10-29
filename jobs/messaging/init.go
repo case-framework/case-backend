@@ -215,6 +215,10 @@ func initStudyService() {
 }
 
 func loadEmailClientHTTPConfig() *httpclient.ClientConfig {
+	if conf.MessagingConfigs.SmtpBridgeConfig.URL == "" || conf.MessagingConfigs.SmtpBridgeConfig.APIKey == "" {
+		slog.Error("SMTP bridge config is not complete", slog.String("url", conf.MessagingConfigs.SmtpBridgeConfig.URL), slog.String("apiKey", conf.MessagingConfigs.SmtpBridgeConfig.APIKey))
+		panic("SMTP bridge config is not complete")
+	}
 	return &httpclient.ClientConfig{
 		RootURL: conf.MessagingConfigs.SmtpBridgeConfig.URL,
 		APIKey:  conf.MessagingConfigs.SmtpBridgeConfig.APIKey,
