@@ -35,7 +35,7 @@ func getStudyIfActive(instanceID string, studyKey string) (study studyTypes.Stud
 func getAndPerformStudyRules(instanceID, studyKey string, pState studyTypes.Participant, currentEvent studyengine.StudyEvent) (newState studyengine.ActionData, err error) {
 	newState = studyengine.ActionData{
 		PState:          pState,
-		ReportsToCreate: map[string]types.Report{},
+		ReportsToCreate: []types.Report{},
 	}
 
 	rulesObj, err := studyDBService.GetCurrentStudyRules(instanceID, studyKey)
@@ -113,7 +113,7 @@ func saveResponses(instanceID string, studyKey string, response studyTypes.Surve
 	return rID, nil
 }
 
-func saveReports(instanceID string, studyKey string, reports map[string]studyTypes.Report, withResponseID string) {
+func saveReports(instanceID string, studyKey string, reports []studyTypes.Report, withResponseID string) {
 	// save reports
 	for _, report := range reports {
 		report.ResponseID = withResponseID
