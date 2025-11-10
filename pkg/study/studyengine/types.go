@@ -65,7 +65,7 @@ type StudyDBService interface {
 
 type ActionData struct {
 	PState          studyTypes.Participant
-	ReportsToCreate map[string]studyTypes.Report
+	ReportsToCreate []studyTypes.Report
 }
 
 type ExternalService struct {

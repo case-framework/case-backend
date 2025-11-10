@@ -827,7 +827,7 @@ func OnRunStudyAction(req RunStudyActionReq) (*RunStudyActionResult, error) {
 
 			participantData := studyengine.ActionData{
 				PState:          p,
-				ReportsToCreate: map[string]studyTypes.Report{},
+				ReportsToCreate: []studyTypes.Report{},
 			}
 
 			anyChange := false
@@ -968,7 +968,7 @@ func OnRunStudyActionForPreviousResponses(req RunStudyActionReq, surveyKeys []st
 
 					participantData := studyengine.ActionData{
 						PState:          freshPState,
-						ReportsToCreate: map[string]studyTypes.Report{},
+						ReportsToCreate: []studyTypes.Report{},
 					}
 
 					for _, rule := range req.Rules {
@@ -989,9 +989,8 @@ func OnRunStudyActionForPreviousResponses(req RunStudyActionReq, surveyKeys []st
 
 					}
 
-					for key, report := range participantData.ReportsToCreate {
-						report.Timestamp = r.SubmittedAt
-						participantData.ReportsToCreate[key] = report
+					for i := range participantData.ReportsToCreate {
+						participantData.ReportsToCreate[i].Timestamp = r.SubmittedAt
 					}
 					saveReports(instanceID, studyKey, participantData.ReportsToCreate, r.ID.Hex())
 
@@ -1068,7 +1067,7 @@ func OnStudyTimer(instanceID string, study *studyTypes.Study) {
 
 			newState := studyengine.ActionData{
 				PState:          p,
-				ReportsToCreate: map[string]studyTypes.Report{},
+				ReportsToCreate: []studyTypes.Report{},
 			}
 
 			for _, rule := range rulesObj.Rules {

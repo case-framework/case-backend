@@ -29,7 +29,7 @@ func TestActions(t *testing.T) {
 				"health": "test",
 			},
 		},
-		ReportsToCreate: map[string]studyTypes.Report{},
+		ReportsToCreate: []studyTypes.Report{},
 	}
 	event := StudyEvent{
 		Type: "SUBMIT",
@@ -545,7 +545,7 @@ func TestReportActions(t *testing.T) {
 			ParticipantID: "participant1234",
 			StudyStatus:   studyTypes.PARTICIPANT_STUDY_STATUS_ACTIVE,
 		},
-		ReportsToCreate: map[string]studyTypes.Report{},
+		ReportsToCreate: []studyTypes.Report{},
 	}
 	event := StudyEvent{
 		Type: "SUBMIT",
@@ -581,16 +581,17 @@ func TestReportActions(t *testing.T) {
 				{DType: "str", Str: "v1"},
 			},
 		}
-		_, err := ActionEval(action, actionData, event)
+		actionData, err := ActionEval(action, actionData, event)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 			return
 		}
 		if len(actionData.ReportsToCreate) < 2 {
-			t.Error("should have two report initialized")
+			t.Error("should have two reports initialized")
 			return
 		}
-		if len(actionData.ReportsToCreate["key2"].Data) < 1 || actionData.ReportsToCreate["key2"].Data[0].Value != "v1" {
+		_, report := findMostRecentReportByKey(actionData.ReportsToCreate, "key2")
+		if report == nil || len(report.Data) < 1 || report.Data[0].Value != "v1" {
 			t.Error("unexpected report value")
 		}
 	})
@@ -620,7 +621,7 @@ func TestReportActions(t *testing.T) {
 				{DType: "str", Str: "v2"},
 			},
 		}
-		_, err := ActionEval(action, actionData, event)
+		actionData, err := ActionEval(action, actionData, event)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 			return
@@ -629,12 +630,27 @@ func TestReportActions(t *testing.T) {
 			t.Error("should have two report initialized")
 			return
 		}
-		if len(actionData.ReportsToCreate["key2"].Data) < 1 || actionData.ReportsToCreate["key2"].Data[0].Value != "v2" {
+		_, report := findMostRecentReportByKey(actionData.ReportsToCreate, "key2")
+		if report == nil || len(report.Data) < 1 || report.Data[0].Value != "v2" {
 			t.Error("unexpected report value")
 		}
 	})
 
 	t.Run("REMOVE_REPORT_DATA", func(t *testing.T) {
+		beforeAction := studyTypes.Expression{
+			Name: "UPDATE_REPORT_DATA",
+			Data: []studyTypes.ExpressionArg{
+				{DType: "str", Str: "key2"},
+				{DType: "str", Str: "d1"},
+				{DType: "str", Str: "v2"},
+			},
+		}
+		actionData, err = ActionEval(beforeAction, actionData, event)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+			return
+		}
+
 		action := studyTypes.Expression{
 			Name: "REMOVE_REPORT_DATA",
 			Data: []studyTypes.ExpressionArg{
@@ -642,16 +658,19 @@ func TestReportActions(t *testing.T) {
 				{DType: "str", Str: "d1"},
 			},
 		}
-		_, err := ActionEval(action, actionData, event)
+
+		actionData, err := ActionEval(action, actionData, event)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 			return
 		}
+
 		if len(actionData.ReportsToCreate) < 2 {
-			t.Error("should have two report initialized")
+			t.Error("should have at least two reports initialized")
 			return
 		}
-		if len(actionData.ReportsToCreate["key2"].Data) > 0 {
+		_, report := findMostRecentReportByKey(actionData.ReportsToCreate, "key2")
+		if report != nil && len(report.Data) > 0 {
 			t.Error("unexpected report value")
 		}
 	})
@@ -663,7 +682,7 @@ func TestReportActions(t *testing.T) {
 				{DType: "str", Str: "key2"},
 			},
 		}
-		_, err := ActionEval(action, actionData, event)
+		actionData, err := ActionEval(action, actionData, event)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 			return
@@ -680,7 +699,7 @@ func TestUpdateStudyVariableActions(t *testing.T) {
 
 	actionData := ActionData{
 		PState:          studyTypes.Participant{ParticipantID: "p1"},
-		ReportsToCreate: map[string]studyTypes.Report{},
+		ReportsToCreate: []studyTypes.Report{},
 	}
 	event := StudyEvent{InstanceID: "i1", StudyKey: "s1"}
 

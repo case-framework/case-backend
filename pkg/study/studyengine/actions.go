@@ -749,7 +749,35 @@ func sendMessageNow(action studyTypes.Expression, oldState ActionData, event Stu
 
 }
 
-// init one empty report for the current event - if report already existing, reset report to empty report
+// findMostRecentReportByKey finds the first report (most recent) with the given key in the slice
+// Returns the index and a pointer to the report, or -1 and nil if not found
+func findMostRecentReportByKey(reports []studyTypes.Report, key string) (int, *studyTypes.Report) {
+	for i := range reports {
+		if reports[i].Key == key {
+			return i, &reports[i]
+		}
+	}
+	return -1, nil
+}
+
+// removeReportAtIndex removes a report at the given index from the slice
+func removeReportAtIndex(reports []studyTypes.Report, index int) []studyTypes.Report {
+	if index < 0 || index >= len(reports) {
+		return reports
+	}
+	return append(reports[:index], reports[index+1:]...)
+}
+
+// newReport creates a new report with the given key and participant ID
+func newReport(reportKey string, participantID string) studyTypes.Report {
+	return studyTypes.Report{
+		Key:           reportKey,
+		ParticipantID: participantID,
+		Timestamp:     Now().Truncate(time.Minute).Unix(),
+	}
+}
+
+// init one empty report for the current event - inserts new report at the start (most recent first)
 func initReport(action studyTypes.Expression, oldState ActionData, event StudyEvent) (newState ActionData, err error) {
 	newState = oldState
 	if len(action.Data) != 1 {
@@ -769,11 +797,10 @@ func initReport(action studyTypes.Expression, oldState ActionData, event StudyEv
 		return newState, errors.New("could not parse arguments")
 	}
 
-	newState.ReportsToCreate[reportKey] = studyTypes.Report{
-		Key:           reportKey,
-		ParticipantID: oldState.PState.ParticipantID,
-		Timestamp:     Now().Truncate(time.Minute).Unix(),
-	}
+	newReport := newReport(reportKey, oldState.PState.ParticipantID)
+
+	// Prepend to slice to maintain most-recent-first order
+	newState.ReportsToCreate = append([]studyTypes.Report{newReport}, newState.ReportsToCreate...)
 	return
 }
 
@@ -798,14 +825,14 @@ func updateReportData(action studyTypes.Expression, oldState ActionData, event S
 		return newState, errors.New("could not parse arguments")
 	}
 
-	// If report not initialized yet, init report:
-	report, hasKey := newState.ReportsToCreate[reportKey]
-	if !hasKey {
-		report = studyTypes.Report{
-			Key:           reportKey,
-			ParticipantID: oldState.PState.ParticipantID,
-			Timestamp:     Now().Truncate(time.Minute).Unix(),
-		}
+	// Find most recent report with this key, or initialize if none exists
+	reportIndex, report := findMostRecentReportByKey(newState.ReportsToCreate, reportKey)
+	if report == nil {
+		// If report not initialized yet, init report and prepend to slice
+		newReport := newReport(reportKey, oldState.PState.ParticipantID)
+		newState.ReportsToCreate = append([]studyTypes.Report{newReport}, newState.ReportsToCreate...)
+		report = &newState.ReportsToCreate[0]
+		reportIndex = 0
 	}
 
 	// Get attribute Key
@@ -874,7 +901,8 @@ func updateReportData(action studyTypes.Expression, oldState ActionData, event S
 		report.Data[index] = newData
 	}
 
-	newState.ReportsToCreate[reportKey] = report
+	// Update the report in the slice
+	newState.ReportsToCreate[reportIndex] = *report
 	return
 }
 
@@ -898,9 +926,9 @@ func removeReportData(action studyTypes.Expression, oldState ActionData, event S
 		return newState, errors.New("could not parse arguments")
 	}
 
-	// If report not initialized yet, init report:
-	report, hasKey := newState.ReportsToCreate[reportKey]
-	if !hasKey {
+	// Find most recent report with this key
+	reportIndex, report := findMostRecentReportByKey(newState.ReportsToCreate, reportKey)
+	if report == nil {
 		// nothing to do
 		return newState, nil
 	}
@@ -925,9 +953,9 @@ func removeReportData(action studyTypes.Expression, oldState ActionData, event S
 
 	if index > -1 {
 		report.Data = append(report.Data[:index], report.Data[index+1:]...)
+		// Update the report in the slice
+		newState.ReportsToCreate[reportIndex] = *report
 	}
-
-	newState.ReportsToCreate[reportKey] = report
 	return
 }
 
@@ -951,9 +979,10 @@ func cancelReport(action studyTypes.Expression, oldState ActionData, event Study
 		return newState, errors.New("could not parse arguments")
 	}
 
-	_, hasKey := newState.ReportsToCreate[reportKey]
-	if hasKey {
-		delete(newState.ReportsToCreate, reportKey)
+	// Find and remove the most recent report with this key
+	reportIndex, _ := findMostRecentReportByKey(newState.ReportsToCreate, reportKey)
+	if reportIndex >= 0 {
+		newState.ReportsToCreate = removeReportAtIndex(newState.ReportsToCreate, reportIndex)
 	}
 	return
 }
@@ -1078,9 +1107,18 @@ func externalEventHandler(action studyTypes.Expression, oldState ActionData, eve
 	// collect reports if any:
 	reportsToCreate, hasKey := response["reportsToCreate"]
 	if hasKey {
-		reportsToCreate := reportsToCreate.(map[string]studyTypes.Report)
-		for key, value := range reportsToCreate {
-			newState.ReportsToCreate[key] = value
+		// External service may return either map or slice
+		switch reports := reportsToCreate.(type) {
+		case map[string]studyTypes.Report:
+			// Convert map to slice and prepend to maintain most-recent-first order
+			externalReports := make([]studyTypes.Report, 0, len(reports))
+			for _, report := range reports {
+				externalReports = append(externalReports, report)
+			}
+			newState.ReportsToCreate = append(externalReports, newState.ReportsToCreate...)
+		case []studyTypes.Report:
+			// Already a slice, prepend to maintain most-recent-first order
+			newState.ReportsToCreate = append(reports, newState.ReportsToCreate...)
 		}
 		slog.Debug("received new report list from external service")
 	}
