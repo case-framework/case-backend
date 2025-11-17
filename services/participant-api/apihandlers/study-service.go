@@ -476,7 +476,7 @@ func (h *HttpEndpoints) mergeTempParticipant(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"participant": result})
+	c.JSON(http.StatusOK, gin.H{"assignedSurveys": result})
 }
 
 // requires profile id, virtual participant id, linking code key, linking code value
@@ -527,7 +527,7 @@ func (h *HttpEndpoints) mergeVirtualParticipant(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"participant": result})
+	c.JSON(http.StatusOK, gin.H{"assignedSurveys": result})
 }
 
 func (h *HttpEndpoints) getAssignedSurveys(c *gin.Context) {
