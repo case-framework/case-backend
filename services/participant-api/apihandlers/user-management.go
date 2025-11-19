@@ -31,6 +31,9 @@ func (h *HttpEndpoints) AddUserManagementAPI(rg *gin.RouterGroup) {
 	userGroup.Use(mw.GetAndValidateParticipantUserJWT(h.tokenSignKey, h.globalInfosDBConn))
 	{
 		userGroup.GET("/", h.getUser)
+
+		userGroup.PUT("/preferred-language", mw.RequirePayload(), h.updatePreferredLanguageHandl)
+
 		userGroup.POST("/profiles", mw.RequirePayload(), h.addNewProfileHandl)
 		userGroup.PUT("/profiles", mw.RequirePayload(), h.updateProfileHandl)
 		userGroup.POST("/profiles/remove", mw.RequirePayload(), h.removeProfileHandl)
@@ -64,6 +67,35 @@ func (h *HttpEndpoints) getUser(c *gin.Context) {
 	user.Account.Password = ""
 
 	c.JSON(http.StatusOK, gin.H{"user": user})
+}
+
+func (h *HttpEndpoints) updatePreferredLanguageHandl(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+
+	var req struct {
+		NewLocale string `json:"newLocale"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot bind preferred language"})
+		return
+	}
+
+	if !umUtils.CheckLanguageCode(req.NewLocale) {
+		slog.Error("invalid language code", slog.String("languageCode", req.NewLocale))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid language code"})
+		return
+	}
+
+	update := bson.M{"$set": bson.M{"account.preferredLanguage": req.NewLocale}}
+	if err := h.userDBConn.UpdateUser(token.InstanceID, token.Subject, update); err != nil {
+		slog.Error("failed to update user", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user"})
+		return
+	}
+
+	slog.Info("preferred language updated", slog.String("userID", token.Subject), slog.String("instanceID", token.InstanceID), slog.String("newLocale", req.NewLocale))
+	c.JSON(http.StatusOK, gin.H{"message": "preferred language updated"})
 }
 
 func (h *HttpEndpoints) addNewProfileHandl(c *gin.Context) {
