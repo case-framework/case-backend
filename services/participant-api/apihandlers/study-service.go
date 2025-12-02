@@ -28,7 +28,8 @@ func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
 		studiesGroup.GET("/", h.getStudiesByStatus) // ?status=active&instanceID=test
 		studiesGroup.GET("/:studyKey", h.getStudy)
 		studiesGroup.GET("/participating", mw.GetAndValidateParticipantUserJWT(h.tokenSignKey, h.globalInfosDBConn), h.getParticipatingStudies)
-		studiesGroup.GET("/:studyKey/code-lists/has-code", h.studyHasCodeListCode) // ?code=code&listKey=listKey?instanceID=test
+		studiesGroup.GET("/:studyKey/code-lists/has-code", h.studyHasCodeListCode)                  // ?code=code&listKey=listKey?instanceID=test
+		studiesGroup.GET("/:studyKey/code-lists/available-count", h.getStudyCodeListAvailableCount) // ?listKey=listKey&instanceID=test
 
 		studiesGroup.GET("/:studyKey/variables", h.getStudyVariables)             // ?instanceID=test
 		studiesGroup.GET("/:studyKey/variables/:variableKey", h.getStudyVariable) // ?instanceID=test
@@ -240,6 +241,39 @@ func (h *HttpEndpoints) studyHasCodeListCode(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"exists": exists})
+}
+
+func (h *HttpEndpoints) getStudyCodeListAvailableCount(c *gin.Context) {
+	instanceID := c.DefaultQuery("instanceID", "")
+	studyKey := c.Param("studyKey")
+	if !h.isInstanceAllowed(instanceID) {
+		slog.Error("instance not allowed", slog.String("instanceID", instanceID))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "instance not allowed"})
+		return
+	}
+
+	if studyKey == "" {
+		slog.Error("studyKey is required", slog.String("instanceID", instanceID))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "studyKey is required"})
+		return
+	}
+
+	listKey := c.DefaultQuery("listKey", "")
+
+	if listKey == "" {
+		slog.Error("listKey is required", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "listKey is required"})
+		return
+	}
+
+	count, err := h.studyDBConn.CountStudyCodeListEntries(instanceID, studyKey, listKey)
+	if err != nil {
+		slog.Error("failed to count available study codes", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to count available study codes"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"availableCount": count})
 }
 
 func (h *HttpEndpoints) getStudyVariables(c *gin.Context) {
