@@ -148,6 +148,19 @@ func (dbService *StudyDBService) GetStudyCodeListEntries(
 	return entries, paginationInfo, err
 }
 
+func (dbService *StudyDBService) CountStudyCodeListEntries(instanceID string, studyKey string, listKey string) (int64, error) {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	filter := bson.M{
+		"studyKey": studyKey,
+		"listKey":  listKey,
+	}
+
+	count, err := dbService.collectionStudyCodeLists(instanceID).CountDocuments(ctx, filter)
+	return count, err
+}
+
 func (dbService *StudyDBService) StudyCodeListEntryExists(instanceID string, studyKey string, listKey string, code string) (bool, error) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
