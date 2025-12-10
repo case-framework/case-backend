@@ -121,7 +121,7 @@ func saveReports(instanceID string, studyKey string, reports []studyTypes.Report
 		if err != nil {
 			slog.Error("Error saving report", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", report.ParticipantID), slog.String("error", err.Error()), slog.String("reportKey", report.Key))
 		} else {
-			slog.Debug("Repor saved.", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", report.ParticipantID), slog.String("reportKey", report.Key))
+			slog.Debug("Report saved.", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", report.ParticipantID), slog.String("reportKey", report.Key))
 		}
 	}
 }
