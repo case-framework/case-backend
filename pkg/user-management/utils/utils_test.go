@@ -154,8 +154,68 @@ func TestLanguageCodeFormat(t *testing.T) {
 		}
 	})
 
+	t.Run("with en-us", func(t *testing.T) {
+		if CheckLanguageCode("en-us") {
+			t.Error("should be false")
+		}
+	})
+
+	t.Run("with EN-US", func(t *testing.T) {
+		if CheckLanguageCode("EN-US") {
+			t.Error("should be false")
+		}
+	})
+
+	t.Run("with en-Us", func(t *testing.T) {
+		if CheckLanguageCode("en-Us") {
+			t.Error("should be false")
+		}
+	})
+
+	t.Run("with en-41", func(t *testing.T) {
+		if CheckLanguageCode("with en-41") {
+			t.Error("should be false")
+		}
+	})
+
+	t.Run("with en-4199", func(t *testing.T) {
+		if CheckLanguageCode("en-4199") {
+			t.Error("should be false")
+		}
+	})
+
+	t.Run("with en-USA", func(t *testing.T) {
+		if CheckLanguageCode("en-USA") {
+			t.Error("should be false")
+		}
+	})
+
+	t.Run("with en_", func(t *testing.T) {
+		if CheckLanguageCode("en_") {
+			t.Error("should be false")
+		}
+	})
+
+	t.Run("with en-", func(t *testing.T) {
+		if CheckLanguageCode("en-") {
+			t.Error("should be false")
+		}
+	})
+
 	t.Run("with tt", func(t *testing.T) {
 		if !CheckLanguageCode("tt") {
+			t.Error("should be true")
+		}
+	})
+
+	t.Run("with en-US", func(t *testing.T) {
+		if !CheckLanguageCode("en-US") {
+			t.Error("should be true")
+		}
+	})
+
+	t.Run("with es-419", func(t *testing.T) {
+		if !CheckLanguageCode("es-419") {
 			t.Error("should be true")
 		}
 	})
