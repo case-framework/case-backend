@@ -118,6 +118,6 @@ func IsPasswordOnBlocklist(password string) bool {
 
 // CheckLanguageCode checks if a string can be considered as a language code
 func CheckLanguageCode(code string) bool {
-	codeRule := regexp.MustCompile("^[a-z]{2}(-[a-zA-z]{2})?$")
+	codeRule := regexp.MustCompile(`^[a-z]{2}(-([A-Z]{2}|\d{3}))?$`)
 	return codeRule.MatchString(code)
 }
