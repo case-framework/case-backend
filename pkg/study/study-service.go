@@ -742,7 +742,11 @@ func OnSubmitResponseForTempParticipant(instanceID string, studyKey string, part
 
 	saveReports(instanceID, studyKey, actionResult.ReportsToCreate, responseId)
 
-	result = pState.AssignedSurveys
+	result = make([]studyTypes.AssignedSurvey, len(actionResult.PState.AssignedSurveys))
+	for i, survey := range actionResult.PState.AssignedSurveys {
+		result[i] = survey
+		result[i].StudyKey = studyKey
+	}
 	return
 }
 
