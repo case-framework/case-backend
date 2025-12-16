@@ -173,7 +173,7 @@ func TestLanguageCodeFormat(t *testing.T) {
 	})
 
 	t.Run("with en-41", func(t *testing.T) {
-		if CheckLanguageCode("with en-41") {
+		if CheckLanguageCode("en-41") {
 			t.Error("should be false")
 		}
 	})
