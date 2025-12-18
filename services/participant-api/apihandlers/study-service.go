@@ -54,8 +54,11 @@ func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
 		participantInfoGroup.GET("/surveys", h.getAssignedSurveys)             // ?pids=p1,p2,p3
 		participantInfoGroup.GET("/survey/:surveyKey", h.getSurveyWithContext) // ?pid=profileID
 
-		// TODO: delete files
-		// TODO: file upload
+		// files
+		participantInfoGroup.POST("/files", h.uploadParticipantFile)
+		participantInfoGroup.GET("/files", h.getParticipantFiles)
+		participantInfoGroup.GET("/files/:fileID", h.getParticipantFile)
+		participantInfoGroup.DELETE("/files/:fileID", h.deleteParticipantFile)
 
 		participantInfoGroup.GET("/participant-state", h.getParticipantState) // ?pid=profileID
 		participantInfoGroup.GET("/linking-code", h.getLinkingCode)           // ?pid=profileID&key=key
@@ -621,6 +624,22 @@ func (h *HttpEndpoints) getSurveyWithContext(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"surveyWithContext": result})
+}
+
+func (h *HttpEndpoints) uploadParticipantFile(c *gin.Context) {
+	// TODO: implement
+}
+
+func (h *HttpEndpoints) getParticipantFiles(c *gin.Context) {
+	// TODO: implement
+}
+
+func (h *HttpEndpoints) getParticipantFile(c *gin.Context) {
+	// TODO: implement
+}
+
+func (h *HttpEndpoints) deleteParticipantFile(c *gin.Context) {
+	// TODO: implement
 }
 
 func (h *HttpEndpoints) registerTempParticipant(c *gin.Context) {
