@@ -804,11 +804,139 @@ func (h *HttpEndpoints) getParticipantFiles(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getParticipantFile(c *gin.Context) {
-	// TODO: implement
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+	studyKey := c.Param("studyKey")
+	fileID := c.Param("fileID")
+	profileID := c.DefaultQuery("pid", "")
+
+	if !h.checkProfileBelongsToUser(token.InstanceID, token.Subject, profileID) {
+		slog.Warn("profile not found", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("profileID", profileID))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "profile not found"})
+		return
+	}
+
+	// Get study to compute participantID
+	study, err := h.studyDBConn.GetStudy(token.InstanceID, studyKey)
+	if err != nil {
+		slog.Error("failed to get study", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study"})
+		return
+	}
+
+	if study.Status != studyTypes.STUDY_STATUS_ACTIVE {
+		slog.Warn("Study is not active", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "study is not active"})
+		return
+	}
+
+	participantID, _, err := studyService.ComputeParticipantIDs(study, profileID)
+	if err != nil {
+		slog.Error("failed to compute participant IDs", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to compute participant IDs"})
+		return
+	}
+
+	fileInfo, err := h.studyDBConn.GetParticipantFileInfoByID(token.InstanceID, studyKey, fileID)
+	if err != nil {
+		slog.Error("failed to get participant file info", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get participant file info"})
+		return
+	}
+
+	if fileInfo.ParticipantID != participantID {
+		slog.Warn("file not found", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("fileID", fileID))
+		c.JSON(http.StatusNotFound, gin.H{"error": "file not found"})
+		return
+	}
+
+	filePath := filepath.Join(h.filestorePath, fileInfo.Path)
+
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		slog.Error("file does not exist", slog.String("path", filePath))
+		c.JSON(http.StatusNotFound, gin.H{"error": "file does not exist"})
+		return
+	}
+
+	slog.Info("file retrieved successfully", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("fileID", fileID), slog.String("path", filePath))
+
+	// Return file from file system
+	filenameToSave := filepath.Base(fileInfo.Path)
+	c.Header("Content-Disposition", "attachment; filename="+filenameToSave)
+	c.File(filePath)
 }
 
 func (h *HttpEndpoints) deleteParticipantFile(c *gin.Context) {
-	// TODO: implement
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+	studyKey := c.Param("studyKey")
+	fileID := c.Param("fileID")
+	profileID := c.DefaultQuery("pid", "")
+
+	if !h.checkProfileBelongsToUser(token.InstanceID, token.Subject, profileID) {
+		slog.Warn("profile not found", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("profileID", profileID))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "profile not found"})
+		return
+	}
+
+	// Get study to compute participantID
+	study, err := h.studyDBConn.GetStudy(token.InstanceID, studyKey)
+	if err != nil {
+		slog.Error("failed to get study", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study"})
+		return
+	}
+
+	if study.Status != studyTypes.STUDY_STATUS_ACTIVE {
+		slog.Warn("Study is not active", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "study is not active"})
+		return
+	}
+
+	participantID, _, err := studyService.ComputeParticipantIDs(study, profileID)
+	if err != nil {
+		slog.Error("failed to compute participant IDs", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to compute participant IDs"})
+		return
+	}
+
+	fileInfo, err := h.studyDBConn.GetParticipantFileInfoByID(token.InstanceID, studyKey, fileID)
+	if err != nil {
+		slog.Error("failed to get participant file info", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get participant file info"})
+		return
+	}
+
+	if fileInfo.ParticipantID != participantID {
+		slog.Warn("file not found", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("fileID", fileID))
+		c.JSON(http.StatusNotFound, gin.H{"error": "file not found"})
+		return
+	}
+
+	filePath := filepath.Join(h.filestorePath, fileInfo.Path)
+
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		slog.Error("file does not exist", slog.String("path", filePath))
+		c.JSON(http.StatusNotFound, gin.H{"error": "file does not exist"})
+		return
+	}
+
+	err = os.Remove(filePath)
+	if err != nil {
+		slog.Error("failed to delete file", slog.String("error", err.Error()), slog.String("path", filePath))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete file"})
+		return
+	}
+
+	err = h.studyDBConn.DeleteParticipantFileInfoByID(token.InstanceID, studyKey, fileID)
+	if err != nil {
+		slog.Error("failed to delete file info", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete file info"})
+		return
+	}
+
+	slog.Info("file deleted successfully", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("fileID", fileID))
+	c.JSON(http.StatusOK, gin.H{"message": "file deleted successfully"})
 }
 
 func (h *HttpEndpoints) registerTempParticipant(c *gin.Context) {
