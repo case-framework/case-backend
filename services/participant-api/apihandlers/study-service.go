@@ -803,6 +803,7 @@ func (h *HttpEndpoints) getParticipantFiles(c *gin.Context) {
 	filter := bson.M{
 		"participantID":        participantID,
 		"visibleToParticipant": true,
+		"status":               studyTypes.FILE_STATUS_READY,
 	}
 	fileInfos, paginationInfo, err := h.studyDBConn.GetParticipantFileInfos(token.InstanceID, studyKey, filter, query.Page, query.Limit)
 	if err != nil {
@@ -956,11 +957,11 @@ func (h *HttpEndpoints) deleteParticipantFile(c *gin.Context) {
 	err = os.Remove(filePath)
 	if err != nil {
 		slog.Error("failed to delete file", slog.String("error", err.Error()), slog.String("path", filePath))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete file"})
-		return
+		// do not return error, just log it
+	} else {
+		slog.Info("file deleted successfully", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("fileID", fileID))
 	}
 
-	slog.Info("file deleted successfully", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("fileID", fileID))
 	c.JSON(http.StatusOK, gin.H{"message": "file deleted successfully"})
 }
 
