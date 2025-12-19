@@ -4,12 +4,16 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/case-framework/case-backend/pkg/apihelpers"
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
+	"github.com/case-framework/case-backend/pkg/utils"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 
@@ -18,6 +22,11 @@ import (
 	surveyresponses "github.com/case-framework/case-backend/pkg/study/exporter/survey-responses"
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 	studyutils "github.com/case-framework/case-backend/pkg/study/utils"
+)
+
+const (
+	// MAX_PARTICIPANT_FILE_SIZE is the maximum allowed file size for participant file uploads (20 MB)
+	MAX_PARTICIPANT_FILE_SIZE = 20 * 1024 * 1024 // 20 MB in bytes
 )
 
 func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
@@ -627,7 +636,116 @@ func (h *HttpEndpoints) getSurveyWithContext(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) uploadParticipantFile(c *gin.Context) {
-	// TODO: implement
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+	studyKey := c.Param("studyKey")
+
+	// Get profileID from form data
+	profileID := c.PostForm("profileID")
+	if profileID == "" {
+		slog.Error("profileID is required", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "profileID is required"})
+		return
+	}
+
+	// Validate profileID belongs to user
+	if !h.checkProfileBelongsToUser(token.InstanceID, token.Subject, profileID) {
+		slog.Warn("profile not found", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("profileID", profileID))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "profile not found"})
+		return
+	}
+
+	// Get file from multipart form
+	file, err := c.FormFile("file")
+	if err != nil {
+		slog.Error("failed to get file from form", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "file is required"})
+		return
+	}
+
+	// Check file size limit
+	if file.Size > MAX_PARTICIPANT_FILE_SIZE {
+		slog.Warn("File size exceeds maximum allowed size", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("profileID", profileID), slog.Int64("fileSize", file.Size), slog.Int64("maxSize", MAX_PARTICIPANT_FILE_SIZE))
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("File size exceeds maximum allowed size of %d MB", MAX_PARTICIPANT_FILE_SIZE/(1024*1024))})
+		return
+	}
+
+	// Extract and validate file type based on content
+	allowedTypes := []string{
+		"image/jpeg",
+		"image/png",
+	}
+	fileType, err := utils.ValidateFileTypeFromContent(file, allowedTypes)
+	if err != nil {
+		slog.Error("failed to validate file type", slog.String("error", err.Error()), slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("profileID", profileID))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	allowed, participantID := studyService.IsAllowedToUploadFile(token.InstanceID, studyKey, profileID, file.Size, fileType)
+	if !allowed {
+		slog.Warn("file upload not allowed", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("profileID", profileID))
+		c.JSON(http.StatusForbidden, gin.H{"error": "file upload not allowed"})
+		return
+	}
+
+	// Create FileInfo record
+	fileInfoRecord := studyTypes.FileInfo{
+		ParticipantID:        participantID,
+		Status:               studyTypes.FILE_STATUS_UPLOADING,
+		CreatedAt:            time.Now(),
+		FileType:             fileType,
+		VisibleToParticipant: true,
+		Size:                 int32(file.Size),
+	}
+
+	// Save file info to database
+	savedFileInfo, err := h.studyDBConn.CreateParticipantFileInfo(token.InstanceID, studyKey, fileInfoRecord)
+	if err != nil {
+		slog.Error("failed to create file info", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create file info"})
+		return
+	}
+
+	// Create directory structure: instanceID/studyKey/
+	fileDir := filepath.Join(h.filestorePath, token.InstanceID, studyKey)
+	if err := os.MkdirAll(fileDir, os.ModePerm); err != nil {
+		slog.Error("failed to create directory", slog.String("error", err.Error()), slog.String("path", fileDir))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create directory"})
+		return
+	}
+
+	// Generate unique filename with extension based on detected file type
+	fileExtension := utils.GetFileExtensionFromContentType(fileType)
+	filename := fmt.Sprintf("%s%s", savedFileInfo.ID.Hex(), fileExtension)
+	filePath := filepath.Join(fileDir, filename)
+	relativePath := filepath.Join(token.InstanceID, studyKey, filename)
+
+	// Save file to filesystem
+	if err := c.SaveUploadedFile(file, filePath); err != nil {
+		slog.Error("failed to save file", slog.String("error", err.Error()), slog.String("path", filePath))
+		err = h.studyDBConn.DeleteParticipantFileInfoByID(token.InstanceID, studyKey, savedFileInfo.ID.Hex())
+		if err != nil {
+			slog.Error("failed to delete file info", slog.String("error", err.Error()))
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save file"})
+		return
+	}
+
+	// update file info with the relative path and status
+	err = h.studyDBConn.UpdateParticipantFileInfoPathAndStatus(token.InstanceID, studyKey, savedFileInfo.ID.Hex(), relativePath, studyTypes.FILE_STATUS_READY)
+	if err != nil {
+		slog.Error("failed to update file info", slog.String("error", err.Error()))
+		os.Remove(filePath)
+		err = h.studyDBConn.DeleteParticipantFileInfoByID(token.InstanceID, studyKey, savedFileInfo.ID.Hex())
+		if err != nil {
+			slog.Error("failed to delete file info", slog.String("error", err.Error()))
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update file info"})
+		return
+	}
+
+	slog.Info("file uploaded successfully", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("profileID", profileID), slog.String("fileID", savedFileInfo.ID.Hex()))
+	c.JSON(http.StatusOK, gin.H{"fileInfo": savedFileInfo})
 }
 
 func (h *HttpEndpoints) getParticipantFiles(c *gin.Context) {
