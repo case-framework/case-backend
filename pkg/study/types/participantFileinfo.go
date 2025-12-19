@@ -25,5 +25,5 @@ type FileInfo struct {
 
 	FileType             string `bson:"fileType,omitempty" json:"fileType,omitempty"`
 	VisibleToParticipant bool   `bson:"visibleToParticipant,omitempty" json:"visibleToParticipant,omitempty"`
-	Size                 int32  `bson:"size,omitempty" json:"size,omitempty"`
+	Size                 int64  `bson:"size,omitempty" json:"size,omitempty"`
 }

@@ -695,7 +695,7 @@ func (h *HttpEndpoints) uploadParticipantFile(c *gin.Context) {
 		CreatedAt:            time.Now(),
 		FileType:             fileType,
 		VisibleToParticipant: true,
-		Size:                 int32(file.Size),
+		Size:                 file.Size,
 	}
 
 	// Save file info to database

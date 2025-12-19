@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"mime/multipart"
 	"net/http"
 )
@@ -43,25 +44,23 @@ func ValidateFileTypeFromContent(fileHeader *multipart.FileHeader, allowedTypes 
 		return "", fmt.Errorf("invalid file type: %s", contentType)
 	}
 
-	// Reset file pointer to beginning (file will be reopened when needed)
-	// Note: The file handle is closed here, but gin will reopen it when SaveUploadedFile is called
-	_, _ = file.Seek(0, 0)
-
 	return contentType, nil
 }
 
 // getFileExtensionFromContentType returns the appropriate file extension (with leading dot)
 // based on the detected content type. Returns empty string if content type is not recognized.
 func GetFileExtensionFromContentType(contentType string) string {
-	extensionMap := map[string]string{
-		"image/jpeg": ".jpg",
-		"image/png":  ".png",
-		"image/gif":  ".gif",
-		"image/webp": ".webp",
+	// Prefer known extensions for common types
+	knownExtensions := map[string]string{
+		"image/jpeg": ".jpg", // prefer .jpg over .jpeg
 	}
-
-	if ext, ok := extensionMap[contentType]; ok {
+	if ext, ok := knownExtensions[contentType]; ok {
 		return ext
 	}
-	return ""
+
+	exts, err := mime.ExtensionsByType(contentType)
+	if err != nil || len(exts) == 0 {
+		return ""
+	}
+	return exts[0]
 }
