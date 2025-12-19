@@ -853,6 +853,12 @@ func (h *HttpEndpoints) getParticipantFile(c *gin.Context) {
 		return
 	}
 
+	if !fileInfo.VisibleToParticipant {
+		slog.Warn("file not visible to participant", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("fileID", fileID))
+		c.JSON(http.StatusNotFound, gin.H{"error": "file not found"})
+		return
+	}
+
 	filePath := filepath.Join(h.filestorePath, fileInfo.Path)
 
 	// Check if file exists
@@ -912,6 +918,12 @@ func (h *HttpEndpoints) deleteParticipantFile(c *gin.Context) {
 
 	if fileInfo.ParticipantID != participantID {
 		slog.Warn("file not found", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("fileID", fileID))
+		c.JSON(http.StatusNotFound, gin.H{"error": "file not found"})
+		return
+	}
+
+	if !fileInfo.VisibleToParticipant {
+		slog.Warn("file not visible to participant", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("fileID", fileID))
 		c.JSON(http.StatusNotFound, gin.H{"error": "file not found"})
 		return
 	}
