@@ -150,7 +150,6 @@ func (dbService *StudyDBService) dropIndexes(all bool) {
 		dbService.DropIndexForStudyRulesCollection(instanceID, all)
 		dbService.DropIndexForTaskQueueCollection(instanceID, all)
 		dbService.DropIndexForStudyVariablesCollection(instanceID, all)
-		// participant files has no default indexes at the moment
 		// researcher messages has no default indexes at the moment
 
 		//fetch studyKeys from studyInfos
@@ -167,6 +166,7 @@ func (dbService *StudyDBService) dropIndexes(all bool) {
 			dbService.DropIndexForConfidentialResponsesCollection(instanceID, studyKey, all)
 			dbService.DropIndexForReportsCollection(instanceID, studyKey, all)
 			dbService.DropIndexForParticipantsCollection(instanceID, studyKey, all)
+			dbService.DropIndexForParticipantFilesCollection(instanceID, studyKey, all)
 		}
 
 		slog.Info("Indexes dropped for study DB", slog.String("instanceID", instanceID), slog.String("duration", time.Since(start).String()))
@@ -203,7 +203,6 @@ func (dbService *StudyDBService) CreateDefaultIndexes() {
 		dbService.CreateDefaultIndexesForStudyRulesCollection(instanceID)
 		dbService.CreateDefaultIndexesForTaskQueueCollection(instanceID)
 		dbService.CreateDefaultIndexesForStudyVariablesCollection(instanceID)
-		// participant files has no default indexes at the moment
 		// researcher messages has no default indexes at the moment
 
 		for _, study := range studies {
@@ -214,6 +213,7 @@ func (dbService *StudyDBService) CreateDefaultIndexes() {
 			dbService.CreateDefaultIndexesForConfidentialResponsesCollection(instanceID, studyKey)
 			dbService.CreateDefaultIndexesForReportsCollection(instanceID, studyKey)
 			dbService.CreateDefaultIndexesForParticipantsCollection(instanceID, studyKey)
+			dbService.CreateDefaultIndexesForParticipantFilesCollection(instanceID, studyKey)
 		}
 		slog.Info("Default indexes created for study DB", slog.String("instanceID", instanceID), slog.String("duration", time.Since(start).String()))
 	}
@@ -276,6 +276,10 @@ func (dbService *StudyDBService) GetIndexes() (map[string]map[string][]bson.M, e
 			}
 
 			if collectionIndexes[collectionNameWithStudyKeyPrefix(studyKey, COLLECTION_NAME_SUFFIX_PARTICIPANTS)], err = db.ListCollectionIndexes(ctx, dbService.collectionParticipants(instanceID, studyKey)); err != nil {
+				return nil, err
+			}
+
+			if collectionIndexes[collectionNameWithStudyKeyPrefix(studyKey, COLLECTION_NAME_SUFFIX_FILES)], err = db.ListCollectionIndexes(ctx, dbService.collectionFiles(instanceID, studyKey)); err != nil {
 				return nil, err
 			}
 		}

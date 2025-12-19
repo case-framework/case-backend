@@ -182,6 +182,10 @@ func (dbService *StudyDBService) GetResponseInfos(instanceID string, studyKey st
 
 	skip := (paginationInfo.CurrentPage - 1) * paginationInfo.PageSize
 
+	sortBySubmittedAt := bson.D{
+		primitive.E{Key: "submittedAt", Value: -1},
+	}
+
 	opts := options.Find()
 	opts.SetSort(sortBySubmittedAt)
 	opts.SetSkip(skip)
