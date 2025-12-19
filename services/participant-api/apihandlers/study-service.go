@@ -762,8 +762,13 @@ func (h *HttpEndpoints) getParticipantFiles(c *gin.Context) {
 	profileID := c.DefaultQuery("pid", "")
 
 	query, err := apihelpers.ParsePaginatedQueryFromCtx(c)
-	if err != nil || query == nil {
-		slog.Error("failed to parse query", slog.String("error", err.Error()))
+	if err != nil {
+		slog.Error("failed to parse paginated query", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+	if query == nil {
+		slog.Error("failed to parse paginated query", slog.String("error", "query is nil"))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
