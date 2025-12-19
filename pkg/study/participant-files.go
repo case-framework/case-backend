@@ -43,7 +43,6 @@ func IsAllowedToUploadFile(
 	// Get participant state for evaluation context
 	pState, err := studyDBService.GetParticipantByID(instanceID, studyKey, participantID)
 	if err != nil {
-		// If participant doesn't exist yet, create a minimal state for evaluation
 		slog.Error("participant not found", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID))
 		return false, ""
 	}
@@ -71,9 +70,16 @@ func IsAllowedToUploadFile(
 	allowed, ok := result.(bool)
 	if !ok {
 		// Try to convert numeric result to bool (non-zero = true)
-		if numVal, ok := result.(float64); ok {
-			allowed = numVal != 0
-		} else {
+		switch v := result.(type) {
+		case float64:
+			allowed = v != 0
+		case float32:
+			allowed = v != 0
+		case int:
+			allowed = v != 0
+		case int64:
+			allowed = v != 0
+		default:
 			slog.Error("File upload rule returned unexpected type", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 			return false, ""
 		}
