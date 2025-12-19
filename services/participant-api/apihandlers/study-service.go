@@ -710,6 +710,10 @@ func (h *HttpEndpoints) uploadParticipantFile(c *gin.Context) {
 	fileDir := filepath.Join(h.filestorePath, token.InstanceID, studyKey)
 	if err := os.MkdirAll(fileDir, os.ModePerm); err != nil {
 		slog.Error("failed to create directory", slog.String("error", err.Error()), slog.String("path", fileDir))
+		err = h.studyDBConn.DeleteParticipantFileInfoByID(token.InstanceID, studyKey, savedFileInfo.ID.Hex())
+		if err != nil {
+			slog.Error("failed to delete file info", slog.String("error", err.Error()))
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create directory"})
 		return
 	}
