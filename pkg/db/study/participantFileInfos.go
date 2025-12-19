@@ -116,11 +116,6 @@ func (dbService *StudyDBService) CountParticipantFileInfos(instanceID string, st
 	return dbService.collectionFiles(instanceID, studyKey).CountDocuments(ctx, query)
 }
 
-// get file infos by query and pagination
-var sortBySubmittedAt = bson.D{
-	primitive.E{Key: "submittedAt", Value: -1},
-}
-
 func (dbService *StudyDBService) GetParticipantFileInfos(instanceID string, studyKey string, query bson.M, page int64, limit int64) (fileInfos []studytypes.FileInfo, paginationInfo *PaginationInfos, err error) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
@@ -136,8 +131,12 @@ func (dbService *StudyDBService) GetParticipantFileInfos(instanceID string, stud
 		limit,
 	)
 
+	sortByCreatedAt := bson.D{
+		primitive.E{Key: "createdAt", Value: -1},
+	}
+
 	opts := options.Find()
-	opts.SetSort(sortBySubmittedAt)
+	opts.SetSort(sortByCreatedAt)
 	skip := (paginationInfo.CurrentPage - 1) * paginationInfo.PageSize
 	opts.SetSkip(skip)
 	opts.SetLimit(paginationInfo.PageSize)
