@@ -745,7 +745,11 @@ func (h *HttpEndpoints) uploadParticipantFile(c *gin.Context) {
 	}
 
 	slog.Info("file uploaded successfully", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("profileID", profileID), slog.String("fileID", savedFileInfo.ID.Hex()))
-	c.JSON(http.StatusOK, gin.H{"fileInfo": savedFileInfo})
+	c.JSON(http.StatusOK, gin.H{"fileInfo": gin.H{
+		"id":     savedFileInfo.ID.Hex(),
+		"path":   relativePath,
+		"status": studyTypes.FILE_STATUS_READY,
+	}})
 }
 
 func (h *HttpEndpoints) getParticipantFiles(c *gin.Context) {
