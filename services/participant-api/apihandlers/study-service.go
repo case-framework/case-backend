@@ -946,17 +946,17 @@ func (h *HttpEndpoints) deleteParticipantFile(c *gin.Context) {
 		return
 	}
 
-	err = os.Remove(filePath)
-	if err != nil {
-		slog.Error("failed to delete file", slog.String("error", err.Error()), slog.String("path", filePath))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete file"})
-		return
-	}
-
 	err = h.studyDBConn.DeleteParticipantFileInfoByID(token.InstanceID, studyKey, fileID)
 	if err != nil {
 		slog.Error("failed to delete file info", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete file info"})
+		return
+	}
+
+	err = os.Remove(filePath)
+	if err != nil {
+		slog.Error("failed to delete file", slog.String("error", err.Error()), slog.String("path", filePath))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete file"})
 		return
 	}
 
