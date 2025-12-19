@@ -24,6 +24,6 @@ type FileInfo struct {
 	UpdatedAt   time.Time `bson:"updatedAt,omitempty" json:"updatedAt,omitempty"`
 
 	FileType             string `bson:"fileType,omitempty" json:"fileType,omitempty"`
-	VisibleToParticipant bool   `bson:"visibleToParticipant,omitempty" json:"visibleToParticipant,omitempty"`
+	VisibleToParticipant bool   `bson:"visibleToParticipant" json:"visibleToParticipant"`
 	Size                 int64  `bson:"size,omitempty" json:"size,omitempty"`
 }
