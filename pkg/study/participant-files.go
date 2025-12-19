@@ -4,6 +4,7 @@ import (
 	"log/slog"
 
 	"github.com/case-framework/case-backend/pkg/study/studyengine"
+	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
 func IsAllowedToUploadFile(
@@ -17,6 +18,11 @@ func IsAllowedToUploadFile(
 	study, err := studyDBService.GetStudy(instanceID, studyKey)
 	if err != nil {
 		slog.Error("failed to get study", slog.String("error", err.Error()))
+		return false, ""
+	}
+
+	if study.Status != studyTypes.STUDY_STATUS_ACTIVE {
+		slog.Warn("Study is not active", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 		return false, ""
 	}
 

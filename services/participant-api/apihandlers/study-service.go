@@ -65,9 +65,9 @@ func (h *HttpEndpoints) AddStudyServiceAPI(rg *gin.RouterGroup) {
 
 		// files
 		participantInfoGroup.POST("/files", h.uploadParticipantFile)
-		participantInfoGroup.GET("/files", h.getParticipantFiles)
-		participantInfoGroup.GET("/files/:fileID", h.getParticipantFile)
-		participantInfoGroup.DELETE("/files/:fileID", h.deleteParticipantFile)
+		participantInfoGroup.GET("/files", h.getParticipantFiles)              // ?pid=profileID&page=1&limit=10
+		participantInfoGroup.GET("/files/:fileID", h.getParticipantFile)       // ?pid=profileID
+		participantInfoGroup.DELETE("/files/:fileID", h.deleteParticipantFile) // ?pid=profileID
 
 		participantInfoGroup.GET("/participant-state", h.getParticipantState) // ?pid=profileID
 		participantInfoGroup.GET("/linking-code", h.getLinkingCode)           // ?pid=profileID&key=key
@@ -749,7 +749,58 @@ func (h *HttpEndpoints) uploadParticipantFile(c *gin.Context) {
 }
 
 func (h *HttpEndpoints) getParticipantFiles(c *gin.Context) {
-	// TODO: implement
+	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
+	studyKey := c.Param("studyKey")
+	profileID := c.DefaultQuery("pid", "")
+
+	query, err := apihelpers.ParsePaginatedQueryFromCtx(c)
+	if err != nil || query == nil {
+		slog.Error("failed to parse query", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	if !h.checkProfileBelongsToUser(token.InstanceID, token.Subject, profileID) {
+		slog.Warn("profile not found", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("profileID", profileID))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "profile not found"})
+		return
+	}
+
+	// Get study to compute participantID
+	study, err := h.studyDBConn.GetStudy(token.InstanceID, studyKey)
+	if err != nil {
+		slog.Error("failed to get study", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get study"})
+		return
+	}
+
+	if study.Status != studyTypes.STUDY_STATUS_ACTIVE {
+		slog.Warn("Study is not active", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "study is not active"})
+		return
+	}
+
+	participantID, _, err := studyService.ComputeParticipantIDs(study, profileID)
+	if err != nil {
+		slog.Error("failed to compute participant IDs", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to compute participant IDs"})
+		return
+	}
+
+	filter := bson.M{
+		"participantID":        participantID,
+		"visibleToParticipant": true,
+	}
+	fileInfos, paginationInfo, err := h.studyDBConn.GetParticipantFileInfos(token.InstanceID, studyKey, filter, query.Page, query.Limit)
+	if err != nil {
+		slog.Error("failed to get participant files", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get participant files"})
+		return
+	}
+
+	slog.Info("participant files", slog.String("instanceID", token.InstanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID), slog.Int64("page", query.Page), slog.Int64("limit", query.Limit), slog.Int64("total", paginationInfo.TotalCount))
+
+	c.JSON(http.StatusOK, gin.H{"fileInfos": fileInfos, "pagination": paginationInfo})
 }
 
 func (h *HttpEndpoints) getParticipantFile(c *gin.Context) {
