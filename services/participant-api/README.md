@@ -117,13 +117,13 @@ user_management_config:
 
   # Weekday assignment weights for study scheduling
   weekday_assignation_weights:
-    "monday": 1
-    "tuesday": 1
-    "wednesday": 1
-    "thursday": 1
-    "friday": 1
-    "saturday": 1
-    "sunday": 1
+    "mon": 1
+    "tue": 1
+    "wed": 1
+    "thu": 1
+    "fri": 1
+    "sat": 1
+    "sun": 1
 
   # Path to blocked passwords file (optional)
   blocked_passwords_file_path: "/path/to/blocked-passwords.txt"
@@ -188,11 +188,11 @@ study_configs:
   external_services:
     - name: "notification-service"
       url: "https://api.notifications.example.com"
-      api_key: "default_notification_key"
+      apiKey: "default_notification_key"
       timeout: 30
     - name: "data-export-service"
       url: "https://api.exports.example.com"
-      api_key: "default_export_key"
+      apiKey: "default_export_key"
       timeout: 60
 
 # File storage path for participant files
