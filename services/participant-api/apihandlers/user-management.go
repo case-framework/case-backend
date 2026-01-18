@@ -118,7 +118,7 @@ func (h *HttpEndpoints) addNewProfileHandl(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "reached profile limit"})
 		return
 	}
-	user.AddProfile(profile)
+	user.AddProfile(&profile)
 
 	_, err = h.userDBConn.ReplaceUser(token.InstanceID, user)
 	if err != nil {
