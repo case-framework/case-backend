@@ -180,10 +180,10 @@ func (u *User) ReplaceContactInfoInContactPreferences(oldId string, newId string
 }
 
 // AddProfile generates unique ID and adds profile to the user's array
-func (u *User) AddProfile(p Profile) {
+func (u *User) AddProfile(p *Profile) {
 	p.ID = primitive.NewObjectID()
 	p.CreatedAt = time.Now().Unix()
-	u.Profiles = append(u.Profiles, p)
+	u.Profiles = append(u.Profiles, *p)
 }
 
 // UpdateProfile finds and replaces profile in the user's array
