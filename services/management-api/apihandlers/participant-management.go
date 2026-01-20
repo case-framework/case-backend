@@ -247,9 +247,22 @@ func (h *HttpEndpoints) submitParticipantReport(c *gin.Context) {
 		return
 	}
 
+	p, err := h.studyDBConn.GetParticipantByID(token.InstanceID, studyKey, participantID)
+	if err != nil {
+		slog.Error("failed to get participant", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "participant not found"})
+		return
+	}
+
+	if p.StudyStatus == studyTypes.PARTICIPANT_STUDY_STATUS_ACCOUNT_DELETED {
+		slog.Error("participant account deleted", slog.String("participantID", participantID))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "participant account deleted"})
+		return
+	}
+
 	slog.Info("submitting report for participant", slog.String("participantID", participantID), slog.String("studyKey", studyKey), slog.String("userID", token.Subject), slog.String("instanceID", token.InstanceID), slog.String("reportKey", report.Key))
 
-	err := h.studyDBConn.SaveReport(token.InstanceID, studyKey, report)
+	err = h.studyDBConn.SaveReport(token.InstanceID, studyKey, report)
 	if err != nil {
 		slog.Error("failed to save report", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to submit report"})
