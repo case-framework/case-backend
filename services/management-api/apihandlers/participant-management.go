@@ -250,13 +250,13 @@ func (h *HttpEndpoints) submitParticipantReport(c *gin.Context) {
 	p, err := h.studyDBConn.GetParticipantByID(token.InstanceID, studyKey, participantID)
 	if err != nil {
 		slog.Error("failed to get participant", slog.String("error", err.Error()))
-		c.JSON(http.StatusNotFound, gin.H{"error": "participant not found"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "participant not found"})
 		return
 	}
 
-	if p.StudyStatus != studyTypes.PARTICIPANT_STUDY_STATUS_ACTIVE {
-		slog.Error("participant is not active", slog.String("participantID", participantID))
-		c.JSON(http.StatusBadRequest, gin.H{"error": "participant is not active"})
+	if p.StudyStatus == studyTypes.PARTICIPANT_STUDY_STATUS_ACCOUNT_DELETED {
+		slog.Error("participant account deleted", slog.String("participantID", participantID))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "participant account deleted"})
 		return
 	}
 
