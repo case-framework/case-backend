@@ -3414,8 +3414,8 @@ func (h *HttpEndpoints) generateCSVReportExport(
 	writer := csv.NewWriter(csvFile)
 	defer writer.Flush()
 
-	// Build CSV header
-	headers := []string{"id", "key", "participantID", "timestamp", "responseID"}
+	// Build CSV header - reuse reservedColumns to avoid duplication
+	headers := append([]string{}, reservedColumns...)
 	// Add sorted data keys for consistent column order
 	dataKeys := make([]string, 0, len(uniqueDataKeys))
 	for key := range uniqueDataKeys {
@@ -3468,17 +3468,11 @@ func (h *HttpEndpoints) generateCSVReportExport(
 			// Convert value based on dtype
 			value := data.Value
 			switch data.Dtype {
-			case "date", "float":
+			case "date":
 				// Validate it's a number
-				if _, err := strconv.ParseFloat(value, 64); err == nil {
-					dataMap[dataKey] = value
-				} else {
-					dataMap[dataKey] = value
-				}
-			case "int":
-				// Validate it's an integer
-				if _, err := strconv.ParseInt(value, 10, 64); err == nil {
-					dataMap[dataKey] = value
+				f64, err := strconv.ParseFloat(value, 64)
+				if err == nil {
+					dataMap[dataKey] = time.Unix(int64(f64), 0).UTC().Format(time.RFC3339)
 				} else {
 					dataMap[dataKey] = value
 				}
@@ -3574,12 +3568,16 @@ func (h *HttpEndpoints) generateReportsExport(c *gin.Context) {
 	}
 
 	targetCount := int(count)
+	taskFileType := studyTypes.TASK_FILE_TYPE_JSON
+	if exportType == "csv" {
+		taskFileType = studyTypes.TASK_FILE_TYPE_CSV
+	}
 
 	exportTask, err := h.studyDBConn.CreateTask(
 		token.InstanceID,
 		token.Subject,
 		targetCount,
-		studyTypes.TASK_FILE_TYPE_JSON,
+		taskFileType,
 	)
 
 	if err != nil {
