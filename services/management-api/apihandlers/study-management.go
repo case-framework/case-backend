@@ -3190,9 +3190,11 @@ func (h *HttpEndpoints) getReportsCount(c *gin.Context) {
 		return
 	}
 
-	reportKey := c.DefaultQuery("reportKey", "")
-	if reportKey != "" {
-		filter["key"] = reportKey
+	filter, _, err = h.parseReportQueryParams(c, filter, false)
+	if err != nil {
+		slog.Error("failed to parse report query params", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
 
 	slog.Info("getting reports count", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
