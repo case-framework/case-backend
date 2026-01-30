@@ -1,14 +1,18 @@
 package apihandlers
 
 import (
+	"bufio"
 	"context"
 	"encoding/base64"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -3186,9 +3190,11 @@ func (h *HttpEndpoints) getReportsCount(c *gin.Context) {
 		return
 	}
 
-	reportKey := c.DefaultQuery("reportKey", "")
-	if reportKey != "" {
-		filter["key"] = reportKey
+	filter, _, err = h.parseReportQueryParams(c, filter, false)
+	if err != nil {
+		slog.Error("failed to parse report query params", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
 
 	slog.Info("getting reports count", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
@@ -3203,6 +3209,331 @@ func (h *HttpEndpoints) getReportsCount(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"count": count})
 }
 
+func (h *HttpEndpoints) generateRawJSONReportExport(
+	instanceID string,
+	studyKey string,
+	filter bson.M,
+	taskID string,
+	relativeFolderName string,
+) {
+	// create file write
+	relativeFilepath := filepath.Join(relativeFolderName, "reports_"+taskID+".json")
+	exportFilePath := filepath.Join(h.filestorePath, relativeFilepath)
+	file, err := os.Create(exportFilePath)
+	if err != nil {
+		slog.Error("failed to create export file", slog.String("error", err.Error()))
+
+		h.onExportTaskFailed(instanceID, taskID, "failed to create export file")
+		return
+	}
+
+	defer file.Close()
+
+	_, err = file.WriteString("{\"reports\": [")
+	if err != nil {
+		slog.Error("failed to write header", slog.String("error", err.Error()))
+		h.onExportTaskFailed(instanceID, taskID, "failed to write to export file")
+		return
+	}
+
+	ctx := context.Background()
+	counter := 0
+
+	err = h.studyDBConn.FindAndExecuteOnReports(
+		ctx,
+		instanceID,
+		studyKey,
+		filter,
+		true,
+		func(instanceID, studyKey string, r studyTypes.Report, args ...interface{}) error {
+			taskID := args[0].(string)
+
+			if counter > 0 {
+				_, err = file.WriteString(",")
+				if err != nil {
+					slog.Error("failed to write to export file", slog.String("error", err.Error()))
+					return err
+				}
+			}
+
+			// r to JSON
+			rJSON, err := json.Marshal(r)
+			if err != nil {
+				slog.Error("failed to marshal report", slog.String("error", err.Error()))
+				return err
+			}
+			_, err = file.Write(rJSON)
+			if err != nil {
+				slog.Error("failed to write to export file", slog.String("error", err.Error()))
+				return err
+			}
+
+			counter += 1
+
+			err = h.studyDBConn.UpdateTaskProgress(
+				instanceID,
+				taskID,
+				counter,
+			)
+			if err != nil {
+				slog.Error("failed to update task progress", slog.String("error", err.Error()))
+				// not a big issue, so let's try next time
+				return nil
+			}
+			return nil
+		},
+		taskID,
+	)
+
+	if err != nil {
+		slog.Error("failed to export reports", slog.String("error", err.Error()))
+		h.onExportTaskFailed(instanceID, taskID, err.Error())
+		return
+	}
+
+	_, err = file.WriteString("]}")
+	if err != nil {
+		slog.Error("failed to write footer", slog.String("error", err.Error()))
+		h.onExportTaskFailed(instanceID, taskID, "failed to write to export file")
+		return
+	}
+
+	err = h.studyDBConn.UpdateTaskCompleted(
+		instanceID,
+		taskID,
+		studyTypes.TASK_STATUS_COMPLETED,
+		counter,
+		"",
+		relativeFilepath,
+	)
+	if err != nil {
+		slog.Error("failed to update task status", slog.String("error", err.Error()))
+		return
+	}
+}
+
+func (h *HttpEndpoints) generateCSVReportExport(
+	instanceID string,
+	studyKey string,
+	filter bson.M,
+	taskID string,
+	relativeFolderName string,
+) {
+	const dataKeyPrefix = "data_"
+	reservedColumns := []string{"id", "key", "participantID", "timestamp", "responseID"}
+
+	// Stage 1: Write reports to temp file as JSON and collect unique column names
+	tempFilePath := filepath.Join(h.filestorePath, relativeFolderName, "temp_reports_"+taskID+".jsonl")
+	tempFile, err := os.Create(tempFilePath)
+	if err != nil {
+		slog.Error("failed to create temp file", slog.String("error", err.Error()))
+		h.onExportTaskFailed(instanceID, taskID, "failed to create temp file")
+		return
+	}
+	defer os.Remove(tempFilePath) // Clean up temp file at the end
+
+	ctx := context.Background()
+	counter := 0
+	uniqueDataKeys := make(map[string]bool)
+
+	// Helper function to check if a column is reserved
+	isReservedColumn := func(key string) bool {
+		return slices.Contains(reservedColumns, key)
+	}
+
+	// Stage 1: Iterate over DB entries and write as JSON lines
+	err = h.studyDBConn.FindAndExecuteOnReports(
+		ctx,
+		instanceID,
+		studyKey,
+		filter,
+		true,
+		func(instanceID, studyKey string, r studyTypes.Report, args ...any) error {
+			taskID := args[0].(string)
+
+			// Collect unique data keys
+			for _, data := range r.Data {
+				dataKey := data.Key
+				if isReservedColumn(dataKey) {
+					dataKey = dataKeyPrefix + dataKey
+				}
+				uniqueDataKeys[dataKey] = true
+			}
+
+			// Write report as JSON line
+			rJSON, err := json.Marshal(r)
+			if err != nil {
+				slog.Error("failed to marshal report", slog.String("error", err.Error()))
+				return err
+			}
+			_, err = tempFile.Write(rJSON)
+			if err != nil {
+				slog.Error("failed to write to temp file", slog.String("error", err.Error()))
+				return err
+			}
+			_, err = tempFile.WriteString("\n")
+			if err != nil {
+				slog.Error("failed to write newline to temp file", slog.String("error", err.Error()))
+				return err
+			}
+
+			counter += 1
+
+			err = h.studyDBConn.UpdateTaskProgress(
+				instanceID,
+				taskID,
+				counter,
+			)
+			if err != nil {
+				slog.Error("failed to update task progress", slog.String("error", err.Error()))
+				// not a big issue, so let's try next time
+				return nil
+			}
+			return nil
+		},
+		taskID,
+	)
+
+	tempFile.Close()
+
+	if err != nil {
+		slog.Error("failed to export reports", slog.String("error", err.Error()))
+		h.onExportTaskFailed(instanceID, taskID, err.Error())
+		return
+	}
+
+	// Stage 2: Read temp file and write CSV
+	relativeFilepath := filepath.Join(relativeFolderName, "reports_"+taskID+".csv")
+	exportFilePath := filepath.Join(h.filestorePath, relativeFilepath)
+	csvFile, err := os.Create(exportFilePath)
+	if err != nil {
+		slog.Error("failed to create CSV file", slog.String("error", err.Error()))
+		h.onExportTaskFailed(instanceID, taskID, "failed to create CSV file")
+		return
+	}
+	defer csvFile.Close()
+
+	writer := csv.NewWriter(csvFile)
+	defer writer.Flush()
+
+	// Build CSV header - reuse reservedColumns to avoid duplication
+	headers := append([]string{}, reservedColumns...)
+	// Add sorted data keys for consistent column order
+	dataKeys := make([]string, 0, len(uniqueDataKeys))
+	for key := range uniqueDataKeys {
+		dataKeys = append(dataKeys, key)
+	}
+	sort.Strings(dataKeys)
+	headers = append(headers, dataKeys...)
+
+	// Write header
+	if err := writer.Write(headers); err != nil {
+		slog.Error("failed to write CSV header", slog.String("error", err.Error()))
+		h.onExportTaskFailed(instanceID, taskID, "failed to write CSV header")
+		return
+	}
+
+	// Read temp file and write CSV rows
+	tempFileRead, err := os.Open(tempFilePath)
+	if err != nil {
+		slog.Error("failed to open temp file for reading", slog.String("error", err.Error()))
+		h.onExportTaskFailed(instanceID, taskID, "failed to open temp file")
+		return
+	}
+	defer tempFileRead.Close()
+
+	scanner := bufio.NewScanner(tempFileRead)
+	// Increase buffer size for large lines
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, 1024*1024)
+
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+
+		var report studyTypes.Report
+		if err := json.Unmarshal(line, &report); err != nil {
+			slog.Error("failed to unmarshal report", slog.String("error", err.Error()))
+			continue
+		}
+
+		// Build data map for quick lookup
+		dataMap := make(map[string]string)
+		for _, data := range report.Data {
+			dataKey := data.Key
+			if isReservedColumn(dataKey) {
+				dataKey = dataKeyPrefix + dataKey
+			}
+
+			// Convert value based on dtype
+			value := data.Value
+			switch data.Dtype {
+			case "date":
+				// Validate it's a number
+				f64, err := strconv.ParseFloat(value, 64)
+				if err == nil {
+					dataMap[dataKey] = time.Unix(int64(f64), 0).UTC().Format(time.RFC3339)
+				} else {
+					dataMap[dataKey] = value
+				}
+			default:
+				dataMap[dataKey] = value
+			}
+		}
+
+		// Build CSV row
+		row := make([]string, len(headers))
+		row[0] = report.ID.Hex()
+		row[1] = report.Key
+		row[2] = report.ParticipantID
+		row[3] = time.Unix(report.Timestamp, 0).UTC().Format(time.RFC3339)
+		row[4] = report.ResponseID
+
+		// Fill in data columns
+		for i, header := range headers[5:] {
+			if val, ok := dataMap[header]; ok {
+				row[5+i] = val
+			} else {
+				row[5+i] = ""
+			}
+		}
+
+		if err := writer.Write(row); err != nil {
+			slog.Error("failed to write CSV row", slog.String("error", err.Error()))
+			h.onExportTaskFailed(instanceID, taskID, "failed to write CSV row")
+			return
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		slog.Error("error reading temp file", slog.String("error", err.Error()))
+		h.onExportTaskFailed(instanceID, taskID, "error reading temp file")
+		return
+	}
+
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		slog.Error("error flushing CSV writer", slog.String("error", err.Error()))
+		h.onExportTaskFailed(instanceID, taskID, "error writing CSV")
+		return
+	}
+
+	err = h.studyDBConn.UpdateTaskCompleted(
+		instanceID,
+		taskID,
+		studyTypes.TASK_STATUS_COMPLETED,
+		counter,
+		"",
+		relativeFilepath,
+	)
+	if err != nil {
+		slog.Error("failed to update task status", slog.String("error", err.Error()))
+		return
+	}
+}
+
 func (h *HttpEndpoints) generateReportsExport(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 
@@ -3215,12 +3546,14 @@ func (h *HttpEndpoints) generateReportsExport(c *gin.Context) {
 		return
 	}
 
-	reportKey := c.DefaultQuery("reportKey", "")
-	if reportKey != "" {
-		filter["key"] = reportKey
+	filter, exportType, err := h.parseReportQueryParams(c, filter, true)
+	if err != nil {
+		slog.Error("failed to parse report query params", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
 
-	slog.Info("generating reports export", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
+	slog.Info("generating reports export", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.String("exportType", exportType))
 
 	count, err := h.studyDBConn.GetReportCountForQuery(token.InstanceID, studyKey, filter)
 	if err != nil {
@@ -3236,11 +3569,17 @@ func (h *HttpEndpoints) generateReportsExport(c *gin.Context) {
 		return
 	}
 
+	targetCount := int(count)
+	taskFileType := studyTypes.TASK_FILE_TYPE_JSON
+	if exportType == "csv" {
+		taskFileType = studyTypes.TASK_FILE_TYPE_CSV
+	}
+
 	exportTask, err := h.studyDBConn.CreateTask(
 		token.InstanceID,
 		token.Subject,
-		int(count),
-		studyTypes.TASK_FILE_TYPE_JSON,
+		targetCount,
+		taskFileType,
 	)
 
 	if err != nil {
@@ -3257,102 +3596,23 @@ func (h *HttpEndpoints) generateReportsExport(c *gin.Context) {
 		return
 	}
 
-	go func() {
-		// create file write
-		relativeFilepath := filepath.Join(relativeFolderName, "reports_"+exportTask.ID.Hex()+".json")
-		exportFilePath := filepath.Join(h.filestorePath, relativeFilepath)
-		file, err := os.Create(exportFilePath)
-		if err != nil {
-			slog.Error("failed to create export file", slog.String("error", err.Error()))
-
-			h.onExportTaskFailed(token.InstanceID, exportTask.ID.Hex(), "failed to create export file")
-			return
-		}
-
-		defer file.Close()
-
-		_, err = file.WriteString("{\"reports\": [")
-		if err != nil {
-			slog.Error("failed to write header", slog.String("error", err.Error()))
-			h.onExportTaskFailed(token.InstanceID, exportTask.ID.Hex(), "failed to write to export file")
-			return
-		}
-
-		ctx := context.Background()
-		counter := 0
-
-		err = h.studyDBConn.FindAndExecuteOnReports(
-			ctx,
+	if exportType == "csv" {
+		go h.generateCSVReportExport(
 			token.InstanceID,
 			studyKey,
 			filter,
-			true,
-			func(instanceID, studyKey string, r studyTypes.Report, args ...interface{}) error {
-				task := args[0].(*studyTypes.Task)
-
-				if counter > 0 {
-					_, err = file.WriteString(",")
-					if err != nil {
-						slog.Error("failed to write to export file", slog.String("error", err.Error()))
-						return err
-					}
-				}
-
-				// r to JSON
-				rJSON, err := json.Marshal(r)
-				if err != nil {
-					slog.Error("failed to marshal report", slog.String("error", err.Error()))
-					return err
-				}
-				_, err = file.Write(rJSON)
-				if err != nil {
-					slog.Error("failed to write to export file", slog.String("error", err.Error()))
-					return err
-				}
-
-				counter += 1
-
-				err = h.studyDBConn.UpdateTaskProgress(
-					instanceID,
-					task.ID.Hex(),
-					counter,
-				)
-				if err != nil {
-					slog.Error("failed to update task progress", slog.String("error", err.Error()))
-					// not a big issue, so let's try next time
-					return nil
-				}
-				return nil
-			},
-			&exportTask,
-		)
-
-		if err != nil {
-			slog.Error("failed to export reports", slog.String("error", err.Error()))
-			h.onExportTaskFailed(token.InstanceID, exportTask.ID.Hex(), err.Error())
-			return
-		}
-
-		_, err = file.WriteString("]}")
-		if err != nil {
-			slog.Error("failed to write footer", slog.String("error", err.Error()))
-			h.onExportTaskFailed(token.InstanceID, exportTask.ID.Hex(), "failed to write to export file")
-			return
-		}
-
-		err = h.studyDBConn.UpdateTaskCompleted(
-			token.InstanceID,
 			exportTask.ID.Hex(),
-			studyTypes.TASK_STATUS_COMPLETED,
-			counter,
-			"",
-			relativeFilepath,
+			relativeFolderName,
 		)
-		if err != nil {
-			slog.Error("failed to update task status", slog.String("error", err.Error()))
-			return
-		}
-	}()
+	} else {
+		go h.generateRawJSONReportExport(
+			token.InstanceID,
+			studyKey,
+			filter,
+			exportTask.ID.Hex(),
+			relativeFolderName,
+		)
+	}
 
 	c.JSON(http.StatusOK, gin.H{"task": exportTask})
 }
@@ -3991,6 +4251,63 @@ func (h *HttpEndpoints) getReportKeys(c *gin.Context) {
 	})
 }
 
+// parseReportQueryParams parses common report query parameters (reportKey, pid, from, until)
+// and optionally the type parameter. It modifies the provided filter map in place.
+// Returns the modified filter, the export type (defaults to "raw" if includeType is true), and any error.
+func (h *HttpEndpoints) parseReportQueryParams(c *gin.Context, filter bson.M, includeType bool) (bson.M, string, error) {
+	reportKey := c.DefaultQuery("reportKey", "")
+	if reportKey != "" {
+		filter["key"] = reportKey
+	}
+	pid := c.DefaultQuery("pid", "")
+	if pid != "" {
+		filter["participantID"] = pid
+	}
+
+	fromTsQuery := c.DefaultQuery("from", "")
+	fromTs := int64(0)
+	if fromTsQuery != "" {
+		var err error
+		fromTs, err = strconv.ParseInt(fromTsQuery, 10, 64)
+		if err != nil {
+			return nil, "", fmt.Errorf("invalid fromTS: %w", err)
+		}
+	}
+
+	toTSQuery := c.DefaultQuery("until", "")
+	toTs := int64(0)
+	if toTSQuery != "" {
+		var err error
+		toTs, err = strconv.ParseInt(toTSQuery, 10, 64)
+		if err != nil {
+			return nil, "", fmt.Errorf("invalid toTS: %w", err)
+		}
+	}
+
+	tsFilter := bson.M{}
+	if fromTsQuery != "" {
+		tsFilter["$gte"] = fromTs
+	}
+	if toTSQuery != "" {
+		tsFilter["$lte"] = toTs
+	}
+
+	if len(tsFilter) > 0 {
+		filter["timestamp"] = tsFilter
+	}
+
+	exportType := ""
+	if includeType {
+		exportType = c.DefaultQuery("type", "raw")
+		// Validate type is either "raw" or "csv"
+		if exportType != "raw" && exportType != "csv" {
+			exportType = "raw" // Default to "raw" if invalid
+		}
+	}
+
+	return filter, exportType, nil
+}
+
 func (h *HttpEndpoints) getStudyReports(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 	studyKey := c.Param("studyKey")
@@ -4004,47 +4321,11 @@ func (h *HttpEndpoints) getStudyReports(c *gin.Context) {
 		return
 	}
 
-	reportKey := c.DefaultQuery("reportKey", "")
-	if reportKey != "" {
-		query.Filter["key"] = reportKey
-	}
-	pid := c.DefaultQuery("pid", "")
-	if pid != "" {
-		query.Filter["participantID"] = pid
-	}
-
-	fromTsQuery := c.DefaultQuery("from", "")
-	fromTs := int64(0)
-	if fromTsQuery != "" {
-		fromTs, err = strconv.ParseInt(fromTsQuery, 10, 64)
-		if err != nil {
-			slog.Error("error parsing fromTS", slog.String("error", err.Error()))
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid fromTS"})
-			return
-		}
-	}
-
-	toTSQuery := c.DefaultQuery("until", "")
-	toTs := int64(0)
-	if toTSQuery != "" {
-		toTs, err = strconv.ParseInt(toTSQuery, 10, 64)
-		if err != nil {
-			slog.Error("error parsing toTS", slog.String("error", err.Error()))
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid toTS"})
-			return
-		}
-	}
-
-	tsFilter := bson.M{}
-	if fromTsQuery != "" {
-		tsFilter["$gte"] = fromTs
-	}
-	if toTSQuery != "" {
-		tsFilter["$lte"] = toTs
-	}
-
-	if len(tsFilter) > 0 {
-		query.Filter["timestamp"] = tsFilter
+	_, _, err = h.parseReportQueryParams(c, query.Filter, false)
+	if err != nil {
+		slog.Error("failed to parse report query params", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
 
 	reports, paginationInfo, err := h.studyDBConn.GetReports(
