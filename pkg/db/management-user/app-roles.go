@@ -358,3 +358,19 @@ func (dbService *ManagementUserDBService) RemoveAllAppRolesForApp(
 	_, err := dbService.collectionAppRoles(instanceID).DeleteMany(ctx, bson.M{"appName": appName})
 	return err
 }
+
+// Remove all app roles for an app template (by appName and role)
+func (dbService *ManagementUserDBService) RemoveAllAppRolesForAppTemplate(
+	instanceID string,
+	appName string,
+	role string,
+) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	_, err := dbService.collectionAppRoles(instanceID).DeleteMany(ctx, bson.M{
+		"appName": appName,
+		"role":    role,
+	})
+	return err
+}

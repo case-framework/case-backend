@@ -462,7 +462,21 @@ func (h *HttpEndpoints) deleteAppRoleTemplate(c *gin.Context) {
 
 	slog.Info("deleting app role template", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("appRoleTemplateID", appRoleTemplateID))
 
-	err := h.muDBConn.DeleteAppRoleTemplate(token.InstanceID, appRoleTemplateID)
+	appRoleTemplate, err := h.muDBConn.GetAppRoleTemplateByID(token.InstanceID, appRoleTemplateID)
+	if err != nil {
+		slog.Error("error retrieving app role template", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error retrieving app role template"})
+		return
+	}
+
+	err = h.muDBConn.RemoveAllAppRolesForAppTemplate(token.InstanceID, appRoleTemplate.AppName, appRoleTemplate.Role)
+	if err != nil {
+		slog.Error("error deleting app roles for app template", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error deleting app roles for app template"})
+		return
+	}
+
+	err = h.muDBConn.DeleteAppRoleTemplate(token.InstanceID, appRoleTemplateID)
 	if err != nil {
 		slog.Error("error deleting app role template", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error deleting app role template"})
