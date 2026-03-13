@@ -6,11 +6,12 @@ import (
 	"time"
 
 	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
+
+var sentEmailIndexNames []string
 
 var indexesForSentEmailsCollection = []mongo.IndexModel{
 	{
@@ -27,18 +28,17 @@ func (dbService *MessagingDBService) DropIndexForSentEmailsCollection(instanceID
 	defer cancel()
 
 	if dropAll {
-		_, err := dbService.collectionSentEmails(instanceID).Indexes().DropAll(ctx)
+		err := dbService.collectionSentEmails(instanceID).Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for sent emails", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 		}
 	} else {
-		for _, index := range indexesForSentEmailsCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for sent emails collection", slog.String("index", fmt.Sprintf("%+v", index)))
+		for _, indexName := range sentEmailIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for sent emails collection", slog.String("index", fmt.Sprintf("%+v", indexName)))
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := dbService.collectionSentEmails(instanceID).Indexes().DropOne(ctx, indexName)
+			err := dbService.collectionSentEmails(instanceID).Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for sent emails", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("indexName", indexName))
 			}
@@ -50,10 +50,11 @@ func (dbService *MessagingDBService) CreateDefaultIndexesForSentEmailsCollection
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_, err := dbService.collectionSentEmails(instanceID).Indexes().CreateMany(ctx, indexesForSentEmailsCollection)
+	names, err := dbService.collectionSentEmails(instanceID).Indexes().CreateMany(ctx, indexesForSentEmailsCollection)
 	if err != nil {
 		slog.Error("Error creating index for sent emails", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 	}
+	sentEmailIndexNames = names
 }
 
 func (dbService *MessagingDBService) AddToSentEmails(instanceID string, email messagingTypes.OutgoingEmail) (messagingTypes.OutgoingEmail, error) {
@@ -63,11 +64,11 @@ func (dbService *MessagingDBService) AddToSentEmails(instanceID string, email me
 	email.SentAt = time.Now().UTC()
 	email.To = []string{}
 
-	email.ID = primitive.NilObjectID
+	email.ID = bson.NilObjectID
 	res, err := dbService.collectionSentEmails(instanceID).InsertOne(ctx, email)
 	if err != nil {
 		return email, err
 	}
-	email.ID = res.InsertedID.(primitive.ObjectID)
+	email.ID = res.InsertedID.(bson.ObjectID)
 	return email, nil
 }
