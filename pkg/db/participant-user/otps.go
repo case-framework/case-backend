@@ -2,13 +2,12 @@ package participantuser
 
 import (
 	"errors"
-	"fmt"
 	"log/slog"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	userTypes "github.com/case-framework/case-backend/pkg/user-management/types"
 )
@@ -16,6 +15,8 @@ import (
 const (
 	OTP_TTL = 60 * 15
 )
+
+var otpIndexNames []string
 
 var indexesForOTPsCollection = []mongo.IndexModel{
 	{
@@ -38,18 +39,17 @@ func (dbService *ParticipantUserDBService) DropIndexForOTPsCollection(instanceID
 	defer cancel()
 
 	if dropAll {
-		_, err := dbService.collectionOTPs(instanceID).Indexes().DropAll(ctx)
+		err := dbService.collectionOTPs(instanceID).Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for OTPs", slog.String("error", err.Error()))
 		}
 	} else {
-		for _, index := range indexesForOTPsCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for OTPs collection", slog.String("index", fmt.Sprintf("%+v", index)))
+		for _, indexName := range otpIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for OTPs collection")
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := dbService.collectionOTPs(instanceID).Indexes().DropOne(ctx, indexName)
+			err := dbService.collectionOTPs(instanceID).Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for OTPs", slog.String("error", err.Error()), slog.String("indexName", indexName))
 			}
@@ -61,10 +61,11 @@ func (dbService *ParticipantUserDBService) CreateDefaultIndexesForOTPsCollection
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_, err := dbService.collectionOTPs(instanceID).Indexes().CreateMany(ctx, indexesForOTPsCollection)
+	names, err := dbService.collectionOTPs(instanceID).Indexes().CreateMany(ctx, indexesForOTPsCollection)
 	if err != nil {
 		slog.Error("Error creating index for OTPs", slog.String("error", err.Error()))
 	}
+	otpIndexNames = names
 }
 
 func (dbService *ParticipantUserDBService) CreateOTP(instanceID string, userID string, code string, t userTypes.OTPType, maxOTPCount int64) error {

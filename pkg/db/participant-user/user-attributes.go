@@ -2,17 +2,17 @@ package participantuser
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	userTypes "github.com/case-framework/case-backend/pkg/user-management/types"
 )
+
+var participantUserAttributeIndexNames []string
 
 var indexesForParticipantUserAttributesCollection = []mongo.IndexModel{
 	{
@@ -26,18 +26,17 @@ func (dbService *ParticipantUserDBService) DropIndexForParticipantUserAttributes
 	defer cancel()
 
 	if dropAll {
-		_, err := dbService.collectionParticipantUserAttributes(instanceID).Indexes().DropAll(ctx)
+		err := dbService.collectionParticipantUserAttributes(instanceID).Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for participant user attributes", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 		}
 	} else {
-		for _, index := range indexesForParticipantUserAttributesCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for participant user attributes collection", slog.String("index", fmt.Sprintf("%+v", index)), slog.String("instanceID", instanceID))
+		for _, indexName := range participantUserAttributeIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for participant user attributes collection", slog.String("instanceID", instanceID))
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := dbService.collectionParticipantUserAttributes(instanceID).Indexes().DropOne(ctx, indexName)
+			err := dbService.collectionParticipantUserAttributes(instanceID).Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for participant user attributes", slog.String("error", err.Error()), slog.String("indexName", indexName), slog.String("instanceID", instanceID))
 			}
@@ -49,10 +48,11 @@ func (dbService *ParticipantUserDBService) CreateDefaultIndexesForParticipantUse
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_, err := dbService.collectionParticipantUserAttributes(instanceID).Indexes().CreateMany(ctx, indexesForParticipantUserAttributesCollection)
+	names, err := dbService.collectionParticipantUserAttributes(instanceID).Indexes().CreateMany(ctx, indexesForParticipantUserAttributesCollection)
 	if err != nil {
 		slog.Error("Error creating index for participant user attributes", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 	}
+	participantUserAttributeIndexNames = names
 }
 
 // Create or update a user attribute for a user by type
@@ -65,7 +65,7 @@ func (dbService *ParticipantUserDBService) SetUserAttribute(
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	userIDObj, err := primitive.ObjectIDFromHex(userID)
+	userIDObj, err := bson.ObjectIDFromHex(userID)
 	if err != nil {
 		return err
 	}
@@ -74,7 +74,7 @@ func (dbService *ParticipantUserDBService) SetUserAttribute(
 		ctx,
 		bson.M{"userId": userIDObj, "type": attributeType},
 		bson.M{"$set": bson.M{"attributes": attributes, "createdAt": time.Now().UTC()}},
-		options.Update().SetUpsert(true),
+		options.UpdateOne().SetUpsert(true),
 	)
 	return err
 }
@@ -85,7 +85,7 @@ func (dbService *ParticipantUserDBService) DeleteAllUserAttributes(
 	instanceID string,
 	userID string,
 ) error {
-	userIDObj, err := primitive.ObjectIDFromHex(userID)
+	userIDObj, err := bson.ObjectIDFromHex(userID)
 	if err != nil {
 		return err
 	}
@@ -99,12 +99,12 @@ func (dbService *ParticipantUserDBService) DeleteUserAttribute(instanceID string
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	userIDObj, err := primitive.ObjectIDFromHex(userID)
+	userIDObj, err := bson.ObjectIDFromHex(userID)
 	if err != nil {
 		return err
 	}
 
-	attributeIDObj, err := primitive.ObjectIDFromHex(attributeID)
+	attributeIDObj, err := bson.ObjectIDFromHex(attributeID)
 	if err != nil {
 		return err
 	}
@@ -118,7 +118,7 @@ func (dbService *ParticipantUserDBService) GetAttributesForUser(instanceID strin
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	userIDObj, err := primitive.ObjectIDFromHex(userID)
+	userIDObj, err := bson.ObjectIDFromHex(userID)
 	if err != nil {
 		return nil, err
 	}

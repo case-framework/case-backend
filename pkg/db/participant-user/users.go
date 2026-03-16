@@ -3,17 +3,17 @@ package participantuser
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	umTypes "github.com/case-framework/case-backend/pkg/user-management/types"
 )
+
+var participantUserIndexNames []string
 
 var indexesForParticipantUsersCollection = []mongo.IndexModel{
 	{
@@ -55,18 +55,17 @@ func (dbService *ParticipantUserDBService) DropIndexForParticipantUsersCollectio
 	defer cancel()
 
 	if dropAll {
-		_, err := dbService.collectionParticipantUsers(instanceID).Indexes().DropAll(ctx)
+		err := dbService.collectionParticipantUsers(instanceID).Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for participant users", slog.String("error", err.Error()))
 		}
 	} else {
-		for _, index := range indexesForParticipantUsersCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for participant users collection", slog.String("index", fmt.Sprintf("%+v", index)))
+		for _, indexName := range participantUserIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for participant users collection")
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := dbService.collectionParticipantUsers(instanceID).Indexes().DropOne(ctx, indexName)
+			err := dbService.collectionParticipantUsers(instanceID).Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for participant users", slog.String("error", err.Error()), slog.String("indexName", indexName))
 			}
@@ -78,12 +77,13 @@ func (dbService *ParticipantUserDBService) CreateDefaultIndexesForParticipantUse
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_, err := dbService.collectionParticipantUsers(instanceID).Indexes().CreateMany(
+	names, err := dbService.collectionParticipantUsers(instanceID).Indexes().CreateMany(
 		ctx, indexesForParticipantUsersCollection,
 	)
 	if err != nil {
 		slog.Error("Error creating index for participant users", slog.String("error", err.Error()))
 	}
+	participantUserIndexNames = names
 }
 
 func (dbService *ParticipantUserDBService) FixFieldNameForContactInfos(instanceID string) error {
@@ -106,13 +106,10 @@ func (dbService *ParticipantUserDBService) AddUser(instanceID string, user umTyp
 	defer cancel()
 
 	filter := bson.M{"account.accountID": user.Account.AccountID}
-	upsert := true
-	opts := options.UpdateOptions{
-		Upsert: &upsert,
-	}
+	opts := options.UpdateOne().SetUpsert(true)
 	res, err := dbService.collectionParticipantUsers(instanceID).UpdateOne(ctx, filter, bson.M{
 		"$setOnInsert": user,
-	}, &opts)
+	}, opts)
 	if err != nil {
 		return
 	}
@@ -122,7 +119,7 @@ func (dbService *ParticipantUserDBService) AddUser(instanceID string, user umTyp
 		return
 	}
 
-	id = res.UpsertedID.(primitive.ObjectID).Hex()
+	id = res.UpsertedID.(bson.ObjectID).Hex()
 	return
 }
 
@@ -130,7 +127,7 @@ func (dbService *ParticipantUserDBService) GetUser(instanceID, objectID string) 
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(objectID)
+	_id, err := bson.ObjectIDFromHex(objectID)
 	if err != nil {
 		return umTypes.User{}, err
 	}
@@ -156,7 +153,7 @@ func (dbService *ParticipantUserDBService) GetUserByProfileID(instanceID, profil
 	defer cancel()
 
 	var user umTypes.User
-	_profileID, err := primitive.ObjectIDFromHex(profileID)
+	_profileID, err := bson.ObjectIDFromHex(profileID)
 	if err != nil {
 		return umTypes.User{}, err
 	}
@@ -169,7 +166,7 @@ func (dbService *ParticipantUserDBService) SaveFailedLoginAttempt(instanceID str
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(userID)
+	_id, err := bson.ObjectIDFromHex(userID)
 	if err != nil {
 		return err
 	}
@@ -188,7 +185,7 @@ func (dbService *ParticipantUserDBService) SavePasswordResetTrigger(instanceID s
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, _ := primitive.ObjectIDFromHex(userID)
+	_id, _ := bson.ObjectIDFromHex(userID)
 	filter := bson.M{"_id": _id}
 	update := bson.M{"$push": bson.M{"account.passwordResetTriggers": time.Now().Unix()}}
 	_, err := dbService.collectionParticipantUsers(instanceID).UpdateOne(ctx, filter, update)
@@ -205,11 +202,9 @@ func (dbService *ParticipantUserDBService) _updateUserInDB(orgID string, user um
 
 	elem := umTypes.User{}
 	filter := bson.M{"_id": user.ID}
-	rd := options.After
-	fro := options.FindOneAndReplaceOptions{
-		ReturnDocument: &rd,
-	}
-	err := dbService.collectionParticipantUsers(orgID).FindOneAndReplace(ctx, filter, user, &fro).Decode(&elem)
+	fro := options.FindOneAndReplace().
+    SetReturnDocument(options.After)
+	err := dbService.collectionParticipantUsers(orgID).FindOneAndReplace(ctx, filter, user, fro).Decode(&elem)
 	return elem, err
 }
 
@@ -232,7 +227,7 @@ func (dbService *ParticipantUserDBService) DeleteUser(instanceID, userID string)
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(userID)
+	_id, err := bson.ObjectIDFromHex(userID)
 	if err != nil {
 		return err
 	}
@@ -256,7 +251,7 @@ func (dbService *ParticipantUserDBService) UpdateUser(instanceID string, userID 
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(userID)
+	_id, err := bson.ObjectIDFromHex(userID)
 	if err != nil {
 		return err
 	}

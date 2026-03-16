@@ -2,13 +2,12 @@ package participantuser
 
 import (
 	"errors"
-	"fmt"
 	"log/slog"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	userTypes "github.com/case-framework/case-backend/pkg/user-management/types"
 )
@@ -17,6 +16,8 @@ const (
 	RENEW_TOKEN_GRACE_PERIOD     = 30 // seconds
 	RENEW_TOKEN_DEFAULT_LIFETIME = 60 * 60 * 24 * 90
 )
+
+var renewTokenIndexNames []string
 
 var indexesForRenewTokensCollection = []mongo.IndexModel{
 	{
@@ -53,18 +54,17 @@ func (dbService *ParticipantUserDBService) DropIndexForRenewTokensCollection(ins
 	defer cancel()
 
 	if dropAll {
-		_, err := dbService.collectionRenewTokens(instanceID).Indexes().DropAll(ctx)
+		err := dbService.collectionRenewTokens(instanceID).Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for renew tokens", slog.String("error", err.Error()))
 		}
 	} else {
-		for _, index := range indexesForRenewTokensCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for renew tokens collection", slog.String("index", fmt.Sprintf("%+v", index)))
+		for _, indexName := range renewTokenIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for renew tokens collection")
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := dbService.collectionRenewTokens(instanceID).Indexes().DropOne(ctx, indexName)
+			err := dbService.collectionRenewTokens(instanceID).Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for renew tokens", slog.String("error", err.Error()), slog.String("indexName", indexName))
 			}
@@ -76,12 +76,13 @@ func (dbService *ParticipantUserDBService) CreateDefaultIndexesForRenewTokensCol
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_, err := dbService.collectionRenewTokens(instanceID).Indexes().CreateMany(
+	names, err := dbService.collectionRenewTokens(instanceID).Indexes().CreateMany(
 		ctx, indexesForRenewTokensCollection,
 	)
 	if err != nil {
 		slog.Error("Error creating index for renew tokens", slog.String("error", err.Error()))
 	}
+	renewTokenIndexNames = names
 }
 
 func (dbService *ParticipantUserDBService) CreateRenewToken(instanceID string, userID string, token string, lifeTimeInSec int, sessionID string) error {

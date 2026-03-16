@@ -1,18 +1,19 @@
 package participantuser
 
 import (
-	"fmt"
 	"log/slog"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 const (
 	FAILED_OTP_ATTEMP_WINDOW = 60 * 5
 )
+
+var failedOTPAttemptIndexNames []string
 
 type FailedOtpAttempt struct {
 	Timestamp time.Time `json:"timestamp" bson:"timestamp"`
@@ -39,18 +40,17 @@ func (dbService *ParticipantUserDBService) DropIndexForFailedOtpAttemptsCollecti
 	defer cancel()
 
 	if dropAll {
-		_, err := dbService.collectionFailedOtpAttempts(instanceID).Indexes().DropAll(ctx)
+		err := dbService.collectionFailedOtpAttempts(instanceID).Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for FailedOtpAttempts", slog.String("error", err.Error()))
 		}
 	} else {
-		for _, index := range indexesForFailedOtpAttemptsCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for FailedOtpAttempts collection", slog.String("index", fmt.Sprintf("%+v", index)))
+		for _, indexName := range failedOTPAttemptIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for FailedOtpAttempts collection")
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := dbService.collectionFailedOtpAttempts(instanceID).Indexes().DropOne(ctx, indexName)
+			err := dbService.collectionFailedOtpAttempts(instanceID).Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for FailedOtpAttempts", slog.String("error", err.Error()), slog.String("indexName", indexName))
 			}
@@ -62,10 +62,11 @@ func (dbService *ParticipantUserDBService) CreateDefaultIndexesForFailedOtpAttem
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_, err := dbService.collectionFailedOtpAttempts(instanceID).Indexes().CreateMany(ctx, indexesForFailedOtpAttemptsCollection)
+	names, err := dbService.collectionFailedOtpAttempts(instanceID).Indexes().CreateMany(ctx, indexesForFailedOtpAttemptsCollection)
 	if err != nil {
 		slog.Error("Error creating index for FailedOtpAttempts", slog.String("error", err.Error()))
 	}
+	failedOTPAttemptIndexNames = names
 }
 
 func (dbService *ParticipantUserDBService) CountFailedOtpAttempts(instanceID string, userID string) (int64, error) {
