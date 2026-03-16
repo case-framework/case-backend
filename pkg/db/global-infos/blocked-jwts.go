@@ -1,14 +1,15 @@
 package globalinfos
 
 import (
-	"fmt"
 	"log/slog"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
+
+var blockedJwtIndexNames []string
 
 type BlockedJwt struct {
 	Token     string    `bson:"token"`
@@ -35,18 +36,17 @@ func (dbService *GlobalInfosDBService) DropIndexForBlockedJwtsCollection(dropAll
 	defer cancel()
 
 	if dropAll {
-		_, err := dbService.collectionBlockedJwts().Indexes().DropAll(ctx)
+		err := dbService.collectionBlockedJwts().Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for blocked jwts", slog.String("error", err.Error()))
 		}
 	} else {
-		for _, index := range indexesForBlockedJwtsCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for blocked jwts collection", slog.String("index", fmt.Sprintf("%+v", index)))
+		for _, indexName := range blockedJwtIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for blocked jwts collection")
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := dbService.collectionBlockedJwts().Indexes().DropOne(ctx, indexName)
+			err := dbService.collectionBlockedJwts().Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for blocked jwts", slog.String("error", err.Error()), slog.String("indexName", indexName))
 			}
@@ -58,10 +58,11 @@ func (dbService *GlobalInfosDBService) CreateDefaultIndexesForBlockedJwtsCollect
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_, err := dbService.collectionBlockedJwts().Indexes().CreateMany(ctx, indexesForBlockedJwtsCollection)
+	names, err := dbService.collectionBlockedJwts().Indexes().CreateMany(ctx, indexesForBlockedJwtsCollection)
 	if err != nil {
 		slog.Error("Error creating index for blocked jwts", slog.String("error", err.Error()))
 	}
+	blockedJwtIndexNames = names
 }
 
 // AddBlockedJwt adds a JWT token to the blocked list with the specified expiration time
