@@ -3,13 +3,13 @@ package managementuser
 import (
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 // enum for the subject type
 
 type Permission struct {
-	ID           primitive.ObjectID  `json:"id,omitempty" bson:"_id,omitempty"`
+	ID           bson.ObjectID       `json:"id,omitempty" bson:"_id,omitempty"`
 	SubjectID    string              `json:"subjectId,omitempty" bson:"subjectId,omitempty"`
 	SubjectType  string              `json:"subjectType,omitempty" bson:"subjectType,omitempty"`
 	ResourceType string              `json:"resourceType,omitempty" bson:"resourceType,omitempty"`
@@ -25,7 +25,7 @@ type Permission struct {
 // Action is the action that is allowed e.g., download_responses, upload_survey, etc.
 
 type ManagementUser struct {
-	ID          primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
+	ID          bson.ObjectID      `json:"id,omitempty" bson:"_id,omitempty"`
 	Sub         string             `json:"sub,omitempty" bson:"sub,omitempty"`
 	Email       string             `json:"email,omitempty" bson:"email,omitempty"`
 	Username    string             `json:"username,omitempty" bson:"username,omitempty"`
@@ -37,42 +37,42 @@ type ManagementUser struct {
 }
 
 type Session struct {
-	ID         primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
-	UserID     string             `json:"userId,omitempty" bson:"userId,omitempty"`
-	RenewToken string             `json:"renewToken,omitempty" bson:"renewToken,omitempty"`
-	CreatedAt  time.Time          `json:"createdAt,omitempty" bson:"createdAt,omitempty"`
+	ID         bson.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
+	UserID     string        `json:"userId,omitempty" bson:"userId,omitempty"`
+	RenewToken string        `json:"renewToken,omitempty" bson:"renewToken,omitempty"`
+	CreatedAt  time.Time     `json:"createdAt,omitempty" bson:"createdAt,omitempty"`
 }
 
 type ServiceUser struct {
-	ID          primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
-	Label       string             `json:"label,omitempty" bson:"label,omitempty"`
-	Description string             `json:"description,omitempty" bson:"description,omitempty"`
-	CreatedAt   time.Time          `json:"createdAt,omitempty" bson:"createdAt,omitempty"`
+	ID          bson.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
+	Label       string        `json:"label,omitempty" bson:"label,omitempty"`
+	Description string        `json:"description,omitempty" bson:"description,omitempty"`
+	CreatedAt   time.Time     `json:"createdAt,omitempty" bson:"createdAt,omitempty"`
 }
 
 type ServiceUserAPIKey struct {
-	ID            primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
-	ServiceUserID string             `json:"serviceUserId,omitempty" bson:"serviceUserId,omitempty"`
-	Key           string             `json:"key,omitempty" bson:"key,omitempty"`
-	ExpiresAt     *time.Time         `json:"expiresAt,omitempty" bson:"expiresAt,omitempty"`
-	CreatedAt     time.Time          `json:"createdAt,omitempty" bson:"createdAt,omitempty"`
-	LastUsedAt    time.Time          `json:"lastUsedAt,omitempty" bson:"lastUsedAt,omitempty"`
+	ID            bson.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
+	ServiceUserID string        `json:"serviceUserId,omitempty" bson:"serviceUserId,omitempty"`
+	Key           string        `json:"key,omitempty" bson:"key,omitempty"`
+	ExpiresAt     *time.Time    `json:"expiresAt,omitempty" bson:"expiresAt,omitempty"`
+	CreatedAt     time.Time     `json:"createdAt,omitempty" bson:"createdAt,omitempty"`
+	LastUsedAt    time.Time     `json:"lastUsedAt,omitempty" bson:"lastUsedAt,omitempty"`
 }
 
 type AppRole struct {
-	ID          primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
-	SubjectID   string             `json:"subjectId,omitempty" bson:"subjectId,omitempty"`
-	SubjectType string             `json:"subjectType,omitempty" bson:"subjectType,omitempty"`
-	AppName     string             `json:"appName,omitempty" bson:"appName,omitempty"`
-	Role        string             `json:"role,omitempty" bson:"role,omitempty"`
-	CreatedAt   time.Time          `json:"createdAt,omitempty" bson:"createdAt,omitempty"`
+	ID          bson.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
+	SubjectID   string        `json:"subjectId,omitempty" bson:"subjectId,omitempty"`
+	SubjectType string        `json:"subjectType,omitempty" bson:"subjectType,omitempty"`
+	AppName     string        `json:"appName,omitempty" bson:"appName,omitempty"`
+	Role        string        `json:"role,omitempty" bson:"role,omitempty"`
+	CreatedAt   time.Time     `json:"createdAt,omitempty" bson:"createdAt,omitempty"`
 }
 
 type AppRoleTemplate struct {
-	ID                  primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
-	AppName             string             `json:"appName,omitempty" bson:"appName,omitempty"`
-	Role                string             `json:"role,omitempty" bson:"role,omitempty"`
-	RequiredPermissions []Permission       `json:"requiredPermissions,omitempty" bson:"requiredPermissions,omitempty"`
-	CreatedAt           time.Time          `json:"createdAt,omitempty" bson:"createdAt,omitempty"`
-	UpdatedAt           time.Time          `json:"updatedAt,omitempty" bson:"updatedAt,omitempty"`
+	ID                  bson.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
+	AppName             string        `json:"appName,omitempty" bson:"appName,omitempty"`
+	Role                string        `json:"role,omitempty" bson:"role,omitempty"`
+	RequiredPermissions []Permission  `json:"requiredPermissions,omitempty" bson:"requiredPermissions,omitempty"`
+	CreatedAt           time.Time     `json:"createdAt,omitempty" bson:"createdAt,omitempty"`
+	UpdatedAt           time.Time     `json:"updatedAt,omitempty" bson:"updatedAt,omitempty"`
 }

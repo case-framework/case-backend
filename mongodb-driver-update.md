@@ -2,7 +2,7 @@
 
 - The bson/primitive package has been merged into the bson package —> changed any instance of primitive.ObjectID to bson.ObjectId.
 
-## DB
+## All DB packages
 
 - context.Context parameter has been removed from mongo.Connect() because the deployment connector doesn’t accept a context, meaning that the context passed to mongo.Connect() in previous versions didn't serve a purpose.
 - Simplfied DropOne and DropAll methods by removing the server response

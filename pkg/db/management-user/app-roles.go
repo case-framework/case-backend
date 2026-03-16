@@ -2,14 +2,12 @@ package managementuser
 
 import (
 	"errors"
-	"fmt"
 	"log/slog"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 // store which users have which roles
@@ -21,6 +19,8 @@ func (dbService *ManagementUserDBService) collectionAppRoles(instanceID string) 
 func (dbService *ManagementUserDBService) collectionAppRoleTemplates(instanceID string) *mongo.Collection {
 	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_APP_ROLE_TEMPLATES)
 }
+
+var appRoleIndexNames []string
 
 var indexesForAppRolesCollection = []mongo.IndexModel{
 	{
@@ -46,18 +46,17 @@ func (dbService *ManagementUserDBService) DropIndexForAppRolesCollection(instanc
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 	if dropAll {
-		_, err := dbService.collectionAppRoles(instanceID).Indexes().DropAll(ctx)
+		err := dbService.collectionAppRoles(instanceID).Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for app roles", slog.String("error", err.Error()))
 		}
 	} else {
-		for _, index := range indexesForAppRolesCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for app roles collection", slog.String("index", fmt.Sprintf("%+v", index)))
+		for _, indexName := range appRoleIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for app roles collection")
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := dbService.collectionAppRoles(instanceID).Indexes().DropOne(ctx, indexName)
+			err := dbService.collectionAppRoles(instanceID).Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for app roles", slog.String("error", err.Error()), slog.String("indexName", indexName))
 			}
@@ -69,11 +68,14 @@ func (dbService *ManagementUserDBService) CreateDefaultIndexesForAppRolesCollect
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_, err := dbService.collectionAppRoles(instanceID).Indexes().CreateMany(ctx, indexesForAppRolesCollection)
+	names, err := dbService.collectionAppRoles(instanceID).Indexes().CreateMany(ctx, indexesForAppRolesCollection)
 	if err != nil {
 		slog.Error("Error creating index for app roles", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 	}
+	appRoleIndexNames = names
 }
+
+var appRoleTemplateIndexNames []string
 
 var indexesForAppRoleTemplatesCollection = []mongo.IndexModel{
 	{
@@ -90,18 +92,17 @@ func (dbService *ManagementUserDBService) DropIndexForAppRoleTemplatesCollection
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 	if dropAll {
-		_, err := dbService.collectionAppRoleTemplates(instanceID).Indexes().DropAll(ctx)
+		err := dbService.collectionAppRoleTemplates(instanceID).Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for app role templates", slog.String("error", err.Error()))
 		}
 	} else {
-		for _, index := range indexesForAppRoleTemplatesCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for app role templates collection: ", slog.String("index", fmt.Sprintf("%+v", index)))
+		for _, indexName := range appRoleTemplateIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for app role templates collection")
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := dbService.collectionAppRoleTemplates(instanceID).Indexes().DropOne(ctx, indexName)
+			err := dbService.collectionAppRoleTemplates(instanceID).Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for app role templates", slog.String("error", err.Error()), slog.String("indexName", indexName))
 			}
@@ -113,10 +114,11 @@ func (dbService *ManagementUserDBService) CreateDefaultIndexesForAppRoleTemplate
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_, err := dbService.collectionAppRoleTemplates(instanceID).Indexes().CreateMany(ctx, indexesForAppRoleTemplatesCollection)
+	names, err := dbService.collectionAppRoleTemplates(instanceID).Indexes().CreateMany(ctx, indexesForAppRoleTemplatesCollection)
 	if err != nil {
 		slog.Error("Error creating index for app role templates", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 	}
+	appRoleTemplateIndexNames = names
 }
 
 /// App role templates
@@ -141,7 +143,7 @@ func (dbService *ManagementUserDBService) AddAppRoleTemplate(
 	if err != nil {
 		return err
 	}
-	appRoleTemplate.ID = res.InsertedID.(primitive.ObjectID)
+	appRoleTemplate.ID = res.InsertedID.(bson.ObjectID)
 	return nil
 }
 
@@ -174,7 +176,7 @@ func (dbService *ManagementUserDBService) GetAppRoleTemplateByID(
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	objID, err := primitive.ObjectIDFromHex(appRoleTemplateID)
+	objID, err := bson.ObjectIDFromHex(appRoleTemplateID)
 	if err != nil {
 		return AppRoleTemplate{}, err
 	}
@@ -198,7 +200,7 @@ func (dbService *ManagementUserDBService) UpdateAppRoleTemplate(
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	objID, err := primitive.ObjectIDFromHex(appRoleTemplateID)
+	objID, err := bson.ObjectIDFromHex(appRoleTemplateID)
 	if err != nil {
 		return err
 	}
@@ -228,7 +230,7 @@ func (dbService *ManagementUserDBService) DeleteAppRoleTemplate(
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	objID, err := primitive.ObjectIDFromHex(appRoleTemplateID)
+	objID, err := bson.ObjectIDFromHex(appRoleTemplateID)
 	if err != nil {
 		return err
 	}
@@ -272,7 +274,7 @@ func (dbService *ManagementUserDBService) AddAppRoleForSubject(
 	if err != nil {
 		return err
 	}
-	appRole.ID = res.InsertedID.(primitive.ObjectID)
+	appRole.ID = res.InsertedID.(bson.ObjectID)
 	return nil
 }
 
@@ -327,7 +329,7 @@ func (dbService *ManagementUserDBService) DeleteAppRole(
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	objID, err := primitive.ObjectIDFromHex(appRoleID)
+	objID, err := bson.ObjectIDFromHex(appRoleID)
 	if err != nil {
 		return err
 	}
