@@ -13,7 +13,7 @@ import (
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 	umTypes "github.com/case-framework/case-backend/pkg/user-management/types"
 	umUtils "github.com/case-framework/case-backend/pkg/user-management/utils"
-	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 func handleScheduledMessages(wg *sync.WaitGroup) {

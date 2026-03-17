@@ -29,7 +29,7 @@ type ParticipantUserDBService struct {
 }
 
 func NewParticipantUserDBService(configs db.DBConfig) (*ParticipantUserDBService, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(configs.Timeout)*time.Second)
+	_, cancel := context.WithTimeout(context.Background(), time.Duration(configs.Timeout)*time.Second)
 	defer cancel()
 
 	dbClient, err := mongo.Connect(
