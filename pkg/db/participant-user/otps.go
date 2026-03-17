@@ -1,6 +1,7 @@
 package participantuser
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"time"
@@ -78,7 +79,7 @@ func (dbService *ParticipantUserDBService) CreateOTP(instanceID string, userID s
 	}
 	defer session.EndSession(ctx)
 
-	createOTPIfLimitNotReached := func(sessCtx mongo.SessionContext) error {
+	createOTPIfLimitNotReached := func(sessCtx context.Context) error {
 
 		filter := bson.M{"userID": userID}
 		count, err := dbService.collectionOTPs(instanceID).CountDocuments(sessCtx, filter)
@@ -99,7 +100,6 @@ func (dbService *ParticipantUserDBService) CreateOTP(instanceID string, userID s
 		_, err = dbService.collectionOTPs(instanceID).InsertOne(sessCtx, otp)
 		return err
 	}
-
 	return mongo.WithSession(ctx, session, createOTPIfLimitNotReached)
 }
 
