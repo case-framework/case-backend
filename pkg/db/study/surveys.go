@@ -6,13 +6,14 @@ import (
 	"log/slog"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
+
+var surveyIndexNames []string
 
 var indexesForSurveysCollection = []mongo.IndexModel{
 	{
@@ -50,18 +51,17 @@ func (dbService *StudyDBService) DropIndexForSurveysCollection(instanceID string
 	defer cancel()
 
 	if dropAll {
-		_, err := dbService.collectionSurveys(instanceID, studyKey).Indexes().DropAll(ctx)
+		err := dbService.collectionSurveys(instanceID, studyKey).Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for surveys", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 		}
 	} else {
-		for _, index := range indexesForSurveysCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for surveys collection", slog.String("index", fmt.Sprintf("%+v", index)))
+		for _, indexName := range surveyIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for surveys collection", slog.String("index", fmt.Sprintf("%+v", indexName)))
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := dbService.collectionSurveys(instanceID, studyKey).Indexes().DropOne(ctx, indexName)
+			err := dbService.collectionSurveys(instanceID, studyKey).Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for surveys", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("indexName", indexName))
 			}
@@ -74,10 +74,11 @@ func (dbService *StudyDBService) CreateDefaultIndexesForSurveysCollection(instan
 	defer cancel()
 
 	collection := dbService.collectionSurveys(instanceID, studyKey)
-	_, err := collection.Indexes().CreateMany(ctx, indexesForSurveysCollection)
+	names, err := collection.Indexes().CreateMany(ctx, indexesForSurveysCollection)
 	if err != nil {
 		slog.Error("Error creating index for surveys", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 	}
+	surveyIndexNames = names
 }
 
 func (dbService *StudyDBService) SaveSurveyVersion(instanceID string, studyKey string, survey *studyTypes.Survey) (err error) {
@@ -88,7 +89,7 @@ func (dbService *StudyDBService) SaveSurveyVersion(instanceID string, studyKey s
 	if err != nil {
 		return err
 	}
-	survey.ID = ret.InsertedID.(primitive.ObjectID)
+	survey.ID = ret.InsertedID.(bson.ObjectID)
 
 	return nil
 }
@@ -101,26 +102,21 @@ func (dbService *StudyDBService) GetSurveyKeysForStudy(instanceID string, studyK
 	if !includeUnpublished {
 		filter["unpublished"] = 0
 	}
-	res, err := dbService.collectionSurveys(instanceID, studyKey).Distinct(ctx, "surveyDefinition.key", filter)
-	if err != nil {
-		return surveyKeys, err
+	if err = dbService.collectionSurveys(instanceID, studyKey).Distinct(ctx, "surveyDefinition.key", filter).Decode(&surveyKeys); err != nil {
+		return nil, err
 	}
-	surveyKeys = make([]string, len(res))
-	for i, r := range res {
-		surveyKeys[i] = r.(string)
-	}
-	return surveyKeys, err
+	return surveyKeys, nil
 }
 
 var (
 	sortByPublishedDesc = bson.D{
-		primitive.E{Key: "published", Value: -1},
+		{Key: "published", Value: -1},
 	}
 
 	projectionToRemoveSurveyContentAndRules = bson.D{
-		primitive.E{Key: "surveyDefinition.items", Value: 0},
-		primitive.E{Key: "prefillRules", Value: 0},
-		primitive.E{Key: "contextRules", Value: 0},
+		{Key: "surveyDefinition.items", Value: 0},
+		{Key: "prefillRules", Value: 0},
+		{Key: "contextRules", Value: 0},
 	}
 )
 
@@ -132,11 +128,9 @@ func (dbService *StudyDBService) GetSurveyVersions(instanceID string, studyKey s
 	if len(surveyKey) > 0 {
 		filter["surveyDefinition.key"] = surveyKey
 	}
-	opts := &options.FindOptions{}
-
-	opts.SetProjection(projectionToRemoveSurveyContentAndRules)
-
-	opts.SetSort(sortByPublishedDesc)
+	opts := options.Find().
+		SetProjection(projectionToRemoveSurveyContentAndRules).
+		SetSort(sortByPublishedDesc)
 
 	cur, err := dbService.collectionSurveys(instanceID, studyKey).Find(
 		ctx,
@@ -181,8 +175,7 @@ func (dbService *StudyDBService) GetCurrentSurveyVersion(instanceID string, stud
 		},
 	}
 
-	opts := &options.FindOneOptions{}
-	opts.SetSort(sortByPublishedDesc)
+	opts := options.FindOne().SetSort(sortByPublishedDesc)
 
 	err = dbService.collectionSurveys(instanceID, studyKey).FindOne(ctx, filter, opts).Decode(&survey)
 	if err != nil {

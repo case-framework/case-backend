@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"log/slog"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
+
+var studyInfoIndexNames []string
 
 var indexesForStudyInfosCollection = []mongo.IndexModel{
 	{
@@ -26,18 +27,17 @@ func (dbService *StudyDBService) DropIndexForStudyInfosCollection(instanceID str
 	defer cancel()
 
 	if dropAll {
-		_, err := dbService.collectionStudyInfos(instanceID).Indexes().DropAll(ctx)
+		err := dbService.collectionStudyInfos(instanceID).Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for studyInfos", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 		}
 	} else {
-		for _, index := range indexesForStudyInfosCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for studyInfos collection", slog.String("index", fmt.Sprintf("%+v", index)))
+		for _, indexName := range studyInfoIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for studyInfos collection", slog.String("index", fmt.Sprintf("%+v", indexName)))
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := dbService.collectionStudyInfos(instanceID).Indexes().DropOne(ctx, indexName)
+			err := dbService.collectionStudyInfos(instanceID).Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for studyInfos", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("indexName", indexName))
 			}
@@ -49,10 +49,11 @@ func (dbService *StudyDBService) CreateDefaultIndexesForStudyInfosCollection(ins
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_, err := dbService.collectionStudyInfos(instanceID).Indexes().CreateMany(ctx, indexesForStudyInfosCollection)
+	names, err := dbService.collectionStudyInfos(instanceID).Indexes().CreateMany(ctx, indexesForStudyInfosCollection)
 	if err != nil {
 		slog.Error("Error creating index for studyInfos", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 	}
+	studyInfoIndexNames = names
 }
 
 // get studies
@@ -68,9 +69,9 @@ func (dbService *StudyDBService) GetStudies(instanceID string, statusFilter stri
 	opts := options.Find()
 	if onlyKeys {
 		projection := bson.D{
-			primitive.E{Key: "key", Value: 1},
-			primitive.E{Key: "secretKey", Value: 1},
-			primitive.E{Key: "configs.idMappingMethod", Value: 1},
+			{Key: "key", Value: 1},
+			{Key: "secretKey", Value: 1},
+			{Key: "configs.idMappingMethod", Value: 1},
 		}
 		opts.SetProjection(projection)
 	}

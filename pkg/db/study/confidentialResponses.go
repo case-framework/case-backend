@@ -82,10 +82,10 @@ func (dbService *StudyDBService) ReplaceConfidentialResponse(instanceID string, 
 	}
 
 	upsert := true
-	options := options.ReplaceOptions{
-		Upsert: &upsert,
-	}
-	_, err := dbService.collectionConfidentialResponses(instanceID, studyKey).ReplaceOne(ctx, filter, response, &options)
+	options := options.Replace().
+		SetUpsert(upsert)
+
+	_, err := dbService.collectionConfidentialResponses(instanceID, studyKey).ReplaceOne(ctx, filter, response, options)
 	return err
 }
 

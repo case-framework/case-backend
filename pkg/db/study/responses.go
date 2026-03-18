@@ -7,13 +7,14 @@ import (
 	"log/slog"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
+
+var responseIndexNames []string
 
 var indexesForResponsesCollection = []mongo.IndexModel{
 	{
@@ -55,18 +56,17 @@ func (dbService *StudyDBService) DropIndexForResponsesCollection(instanceID stri
 	defer cancel()
 
 	if dropAll {
-		_, err := dbService.collectionResponses(instanceID, studyKey).Indexes().DropAll(ctx)
+		err := dbService.collectionResponses(instanceID, studyKey).Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for responses", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 		}
 	} else {
-		for _, index := range indexesForResponsesCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for responses collection", slog.String("index", fmt.Sprintf("%+v", index)))
+		for _, indexName := range responseIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for responses collection", slog.String("index", fmt.Sprintf("%+v", indexName)))
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := dbService.collectionResponses(instanceID, studyKey).Indexes().DropOne(ctx, indexName)
+			err := dbService.collectionResponses(instanceID, studyKey).Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for responses", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("indexName", indexName))
 			}
@@ -79,10 +79,11 @@ func (dbService *StudyDBService) CreateDefaultIndexesForResponsesCollection(inst
 	defer cancel()
 
 	collection := dbService.collectionResponses(instanceID, studyKey)
-	_, err := collection.Indexes().CreateMany(ctx, indexesForResponsesCollection)
+	names, err := collection.Indexes().CreateMany(ctx, indexesForResponsesCollection)
 	if err != nil {
 		slog.Error("Error creating index for responses", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 	}
+	responseIndexNames = names
 }
 
 func (dbService *StudyDBService) AddSurveyResponse(instanceID string, studyKey string, response studyTypes.SurveyResponse) (string, error) {
@@ -93,7 +94,7 @@ func (dbService *StudyDBService) AddSurveyResponse(instanceID string, studyKey s
 		response.ArrivedAt = time.Now().Unix()
 	}
 	res, err := dbService.collectionResponses(instanceID, studyKey).InsertOne(ctx, response)
-	id := res.InsertedID.(primitive.ObjectID)
+	id := res.InsertedID.(bson.ObjectID)
 	return id.Hex(), err
 }
 
@@ -102,7 +103,7 @@ func (dbService *StudyDBService) GetResponseByID(instanceID string, studyKey str
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(responseID)
+	_id, err := bson.ObjectIDFromHex(responseID)
 	if err != nil {
 		return response, err
 	}
@@ -158,11 +159,11 @@ func (dbService *StudyDBService) GetResponsesCount(instanceID string, studyKey s
 }
 
 type ResponseInfo struct {
-	ID            primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	Key           string             `bson:"key" json:"key"`
-	ParticipantID string             `bson:"participantID" json:"participantId"`
-	VersionID     string             `bson:"versionID" json:"versionId"`
-	ArrivedAt     int64              `bson:"arrivedAt" json:"arrivedAt"`
+	ID            bson.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	Key           string        `bson:"key" json:"key"`
+	ParticipantID string        `bson:"participantID" json:"participantId"`
+	VersionID     string        `bson:"versionID" json:"versionId"`
+	ArrivedAt     int64         `bson:"arrivedAt" json:"arrivedAt"`
 }
 
 func (dbService *StudyDBService) GetResponseInfos(instanceID string, studyKey string, filter bson.M, page int64, limit int64) (responseInfos []ResponseInfo, paginationInfo *PaginationInfos, err error) {
@@ -183,7 +184,7 @@ func (dbService *StudyDBService) GetResponseInfos(instanceID string, studyKey st
 	skip := (paginationInfo.CurrentPage - 1) * paginationInfo.PageSize
 
 	sortBySubmittedAt := bson.D{
-		primitive.E{Key: "submittedAt", Value: -1},
+		{Key: "submittedAt", Value: -1},
 	}
 
 	opts := options.Find()
@@ -192,11 +193,11 @@ func (dbService *StudyDBService) GetResponseInfos(instanceID string, studyKey st
 	opts.SetLimit(paginationInfo.PageSize)
 
 	projection := bson.D{
-		primitive.E{Key: "_id", Value: 1},
-		primitive.E{Key: "key", Value: 1},
-		primitive.E{Key: "participantID", Value: 1},
-		primitive.E{Key: "versionID", Value: 1},
-		primitive.E{Key: "arrivedAt", Value: 1},
+		{Key: "_id", Value: 1},
+		{Key: "key", Value: 1},
+		{Key: "participantID", Value: 1},
+		{Key: "versionID", Value: 1},
+		{Key: "arrivedAt", Value: 1},
 	}
 	opts.SetProjection(projection)
 
@@ -252,7 +253,7 @@ func (dbService *StudyDBService) DeleteResponseByID(instanceID string, studyKey 
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(responseID)
+	_id, err := bson.ObjectIDFromHex(responseID)
 	if err != nil {
 		return err
 	}

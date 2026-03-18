@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"log/slog"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
+
+var studyRuleIndexNames []string
 
 var indexesForStudyRulesCollection = []mongo.IndexModel{
 	{
@@ -35,18 +36,17 @@ func (dbService *StudyDBService) DropIndexForStudyRulesCollection(instanceID str
 	collection := dbService.collectionStudyRules(instanceID)
 
 	if dropAll {
-		_, err := collection.Indexes().DropAll(ctx)
+		err := collection.Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for studyRules", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 		}
 	} else {
-		for _, index := range indexesForStudyRulesCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for studyRules collection", slog.String("index", fmt.Sprintf("%+v", index)))
+		for _, indexName := range studyRuleIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for studyRules collection", slog.String("index", fmt.Sprintf("%+v", indexName)))
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := collection.Indexes().DropOne(ctx, indexName)
+			err := collection.Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for studyRules", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("indexName", indexName))
 			}
@@ -59,10 +59,11 @@ func (dbService *StudyDBService) CreateDefaultIndexesForStudyRulesCollection(ins
 	defer cancel()
 
 	collection := dbService.collectionStudyRules(instanceID)
-	_, err := collection.Indexes().CreateMany(ctx, indexesForStudyRulesCollection)
+	names, err := collection.Indexes().CreateMany(ctx, indexesForStudyRulesCollection)
 	if err != nil {
 		slog.Error("Error creating index for studyRules", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 	}
+	studyRuleIndexNames = names
 }
 
 func (dbService *StudyDBService) deleteStudyRules(instanceID string, studyKey string) error {
@@ -90,16 +91,14 @@ func (dbService *StudyDBService) GetCurrentStudyRules(instanceID string, studyKe
 	collection := dbService.collectionStudyRules(instanceID)
 
 	sortByPublished := bson.D{
-		primitive.E{Key: "uploadedAt", Value: -1},
+		{Key: "uploadedAt", Value: -1},
 	}
 
 	filter := bson.M{
 		"studyKey": studyKey,
 	}
 
-	opts := &options.FindOneOptions{
-		Sort: sortByPublished,
-	}
+	opts := options.FindOne().SetSort(sortByPublished)
 
 	err = collection.FindOne(ctx, filter, opts).Decode(&rules)
 	if err != nil {
@@ -115,7 +114,7 @@ func (dbService *StudyDBService) GetStudyRulesByID(instanceID string, studyKey s
 
 	collection := dbService.collectionStudyRules(instanceID)
 
-	_id, err := primitive.ObjectIDFromHex(id)
+	_id, err := bson.ObjectIDFromHex(id)
 	if err != nil {
 		return rules, err
 	}
@@ -140,7 +139,7 @@ func (dbService *StudyDBService) DeleteStudyRulesByID(instanceID string, studyKe
 
 	collection := dbService.collectionStudyRules(instanceID)
 
-	_id, err := primitive.ObjectIDFromHex(id)
+	_id, err := bson.ObjectIDFromHex(id)
 	if err != nil {
 		return err
 	}
@@ -169,8 +168,8 @@ func (dbService *StudyDBService) GetStudyRulesHistory(instanceID string, studyKe
 
 	opts := options.Find().SetSort(bson.D{{Key: "uploadedAt", Value: -1}})
 	opts.SetProjection(bson.D{
-		primitive.E{Key: "rules", Value: 0},
-		primitive.E{Key: "serialisedRules", Value: 0},
+		{Key: "rules", Value: 0},
+		{Key: "serialisedRules", Value: 0},
 	})
 	cursor, err := collection.Find(ctx, filter, opts)
 	if err != nil {

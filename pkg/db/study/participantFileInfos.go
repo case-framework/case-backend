@@ -5,13 +5,14 @@ import (
 	"log/slog"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	studytypes "github.com/case-framework/case-backend/pkg/study/types"
 )
+
+var participantFileIndexNames []string
 
 var indexesForParticipantFilesCollection = []mongo.IndexModel{
 	{
@@ -36,18 +37,17 @@ func (dbService *StudyDBService) DropIndexForParticipantFilesCollection(instance
 	collection := dbService.collectionFiles(instanceID, studyKey)
 
 	if dropAll {
-		_, err := collection.Indexes().DropAll(ctx)
+		err := collection.Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for participant files", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 		}
 	} else {
-		for _, index := range indexesForParticipantFilesCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for participant files collection", slog.String("index", fmt.Sprintf("%+v", index)), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
+		for _, indexName := range participantFileIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for participant files collection", slog.String("index", fmt.Sprintf("%+v", indexName)), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := collection.Indexes().DropOne(ctx, indexName)
+			err := collection.Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for participant files", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("indexName", indexName))
 			}
@@ -60,10 +60,11 @@ func (dbService *StudyDBService) CreateDefaultIndexesForParticipantFilesCollecti
 	defer cancel()
 
 	collection := dbService.collectionFiles(instanceID, studyKey)
-	_, err := collection.Indexes().CreateMany(ctx, indexesForParticipantFilesCollection)
+	names, err := collection.Indexes().CreateMany(ctx, indexesForParticipantFilesCollection)
 	if err != nil {
 		slog.Error("Error creating index for participant files", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 	}
+	participantFileIndexNames = names
 }
 
 // get one by id
@@ -71,7 +72,7 @@ func (dbService *StudyDBService) GetParticipantFileInfoByID(instanceID string, s
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(fileInfoID)
+	_id, err := bson.ObjectIDFromHex(fileInfoID)
 	if err != nil {
 		return participantFileInfo, err
 	}
@@ -89,7 +90,7 @@ func (dbService *StudyDBService) DeleteParticipantFileInfoByID(instanceID string
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(fileInfoID)
+	_id, err := bson.ObjectIDFromHex(fileInfoID)
 	if err != nil {
 		return err
 	}
@@ -132,7 +133,7 @@ func (dbService *StudyDBService) GetParticipantFileInfos(instanceID string, stud
 	)
 
 	sortByCreatedAt := bson.D{
-		primitive.E{Key: "createdAt", Value: -1},
+		{Key: "createdAt", Value: -1},
 	}
 
 	opts := options.Find()
@@ -161,7 +162,7 @@ func (dbService *StudyDBService) CreateParticipantFileInfo(instanceID string, st
 		return fileInfo, err
 	}
 
-	if oid, ok := result.InsertedID.(primitive.ObjectID); ok {
+	if oid, ok := result.InsertedID.(bson.ObjectID); ok {
 		fileInfo.ID = oid
 	}
 
@@ -173,7 +174,7 @@ func (dbService *StudyDBService) UpdateParticipantFileInfoPathAndStatus(instance
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(fileInfoID)
+	_id, err := bson.ObjectIDFromHex(fileInfoID)
 	if err != nil {
 		return err
 	}

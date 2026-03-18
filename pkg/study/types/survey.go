@@ -1,6 +1,6 @@
 package types
 
-import "go.mongodb.org/mongo-driver/bson/primitive"
+import "go.mongodb.org/mongo-driver/v2/bson"
 
 const (
 	SURVEY_AVAILABLE_FOR_PUBLIC                   = "public"
@@ -10,14 +10,14 @@ const (
 )
 
 type Survey struct {
-	ID                           primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	SurveyKey                    string             `bson:"surveyKey,omitempty" json:"surveyKey,omitempty"`
-	Props                        SurveyProps        `bson:"props,omitempty" json:"props,omitempty"`
-	PrefillRules                 []Expression       `bson:"prefillRules,omitempty" json:"prefillRules,omitempty"`
-	ContextRules                 *SurveyContextDef  `bson:"contextRules,omitempty" json:"contextRules,omitempty"`
-	MaxItemsPerPage              *MaxItemsPerPage   `bson:"maxItemsPerPage,omitempty" json:"maxItemsPerPage,omitempty"`
-	AvailableFor                 string             `bson:"availableFor,omitempty" json:"availableFor,omitempty"`
-	RequireLoginBeforeSubmission bool               `bson:"requireLoginBeforeSubmission,omitempty" json:"requireLoginBeforeSubmission,omitempty"`
+	ID                           bson.ObjectID     `bson:"_id,omitempty" json:"id,omitempty"`
+	SurveyKey                    string            `bson:"surveyKey,omitempty" json:"surveyKey,omitempty"`
+	Props                        SurveyProps       `bson:"props,omitempty" json:"props,omitempty"`
+	PrefillRules                 []Expression      `bson:"prefillRules,omitempty" json:"prefillRules,omitempty"`
+	ContextRules                 *SurveyContextDef `bson:"contextRules,omitempty" json:"contextRules,omitempty"`
+	MaxItemsPerPage              *MaxItemsPerPage  `bson:"maxItemsPerPage,omitempty" json:"maxItemsPerPage,omitempty"`
+	AvailableFor                 string            `bson:"availableFor,omitempty" json:"availableFor,omitempty"`
+	RequireLoginBeforeSubmission bool              `bson:"requireLoginBeforeSubmission,omitempty" json:"requireLoginBeforeSubmission,omitempty"`
 
 	Published        int64             `bson:"published,omitempty" json:"published,omitempty"`
 	Unpublished      int64             `bson:"unpublished,omitempty" json:"unpublished,omitempty"`

@@ -7,13 +7,14 @@ import (
 	"log/slog"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
+
+var participantIndexNames []string
 
 var indexesForParticipantsCollection = []mongo.IndexModel{
 	{
@@ -56,18 +57,17 @@ func (dbService *StudyDBService) DropIndexForParticipantsCollection(instanceID s
 	collection := dbService.collectionParticipants(instanceID, studyKey)
 
 	if dropAll {
-		_, err := collection.Indexes().DropAll(ctx)
+		err := collection.Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for participants", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 		}
 	} else {
-		for _, index := range indexesForParticipantsCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for participants collection", slog.String("index", fmt.Sprintf("%+v", index)))
+		for _, indexName := range participantIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for participants collection", slog.String("index", fmt.Sprintf("%+v", indexName)))
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := collection.Indexes().DropOne(ctx, indexName)
+			err := collection.Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for participants", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("indexName", indexName))
 			}
@@ -80,10 +80,11 @@ func (dbService *StudyDBService) CreateDefaultIndexesForParticipantsCollection(i
 	defer cancel()
 
 	collection := dbService.collectionParticipants(instanceID, studyKey)
-	_, err := collection.Indexes().CreateMany(ctx, indexesForParticipantsCollection)
+	names, err := collection.Indexes().CreateMany(ctx, indexesForParticipantsCollection)
 	if err != nil {
 		slog.Error("Error creating index for participants", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 	}
+	participantIndexNames = names
 }
 
 func (dbService *StudyDBService) SaveParticipantState(instanceID string, studyKey string, pState studyTypes.Participant) (studyTypes.Participant, error) {
@@ -95,13 +96,12 @@ func (dbService *StudyDBService) SaveParticipantState(instanceID string, studyKe
 
 	upsert := true
 	rd := options.After
-	qOpts := options.FindOneAndReplaceOptions{
-		Upsert:         &upsert,
-		ReturnDocument: &rd,
-	}
+	qOpts := options.FindOneAndReplace().
+		SetUpsert(upsert).
+		SetReturnDocument(rd)
 	elem := studyTypes.Participant{}
 	err := dbService.collectionParticipants(instanceID, studyKey).FindOneAndReplace(
-		ctx, filter, pState, &qOpts,
+		ctx, filter, pState, qOpts,
 	).Decode(&elem)
 	return elem, err
 }
@@ -117,7 +117,7 @@ func (dbService *StudyDBService) UpdateParticipantIfNotModified(instanceID strin
 		filter["modifiedAt"] = bson.M{"$lte": pState.ModifiedAt}
 	}
 
-	pState.ID = primitive.NilObjectID
+	pState.ID = bson.NilObjectID
 	pState.ModifiedAt = time.Now().Unix()
 
 	update := bson.M{"$set": pState}

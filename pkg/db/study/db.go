@@ -38,7 +38,7 @@ type StudyDBService struct {
 }
 
 func NewStudyDBService(configs db.DBConfig) (*StudyDBService, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(configs.Timeout)*time.Second)
+	_, cancel := context.WithTimeout(context.Background(), time.Duration(configs.Timeout)*time.Second)
 	defer cancel()
 
 	dbClient, err := mongo.Connect(

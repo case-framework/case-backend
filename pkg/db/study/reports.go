@@ -7,10 +7,9 @@ import (
 	"log/slog"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
@@ -22,6 +21,8 @@ type ReportKeyFilters struct {
 	FromTS        int64
 	ToTS          int64
 }
+
+var reportIndexNames []string
 
 var indexesForReportsCollection = []mongo.IndexModel{
 	{
@@ -53,18 +54,17 @@ func (dbService *StudyDBService) DropIndexForReportsCollection(instanceID string
 	collection := dbService.collectionReports(instanceID, studyKey)
 
 	if dropAll {
-		_, err := collection.Indexes().DropAll(ctx)
+		err := collection.Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for reports", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 		}
 	} else {
-		for _, index := range indexesForReportsCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for reports collection", slog.String("index", fmt.Sprintf("%+v", index)))
+		for _, indexName := range reportIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for reports collection", slog.String("index", fmt.Sprintf("%+v", indexName)))
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := collection.Indexes().DropOne(ctx, indexName)
+			err := collection.Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for reports", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("indexName", indexName))
 			}
@@ -77,10 +77,11 @@ func (dbService *StudyDBService) CreateDefaultIndexesForReportsCollection(instan
 	defer cancel()
 
 	collection := dbService.collectionReports(instanceID, studyKey)
-	_, err := collection.Indexes().CreateMany(ctx, indexesForReportsCollection)
+	names, err := collection.Indexes().CreateMany(ctx, indexesForReportsCollection)
 	if err != nil {
 		slog.Error("Error creating index for reports", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 	}
+	reportIndexNames = names
 }
 
 func (dbService *StudyDBService) SaveReport(instanceID string, studyKey string, report studyTypes.Report) error {
@@ -95,7 +96,7 @@ func (dbService *StudyDBService) GetReportByID(instanceID string, studyKey strin
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(reportID)
+	_id, err := bson.ObjectIDFromHex(reportID)
 	if err != nil {
 		return report, err
 	}
@@ -127,7 +128,7 @@ func (dbService *StudyDBService) UpdateReportData(
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(reportID)
+	_id, err := bson.ObjectIDFromHex(reportID)
 	if err != nil {
 		return err
 	}
@@ -155,7 +156,7 @@ func (dbService *StudyDBService) UpdateReportData(
 }
 
 var reportSortOnTimestamp = bson.D{
-	primitive.E{Key: "timestamp", Value: -1},
+	{Key: "timestamp", Value: -1},
 }
 
 // get report count for query
@@ -280,16 +281,9 @@ func (dbService *StudyDBService) GetUniqueReportKeysForStudy(
 		}
 	}
 
-	res, err := dbService.collectionReports(instanceID, studyKey).Distinct(ctx, "key", filter)
-	if err != nil {
+	var keys []string
+	if err := dbService.collectionReports(instanceID, studyKey).Distinct(ctx, "key", filter).Decode(&keys); err != nil {
 		return nil, err
-	}
-
-	keys := make([]string, 0, len(res))
-	for _, r := range res {
-		if v, ok := r.(string); ok {
-			keys = append(keys, v)
-		}
 	}
 	return keys, nil
 }
