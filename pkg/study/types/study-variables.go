@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 type StudyVariablesType string
@@ -24,7 +24,7 @@ const (
 )
 
 type StudyVariables struct {
-	ID              primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	ID              bson.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
 	CreatedAt       time.Time          `bson:"createdAt" json:"createdAt"`
 	ConfigUpdatedAt time.Time          `bson:"configUpdatedAt" json:"configUpdatedAt"`
 	ValueUpdatedAt  time.Time          `bson:"valueUpdatedAt" json:"valueUpdatedAt"`
@@ -48,7 +48,7 @@ type StudyVariables struct {
 func (sv *StudyVariables) UnmarshalJSON(data []byte) error {
 	// Define a wire struct that treats Value as raw JSON.
 	type studyVariablesWire struct {
-		ID              primitive.ObjectID `json:"id,omitempty"`
+		ID              bson.ObjectID `json:"id,omitempty"`
 		CreatedAt       time.Time          `json:"createdAt"`
 		ConfigUpdatedAt time.Time          `json:"configUpdatedAt"`
 		ValueUpdatedAt  time.Time          `json:"valueUpdatedAt"`

@@ -7,7 +7,7 @@ import (
 
 	studyDB "github.com/case-framework/case-backend/pkg/db/study"
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
-	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 // Reference/Lookup methods

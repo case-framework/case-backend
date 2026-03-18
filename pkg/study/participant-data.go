@@ -9,7 +9,7 @@ import (
 
 	"github.com/case-framework/case-backend/pkg/study/studyengine"
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
-	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 type AssignedSurveyWithContext struct {
