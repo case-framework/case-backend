@@ -11,8 +11,7 @@ import (
 	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 	studyservice "github.com/case-framework/case-backend/pkg/study"
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 func handleParticipantMessages(wg *sync.WaitGroup) {
@@ -174,7 +173,7 @@ func getRelevantMessages(p studyTypes.Participant) []studyTypes.StudyMessage {
 		if message.ScheduledFor > time.Now().Unix() {
 			continue
 		}
-		_id, err := primitive.ObjectIDFromHex(message.ID)
+		_id, err := bson.ObjectIDFromHex(message.ID)
 		if err != nil {
 			slog.Error("Error parsing message id", slog.String("messageID", message.ID), slog.String("error", err.Error()))
 			continue
