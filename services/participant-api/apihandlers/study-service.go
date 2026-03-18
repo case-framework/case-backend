@@ -15,7 +15,7 @@ import (
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
 	"github.com/case-framework/case-backend/pkg/utils"
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/v2/bson"
 
 	studyService "github.com/case-framework/case-backend/pkg/study"
 	surveydefinition "github.com/case-framework/case-backend/pkg/study/exporter/survey-definition"

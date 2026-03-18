@@ -13,7 +13,7 @@ import (
 	emailTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/v2/bson"
 
 	studyService "github.com/case-framework/case-backend/pkg/study"
 	"github.com/case-framework/case-backend/pkg/user-management/pwhash"
