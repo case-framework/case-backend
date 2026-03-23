@@ -10,14 +10,18 @@ import (
 	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 )
 
-var smsTemplateIndexNames []string
+const idxSMSTemplatesMessageType = "messageType_1"
+
+var defaultSMSTemplateIndexNames = []string{
+	idxSMSTemplatesMessageType,
+}
 
 var indexesForSMSTemplatesCollection = []mongo.IndexModel{
 	{
 		Keys: bson.D{
 			{Key: "messageType", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("messageType_1"),
+		Options: options.Index().SetUnique(true).SetName(idxSMSTemplatesMessageType),
 	},
 }
 
@@ -30,7 +34,7 @@ func (messagingDBService *MessagingDBService) DropIndexForSMSTemplatesCollection
 			slog.Error("Error dropping all indexes for SMS templates", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 		}
 	} else {
-		for _, indexName := range smsTemplateIndexNames {
+		for _, indexName := range defaultSMSTemplateIndexNames {
 			if indexName == "" {
 				slog.Error("Index name is empty for SMS templates collection")
 				continue
@@ -47,11 +51,10 @@ func (messagingDBService *MessagingDBService) CreateDefaultIndexesForSMSTemplate
 	ctx, cancel := messagingDBService.getContext()
 	defer cancel()
 
-	names, err := messagingDBService.collectionSMSTemplates(instanceID).Indexes().CreateMany(ctx, indexesForSMSTemplatesCollection)
+	_, err := messagingDBService.collectionSMSTemplates(instanceID).Indexes().CreateMany(ctx, indexesForSMSTemplatesCollection)
 	if err != nil {
 		slog.Error("Error creating index for SMS templates", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 	}
-	smsTemplateIndexNames = names
 }
 
 // save email template (if id is empty, insert, else update)

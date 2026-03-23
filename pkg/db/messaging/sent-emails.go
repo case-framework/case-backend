@@ -1,7 +1,6 @@
 package messaging
 
 import (
-	"fmt"
 	"log/slog"
 	"time"
 
@@ -11,7 +10,11 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-var sentEmailIndexNames []string
+const idxSentEmailsUserIDSentAt = "userId_1_sentAt_1"
+
+var defaultSentEmailIndexNames = []string{
+	idxSentEmailsUserIDSentAt,
+}
 
 var indexesForSentEmailsCollection = []mongo.IndexModel{
 	{
@@ -19,7 +22,7 @@ var indexesForSentEmailsCollection = []mongo.IndexModel{
 			{Key: "userId", Value: 1},
 			{Key: "sentAt", Value: 1},
 		},
-		Options: options.Index().SetName("userId_1_sentAt_1"),
+		Options: options.Index().SetName(idxSentEmailsUserIDSentAt),
 	},
 }
 
@@ -33,9 +36,9 @@ func (dbService *MessagingDBService) DropIndexForSentEmailsCollection(instanceID
 			slog.Error("Error dropping all indexes for sent emails", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 		}
 	} else {
-		for _, indexName := range sentEmailIndexNames {
+		for _, indexName := range defaultSentEmailIndexNames {
 			if indexName == "" {
-				slog.Error("Index name is empty for sent emails collection", slog.String("index", fmt.Sprintf("%+v", indexName)))
+				slog.Error("Index name is empty for sent emails collection")
 				continue
 			}
 			err := dbService.collectionSentEmails(instanceID).Indexes().DropOne(ctx, indexName)
@@ -50,11 +53,10 @@ func (dbService *MessagingDBService) CreateDefaultIndexesForSentEmailsCollection
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	names, err := dbService.collectionSentEmails(instanceID).Indexes().CreateMany(ctx, indexesForSentEmailsCollection)
+	_, err := dbService.collectionSentEmails(instanceID).Indexes().CreateMany(ctx, indexesForSentEmailsCollection)
 	if err != nil {
 		slog.Error("Error creating index for sent emails", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 	}
-	sentEmailIndexNames = names
 }
 
 func (dbService *MessagingDBService) AddToSentEmails(instanceID string, email messagingTypes.OutgoingEmail) (messagingTypes.OutgoingEmail, error) {

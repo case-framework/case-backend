@@ -13,7 +13,17 @@ import (
 	umUtils "github.com/case-framework/case-backend/pkg/user-management/utils"
 )
 
-var temptokenIndexNames []string
+const (
+	idxTemptokensUserIDInstanceIDPurpose = "userID_1_instanceID_1_purpose_1"
+	idxTemptokensExpiration              = "expiration_1"
+	idxTemptokensToken                   = "token_1"
+)
+
+var defaultTemptokenIndexNames = []string{
+	idxTemptokensUserIDInstanceIDPurpose,
+	idxTemptokensExpiration,
+	idxTemptokensToken,
+}
 
 var indexesForTemptokensCollection = []mongo.IndexModel{
 	{
@@ -22,19 +32,19 @@ var indexesForTemptokensCollection = []mongo.IndexModel{
 			{Key: "instanceID", Value: 1},
 			{Key: "purpose", Value: 1},
 		},
-		Options: options.Index().SetName("userID_1_instanceID_1_purpose_1"),
+		Options: options.Index().SetName(idxTemptokensUserIDInstanceIDPurpose),
 	},
 	{
 		Keys: bson.D{
 			{Key: "expiration", Value: 1},
 		},
-		Options: options.Index().SetExpireAfterSeconds(0).SetName("expiration_1"),
+		Options: options.Index().SetExpireAfterSeconds(0).SetName(idxTemptokensExpiration),
 	},
 	{
 		Keys: bson.D{
 			{Key: "token", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("token_1"),
+		Options: options.Index().SetUnique(true).SetName(idxTemptokensToken),
 	},
 }
 
@@ -47,7 +57,7 @@ func (dbService *GlobalInfosDBService) DropIndexForTemptokensCollection(dropAll 
 			slog.Error("Error dropping indexes for temptokens", slog.String("error", err.Error()))
 		}
 	} else {
-		for _, indexName := range temptokenIndexNames {
+		for _, indexName := range defaultTemptokenIndexNames {
 			if indexName == "" {
 				slog.Error("Index name is empty for temptokens collection")
 				continue
@@ -64,11 +74,10 @@ func (dbService *GlobalInfosDBService) CreateDefaultIndexesForTemptokensCollecti
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	names, err := dbService.collectionTemptokens().Indexes().CreateMany(ctx, indexesForTemptokensCollection)
+	_, err := dbService.collectionTemptokens().Indexes().CreateMany(ctx, indexesForTemptokensCollection)
 	if err != nil {
 		slog.Error("Error creating index for temptokens", slog.String("error", err.Error()))
 	}
-	temptokenIndexNames = names
 }
 
 func (dbService *GlobalInfosDBService) AddTempToken(t userTypes.TempToken) (token string, err error) {

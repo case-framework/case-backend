@@ -1,7 +1,6 @@
 package messaging
 
 import (
-	"fmt"
 	"log/slog"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -11,7 +10,11 @@ import (
 	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 )
 
-var emailTemplateIndexNames []string
+const idxEmailTemplatesMessageTypeStudyKey = "messageType_1_studyKey_1"
+
+var defaultEmailTemplateIndexNames = []string{
+	idxEmailTemplatesMessageTypeStudyKey,
+}
 
 var indexesForEmailTemplatesCollection = []mongo.IndexModel{
 	{
@@ -19,7 +22,7 @@ var indexesForEmailTemplatesCollection = []mongo.IndexModel{
 			{Key: "messageType", Value: 1},
 			{Key: "studyKey", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("messageType_1_studyKey_1"),
+		Options: options.Index().SetUnique(true).SetName(idxEmailTemplatesMessageTypeStudyKey),
 	},
 }
 
@@ -33,9 +36,9 @@ func (messagingDBService *MessagingDBService) DropIndexForEmailTemplatesCollecti
 			slog.Error("Error dropping all indexes for email templates", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 		}
 	} else {
-		for _, indexName := range emailTemplateIndexNames {
+		for _, indexName := range defaultEmailTemplateIndexNames {
 			if indexName == "" {
-				slog.Error("Index name is empty for email templates collection", slog.String("index", fmt.Sprintf("%+v", indexName)))
+				slog.Error("Index name is empty for email templates collection")
 				continue
 			}
 			err := messagingDBService.collectionEmailTemplates(instanceID).Indexes().DropOne(ctx, indexName)
@@ -49,11 +52,10 @@ func (messagingDBService *MessagingDBService) DropIndexForEmailTemplatesCollecti
 func (messagingDBService *MessagingDBService) CreateDefaultIndexesForEmailTemplatesCollection(instanceID string) {
 	ctx, cancel := messagingDBService.getContext()
 	defer cancel()
-	names, err := messagingDBService.collectionEmailTemplates(instanceID).Indexes().CreateMany(ctx, indexesForEmailTemplatesCollection)
+	_, err := messagingDBService.collectionEmailTemplates(instanceID).Indexes().CreateMany(ctx, indexesForEmailTemplatesCollection)
 	if err != nil {
 		slog.Error("Error creating index for email templates", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 	}
-	emailTemplateIndexNames = names
 }
 
 // find all email templates with study key empty

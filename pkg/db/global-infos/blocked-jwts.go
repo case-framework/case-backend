@@ -9,7 +9,15 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-var blockedJwtIndexNames []string
+const (
+	idxBlockedJwtsToken     = "token_1"
+	idxBlockedJwtsExpiresAt = "expiresAt_1"
+)
+
+var defaultBlockedJwtIndexNames = []string{
+	idxBlockedJwtsToken,
+	idxBlockedJwtsExpiresAt,
+}
 
 type BlockedJwt struct {
 	Token     string    `bson:"token"`
@@ -21,13 +29,13 @@ var indexesForBlockedJwtsCollection = []mongo.IndexModel{
 		Keys: bson.D{
 			{Key: "token", Value: 1},
 		},
-		Options: options.Index().SetName("token_1"),
+		Options: options.Index().SetName(idxBlockedJwtsToken),
 	},
 	{
 		Keys: bson.D{
 			{Key: "expiresAt", Value: 1},
 		},
-		Options: options.Index().SetExpireAfterSeconds(0).SetName("expiresAt_1"),
+		Options: options.Index().SetExpireAfterSeconds(0).SetName(idxBlockedJwtsExpiresAt),
 	},
 }
 
@@ -41,7 +49,7 @@ func (dbService *GlobalInfosDBService) DropIndexForBlockedJwtsCollection(dropAll
 			slog.Error("Error dropping all indexes for blocked jwts", slog.String("error", err.Error()))
 		}
 	} else {
-		for _, indexName := range blockedJwtIndexNames {
+		for _, indexName := range defaultBlockedJwtIndexNames {
 			if indexName == "" {
 				slog.Error("Index name is empty for blocked jwts collection")
 				continue
@@ -58,11 +66,10 @@ func (dbService *GlobalInfosDBService) CreateDefaultIndexesForBlockedJwtsCollect
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	names, err := dbService.collectionBlockedJwts().Indexes().CreateMany(ctx, indexesForBlockedJwtsCollection)
+	_, err := dbService.collectionBlockedJwts().Indexes().CreateMany(ctx, indexesForBlockedJwtsCollection)
 	if err != nil {
 		slog.Error("Error creating index for blocked jwts", slog.String("error", err.Error()))
 	}
-	blockedJwtIndexNames = names
 }
 
 // AddBlockedJwt adds a JWT token to the blocked list with the specified expiration time

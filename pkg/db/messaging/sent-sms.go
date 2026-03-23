@@ -10,7 +10,11 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-var sentSMSIndexNames []string
+const idxSentSMSUserIDSentAtMessageType = "userID_1_sentAt_1_messageType_1"
+
+var defaultSentSMSIndexNames = []string{
+	idxSentSMSUserIDSentAtMessageType,
+}
 
 var indexesForSentSMSCollection = []mongo.IndexModel{
 	{
@@ -19,7 +23,7 @@ var indexesForSentSMSCollection = []mongo.IndexModel{
 			{Key: "sentAt", Value: 1},
 			{Key: "messageType", Value: 1},
 		},
-		Options: options.Index().SetName("userID_1_sentAt_1_messageType_1"),
+		Options: options.Index().SetName(idxSentSMSUserIDSentAtMessageType),
 	},
 }
 
@@ -33,7 +37,7 @@ func (dbService *MessagingDBService) DropIndexForSentSMSCollection(instanceID st
 			slog.Error("Error dropping all indexes for sent SMS", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 		}
 	} else {
-		for _, indexName := range sentSMSIndexNames {
+		for _, indexName := range defaultSentSMSIndexNames {
 			if indexName == "" {
 				slog.Error("Index name is empty for sent SMS collection")
 				continue
@@ -50,11 +54,10 @@ func (dbService *MessagingDBService) CreateDefaultIndexesForSentSMSCollection(in
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	names, err := dbService.collectionSentSMS(instanceID).Indexes().CreateMany(ctx, indexesForSentSMSCollection)
+	_, err := dbService.collectionSentSMS(instanceID).Indexes().CreateMany(ctx, indexesForSentSMSCollection)
 	if err != nil {
 		slog.Error("Error creating index for sent SMS", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 	}
-	sentSMSIndexNames = names
 }
 
 func (dbService *MessagingDBService) AddToSentSMS(instanceID string, sms types.SentSMS) (types.SentSMS, error) {
