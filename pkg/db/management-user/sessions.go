@@ -9,7 +9,9 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-var sessionIndexNames []string
+const idxSessionsCreatedAt = "createdAt_1"
+
+var defaultSessionIndexNames = []string{idxSessionsCreatedAt}
 
 func (dbService *ManagementUserDBService) collectionSessions(instanceID string) *mongo.Collection {
 	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_SESSIONS)
@@ -18,7 +20,7 @@ func (dbService *ManagementUserDBService) collectionSessions(instanceID string) 
 var indexesForSessionsCollection = []mongo.IndexModel{
 	{
 		Keys:    bson.D{{Key: "createdAt", Value: 1}},
-		Options: options.Index().SetExpireAfterSeconds(REMOVE_SESSIONS_AFTER).SetName("createdAt_1"),
+		Options: options.Index().SetExpireAfterSeconds(REMOVE_SESSIONS_AFTER).SetName(idxSessionsCreatedAt),
 	},
 }
 
@@ -32,7 +34,7 @@ func (dbService *ManagementUserDBService) DropIndexForSessionsCollection(instanc
 			slog.Error("Error dropping all indexes for sessions", slog.String("error", err.Error()))
 		}
 	} else {
-		for _, indexName := range sessionIndexNames {
+		for _, indexName := range defaultSessionIndexNames {
 			if indexName == "" {
 				slog.Error("Index name is empty for sessions collection")
 				continue
@@ -49,11 +51,10 @@ func (dbService *ManagementUserDBService) CreateDefaultIndexesForSessionsCollect
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	names, err := dbService.collectionSessions(instanceID).Indexes().CreateMany(ctx, indexesForSessionsCollection)
+	_, err := dbService.collectionSessions(instanceID).Indexes().CreateMany(ctx, indexesForSessionsCollection)
 	if err != nil {
 		slog.Error("Error creating index for sessions: ", slog.String("error", err.Error()))
 	}
-	sessionIndexNames = names
 }
 
 // Session represents a user session, created when a user logs in

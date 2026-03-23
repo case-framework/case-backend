@@ -10,7 +10,15 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-var serviceUserAPIKeyIndexNames []string
+const (
+	idxServiceUserAPIKeysKey       = "key_1"
+	idxServiceUserAPIKeysExpiresAt = "expiresAt_1"
+)
+
+var defaultServiceUserAPIKeyIndexNames = []string{
+	idxServiceUserAPIKeysKey,
+	idxServiceUserAPIKeysExpiresAt,
+}
 
 func (dbService *ManagementUserDBService) collectionServiceUsers(instanceID string) *mongo.Collection {
 	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_SERVICE_USERS)
@@ -25,13 +33,13 @@ var indexesForServiceUserAPIKeysCollection = []mongo.IndexModel{
 		Keys: bson.D{
 			{Key: "key", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("key_1"),
+		Options: options.Index().SetUnique(true).SetName(idxServiceUserAPIKeysKey),
 	},
 	{
 		Keys: bson.D{
 			{Key: "expiresAt", Value: 1},
 		},
-		Options: options.Index().SetExpireAfterSeconds(0).SetName("expiresAt_1"),
+		Options: options.Index().SetExpireAfterSeconds(0).SetName(idxServiceUserAPIKeysExpiresAt),
 	},
 }
 
@@ -45,7 +53,7 @@ func (dbService *ManagementUserDBService) DropIndexForServiceUserAPIKeysCollecti
 			slog.Error("Error dropping all indexes for service user API keys: ", slog.String("error", err.Error()))
 		}
 	} else {
-		for _, indexName := range serviceUserAPIKeyIndexNames {
+		for _, indexName := range defaultServiceUserAPIKeyIndexNames {
 			if indexName == "" {
 				slog.Error("Index name is empty for service user API keys collection")
 				continue
@@ -62,11 +70,10 @@ func (dbService *ManagementUserDBService) CreateDefaultIndexesForServiceUserAPIK
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	names, err := dbService.collectionServiceUserAPIKeys(instanceID).Indexes().CreateMany(ctx, indexesForServiceUserAPIKeysCollection)
+	_, err := dbService.collectionServiceUserAPIKeys(instanceID).Indexes().CreateMany(ctx, indexesForServiceUserAPIKeysCollection)
 	if err != nil {
 		slog.Error("Error creating index for service user API keys: ", slog.String("error", err.Error()))
 	}
-	serviceUserAPIKeyIndexNames = names
 }
 
 // CreateServiceUser creates a new service user

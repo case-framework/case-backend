@@ -20,16 +20,28 @@ func (dbService *ManagementUserDBService) collectionAppRoleTemplates(instanceID 
 	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_APP_ROLE_TEMPLATES)
 }
 
-var appRoleIndexNames []string
+const (
+	idxAppRolesSubjectID                = "subjectId_1"
+	idxAppRolesAppName                  = "appName_1"
+	idxAppRolesUniqueSubjectTypeRoleKey = "uniq_subjectType_1_subjectId_1_appName_1_role_1"
+	idxAppRoleTemplatesUniqueAppRole    = "uniq_appName_1_role_1"
+	idxAppRoleTemplatesAppName          = "appName_1"
+)
+
+var defaultAppRoleIndexNames = []string{
+	idxAppRolesSubjectID,
+	idxAppRolesAppName,
+	idxAppRolesUniqueSubjectTypeRoleKey,
+}
 
 var indexesForAppRolesCollection = []mongo.IndexModel{
 	{
 		Keys:    bson.D{{Key: "subjectId", Value: 1}},
-		Options: options.Index().SetName("subjectId_1"),
+		Options: options.Index().SetName(idxAppRolesSubjectID),
 	},
 	{
 		Keys:    bson.D{{Key: "appName", Value: 1}},
-		Options: options.Index().SetName("appName_1"),
+		Options: options.Index().SetName(idxAppRolesAppName),
 	},
 	{
 		Keys: bson.D{
@@ -38,7 +50,7 @@ var indexesForAppRolesCollection = []mongo.IndexModel{
 			{Key: "appName", Value: 1},
 			{Key: "role", Value: 1},
 		},
-		Options: options.Index().SetName("uniq_subjectType_1_subjectId_1_appName_1_role_1").SetUnique(true),
+		Options: options.Index().SetName(idxAppRolesUniqueSubjectTypeRoleKey).SetUnique(true),
 	},
 }
 
@@ -51,7 +63,7 @@ func (dbService *ManagementUserDBService) DropIndexForAppRolesCollection(instanc
 			slog.Error("Error dropping all indexes for app roles", slog.String("error", err.Error()))
 		}
 	} else {
-		for _, indexName := range appRoleIndexNames {
+		for _, indexName := range defaultAppRoleIndexNames {
 			if indexName == "" {
 				slog.Error("Index name is empty for app roles collection")
 				continue
@@ -68,23 +80,25 @@ func (dbService *ManagementUserDBService) CreateDefaultIndexesForAppRolesCollect
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	names, err := dbService.collectionAppRoles(instanceID).Indexes().CreateMany(ctx, indexesForAppRolesCollection)
+	_, err := dbService.collectionAppRoles(instanceID).Indexes().CreateMany(ctx, indexesForAppRolesCollection)
 	if err != nil {
 		slog.Error("Error creating index for app roles", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 	}
-	appRoleIndexNames = names
 }
 
-var appRoleTemplateIndexNames []string
+var defaultAppRoleTemplateIndexNames = []string{
+	idxAppRoleTemplatesUniqueAppRole,
+	idxAppRoleTemplatesAppName,
+}
 
 var indexesForAppRoleTemplatesCollection = []mongo.IndexModel{
 	{
 		Keys:    bson.D{{Key: "appName", Value: 1}, {Key: "role", Value: 1}},
-		Options: options.Index().SetName("uniq_appName_1_role_1").SetUnique(true),
+		Options: options.Index().SetName(idxAppRoleTemplatesUniqueAppRole).SetUnique(true),
 	},
 	{
 		Keys:    bson.D{{Key: "appName", Value: 1}},
-		Options: options.Index().SetName("appName_1"),
+		Options: options.Index().SetName(idxAppRoleTemplatesAppName),
 	},
 }
 
@@ -97,7 +111,7 @@ func (dbService *ManagementUserDBService) DropIndexForAppRoleTemplatesCollection
 			slog.Error("Error dropping all indexes for app role templates", slog.String("error", err.Error()))
 		}
 	} else {
-		for _, indexName := range appRoleTemplateIndexNames {
+		for _, indexName := range defaultAppRoleTemplateIndexNames {
 			if indexName == "" {
 				slog.Error("Index name is empty for app role templates collection")
 				continue
@@ -114,11 +128,10 @@ func (dbService *ManagementUserDBService) CreateDefaultIndexesForAppRoleTemplate
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	names, err := dbService.collectionAppRoleTemplates(instanceID).Indexes().CreateMany(ctx, indexesForAppRoleTemplatesCollection)
+	_, err := dbService.collectionAppRoleTemplates(instanceID).Indexes().CreateMany(ctx, indexesForAppRoleTemplatesCollection)
 	if err != nil {
 		slog.Error("Error creating index for app role templates", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 	}
-	appRoleTemplateIndexNames = names
 }
 
 /// App role templates

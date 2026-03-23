@@ -8,7 +8,9 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-var permissionIndexNames []string
+const idxPermissionsSubjectResourceAction = "subjectId_1_subjectType_1_resourceType_1_resourceKey_1_action_1"
+
+var defaultPermissionIndexNames = []string{idxPermissionsSubjectResourceAction}
 
 var indexesForPermissionsCollection = []mongo.IndexModel{
 	{
@@ -19,7 +21,7 @@ var indexesForPermissionsCollection = []mongo.IndexModel{
 			{Key: "resourceKey", Value: 1},
 			{Key: "action", Value: 1},
 		},
-		Options: options.Index().SetName("subjectId_1_subjectType_1_resourceType_1_resourceKey_1_action_1"),
+		Options: options.Index().SetName(idxPermissionsSubjectResourceAction),
 	},
 }
 
@@ -33,7 +35,7 @@ func (dbService *ManagementUserDBService) DropIndexForPermissionsCollection(inst
 			slog.Error("Error dropping all indexes for permissions: ", slog.String("error", err.Error()))
 		}
 	} else {
-		for _, indexName := range permissionIndexNames {
+		for _, indexName := range defaultPermissionIndexNames {
 			if indexName == "" {
 				slog.Error("Index name is empty for permissions collection")
 				continue
@@ -49,11 +51,10 @@ func (dbService *ManagementUserDBService) DropIndexForPermissionsCollection(inst
 func (dbService *ManagementUserDBService) CreateDefaultIndexesForPermissionsCollection(instanceID string) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
-	names, err := dbService.collectionPermissions(instanceID).Indexes().CreateMany(ctx, indexesForPermissionsCollection)
+	_, err := dbService.collectionPermissions(instanceID).Indexes().CreateMany(ctx, indexesForPermissionsCollection)
 	if err != nil {
 		slog.Error("Error creating index for permissions: ", slog.String("error", err.Error()))
 	}
-	permissionIndexNames = names
 }
 
 // Create permission

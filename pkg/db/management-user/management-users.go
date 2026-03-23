@@ -9,12 +9,14 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-var managementUserIndexNames []string
+const idxManagementUsersSub = "uniq_sub_1"
+
+var defaultManagementUserIndexNames = []string{idxManagementUsersSub}
 
 var indexesForManagementUsersCollection = []mongo.IndexModel{
 	{
 		Keys:    bson.D{{Key: "sub", Value: 1}},
-		Options: options.Index().SetUnique(true).SetName("uniq_sub_1"),
+		Options: options.Index().SetUnique(true).SetName(idxManagementUsersSub),
 	},
 }
 
@@ -28,7 +30,7 @@ func (dbService *ManagementUserDBService) DropIndexForManagementUsersCollection(
 			slog.Error("Error dropping all indexes for management users", slog.String("error", err.Error()))
 		}
 	} else {
-		for _, indexName := range managementUserIndexNames {
+		for _, indexName := range defaultManagementUserIndexNames {
 			if indexName == "" {
 				slog.Error("Index name is empty for management users collection", slog.String("instanceID", instanceID))
 				continue
@@ -44,11 +46,10 @@ func (dbService *ManagementUserDBService) DropIndexForManagementUsersCollection(
 func (dbService *ManagementUserDBService) CreateDefaultIndexesForManagementUsersCollection(instanceID string) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
-	names, err := dbService.collectionManagementUsers(instanceID).Indexes().CreateMany(ctx, indexesForManagementUsersCollection)
+	_, err := dbService.collectionManagementUsers(instanceID).Indexes().CreateMany(ctx, indexesForManagementUsersCollection)
 	if err != nil {
 		slog.Error("Error creating index for management users", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 	}
-	managementUserIndexNames = names
 }
 
 func (dbService *ManagementUserDBService) CreateUser(
