@@ -13,40 +13,54 @@ import (
 	umTypes "github.com/case-framework/case-backend/pkg/user-management/types"
 )
 
-var participantUserIndexNames []string
+const (
+	idxParticipantUsersMarkedForDeletion      = "timestamps.markedForDeletion_1"
+	idxParticipantUsersUniqueAccountID        = "uniq_account.accountID_1"
+	idxParticipantUsersCreatedAt              = "timestamps.createdAt_1"
+	idxParticipantUsersAccountConfirmedCreate = "account.accountConfirmedAt_1_timestamps.createdAt_1"
+	idxParticipantUsersWeeklyMessageDay       = "contactPreferences.receiveWeeklyMessageDayOfWeek_1"
+)
+
+var defaultParticipantUserIndexNames = []string{
+	idxParticipantUsersMarkedForDeletion,
+	idxParticipantUsersUniqueAccountID,
+	idxParticipantUsersCreatedAt,
+	idxParticipantUsersAccountConfirmedCreate,
+	idxParticipantUsersWeeklyMessageDay,
+}
 
 var indexesForParticipantUsersCollection = []mongo.IndexModel{
 	{
 		Keys: bson.D{
 			{Key: "timestamps.markedForDeletion", Value: 1},
 		},
-		Options: options.Index().SetName("timestamps.markedForDeletion_1"),
+		Options: options.Index().SetName(idxParticipantUsersMarkedForDeletion),
 	},
 	{
 		Keys: bson.D{
 			{Key: "account.accountID", Value: 1},
 		},
 		Options: options.Index().SetUnique(true).
-			SetName("uniq_account.accountID_1"),
+			SetName(idxParticipantUsersUniqueAccountID),
 	},
 	{
 		Keys: bson.D{
 			{Key: "timestamps.createdAt", Value: 1},
 		},
-		Options: options.Index().SetName("timestamps.createdAt_1"),
+		Options: options.Index().SetName(idxParticipantUsersCreatedAt),
 	},
 	{
 		Keys: bson.D{
 			{Key: "account.accountConfirmedAt", Value: 1},
 			{Key: "timestamps.createdAt", Value: 1},
 		},
-		Options: options.Index().SetName("account.accountConfirmedAt_1_timestamps.createdAt_1"),
+		Options: options.Index().SetName(idxParticipantUsersAccountConfirmedCreate),
 	},
 	{
 		Keys: bson.D{
 			{Key: "contactPreferences.receiveWeeklyMessageDayOfWeek", Value: 1},
 		},
-		Options: options.Index().SetName("contactPreferences.receiveWeeklyMessageDayOfWeek_1"),
+		Options: options.Index().SetName(idxParticipantUsersWeeklyMessageDay),
 	},
 }
 
@@ -60,7 +74,7 @@ func (dbService *ParticipantUserDBService) DropIndexForParticipantUsersCollectio
 			slog.Error("Error dropping all indexes for participant users", slog.String("error", err.Error()))
 		}
 	} else {
-		for _, indexName := range participantUserIndexNames {
+		for _, indexName := range defaultParticipantUserIndexNames {
 			if indexName == "" {
 				slog.Error("Index name is empty for participant users collection")
 				continue
@@ -77,13 +91,12 @@ func (dbService *ParticipantUserDBService) CreateDefaultIndexesForParticipantUse
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	names, err := dbService.collectionParticipantUsers(instanceID).Indexes().CreateMany(
+	_, err := dbService.collectionParticipantUsers(instanceID).Indexes().CreateMany(
 		ctx, indexesForParticipantUsersCollection,
 	)
 	if err != nil {
 		slog.Error("Error creating index for participant users", slog.String("error", err.Error()))
 	}
-	participantUserIndexNames = names
 }
 
 func (dbService *ParticipantUserDBService) FixFieldNameForContactInfos(instanceID string) error {
@@ -203,7 +216,7 @@ func (dbService *ParticipantUserDBService) _updateUserInDB(orgID string, user um
 	elem := umTypes.User{}
 	filter := bson.M{"_id": user.ID}
 	fro := options.FindOneAndReplace().
-    SetReturnDocument(options.After)
+		SetReturnDocument(options.After)
 	err := dbService.collectionParticipantUsers(orgID).FindOneAndReplace(ctx, filter, user, fro).Decode(&elem)
 	return elem, err
 }

@@ -1,7 +1,6 @@
 package study
 
 import (
-	"fmt"
 	"log/slog"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -9,13 +8,17 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
+const idxStudyCountersStudyKeyScope = "studyKey_1_scope_1"
+
+var defaultStudyCounterIndexNames = []string{
+	idxStudyCountersStudyKeyScope,
+}
+
 type StudyCounter struct {
 	StudyKey string `json:"studyKey" bson:"studyKey"`
 	Scope    string `json:"scope" bson:"scope"`
 	Value    int64  `json:"value" bson:"value"`
 }
-
-var studyCounterIndexNames []string
 
 var indexesForStudyCountersCollection = []mongo.IndexModel{
 	{
@@ -23,7 +26,7 @@ var indexesForStudyCountersCollection = []mongo.IndexModel{
 			{Key: "studyKey", Value: 1},
 			{Key: "scope", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("studyKey_1_scope_1"),
+		Options: options.Index().SetUnique(true).SetName(idxStudyCountersStudyKeyScope),
 	},
 }
 
@@ -38,9 +41,9 @@ func (dbService *StudyDBService) DropIndexForStudyCountersCollection(instanceID 
 			slog.Error("Error dropping all indexes for studyCounters", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 		}
 	} else {
-		for _, indexName := range studyCounterIndexNames {
+		for _, indexName := range defaultStudyCounterIndexNames {
 			if indexName == "" {
-				slog.Error("Index name is empty for studyCounters collection", slog.String("index", fmt.Sprintf("%+v", indexName)), slog.String("instanceID", instanceID))
+				slog.Error("Index name is empty for studyCounters collection", slog.String("instanceID", instanceID))
 				continue
 			}
 			err := collection.Indexes().DropOne(ctx, indexName)
@@ -55,11 +58,10 @@ func (dbService *StudyDBService) CreateDefaultIndexesForStudyCountersCollection(
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	names, err := dbService.collectionStudyCounters(instanceID).Indexes().CreateMany(ctx, indexesForStudyCountersCollection)
+	_, err := dbService.collectionStudyCounters(instanceID).Indexes().CreateMany(ctx, indexesForStudyCountersCollection)
 	if err != nil {
 		slog.Error("Error creating index for studyCounters", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 	}
-	studyCounterIndexNames = names
 }
 
 // Get current counter value (without incrementing)

@@ -2,7 +2,6 @@ package study
 
 import (
 	"errors"
-	"fmt"
 	"log/slog"
 	"time"
 
@@ -13,7 +12,19 @@ import (
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
-var surveyIndexNames []string
+const (
+	idxSurveysSurveyDefinitionUnpublishedPublished = "surveyDefinition.key_1_unpublished_1_published_-1"
+	idxSurveysPublishedSurveyDefinition            = "published_1_surveyDefinition.key_1"
+	idxSurveysUnpublished                          = "unpublished_1"
+	idxSurveysSurveyDefinitionVersionIDUnique      = "surveyDefinition.key_1_versionID_1"
+)
+
+var defaultSurveyIndexNames = []string{
+	idxSurveysSurveyDefinitionUnpublishedPublished,
+	idxSurveysPublishedSurveyDefinition,
+	idxSurveysUnpublished,
+	idxSurveysSurveyDefinitionVersionIDUnique,
+}
 
 var indexesForSurveysCollection = []mongo.IndexModel{
 	{
@@ -22,27 +33,27 @@ var indexesForSurveysCollection = []mongo.IndexModel{
 			{Key: "unpublished", Value: 1},
 			{Key: "published", Value: -1},
 		},
-		Options: options.Index().SetName("surveyDefinition.key_1_unpublished_1_published_-1"),
+		Options: options.Index().SetName(idxSurveysSurveyDefinitionUnpublishedPublished),
 	},
 	{
 		Keys: bson.D{
 			{Key: "published", Value: 1},
 			{Key: "surveyDefinition.key", Value: 1},
 		},
-		Options: options.Index().SetName("published_1_surveyDefinition.key_1"),
+		Options: options.Index().SetName(idxSurveysPublishedSurveyDefinition),
 	},
 	{
 		Keys: bson.D{
 			{Key: "unpublished", Value: 1},
 		},
-		Options: options.Index().SetName("unpublished_1"),
+		Options: options.Index().SetName(idxSurveysUnpublished),
 	},
 	{
 		Keys: bson.D{
 			{Key: "surveyDefinition.key", Value: 1},
 			{Key: "versionID", Value: 1},
 		},
-		Options: options.Index().SetName("surveyDefinition.key_1_versionID_1").SetUnique(true),
+		Options: options.Index().SetName(idxSurveysSurveyDefinitionVersionIDUnique).SetUnique(true),
 	},
 }
 
@@ -56,9 +67,9 @@ func (dbService *StudyDBService) DropIndexForSurveysCollection(instanceID string
 			slog.Error("Error dropping all indexes for surveys", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 		}
 	} else {
-		for _, indexName := range surveyIndexNames {
+		for _, indexName := range defaultSurveyIndexNames {
 			if indexName == "" {
-				slog.Error("Index name is empty for surveys collection", slog.String("index", fmt.Sprintf("%+v", indexName)))
+				slog.Error("Index name is empty for surveys collection")
 				continue
 			}
 			err := dbService.collectionSurveys(instanceID, studyKey).Indexes().DropOne(ctx, indexName)
@@ -74,11 +85,10 @@ func (dbService *StudyDBService) CreateDefaultIndexesForSurveysCollection(instan
 	defer cancel()
 
 	collection := dbService.collectionSurveys(instanceID, studyKey)
-	names, err := collection.Indexes().CreateMany(ctx, indexesForSurveysCollection)
+	_, err := collection.Indexes().CreateMany(ctx, indexesForSurveysCollection)
 	if err != nil {
 		slog.Error("Error creating index for surveys", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 	}
-	surveyIndexNames = names
 }
 
 func (dbService *StudyDBService) SaveSurveyVersion(instanceID string, studyKey string, survey *studyTypes.Survey) (err error) {

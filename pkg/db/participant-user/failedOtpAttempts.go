@@ -10,10 +10,15 @@ import (
 )
 
 const (
-	FAILED_OTP_ATTEMP_WINDOW = 60 * 5
+	FAILED_OTP_ATTEMP_WINDOW      = 60 * 5
+	idxFailedOtpAttemptsUserID    = "userID_1"
+	idxFailedOtpAttemptsTimestamp = "timestamp_1"
 )
 
-var failedOTPAttemptIndexNames []string
+var defaultFailedOtpAttemptIndexNames = []string{
+	idxFailedOtpAttemptsUserID,
+	idxFailedOtpAttemptsTimestamp,
+}
 
 type FailedOtpAttempt struct {
 	Timestamp time.Time `json:"timestamp" bson:"timestamp"`
@@ -25,13 +30,13 @@ var indexesForFailedOtpAttemptsCollection = []mongo.IndexModel{
 		Keys: bson.D{
 			{Key: "userID", Value: 1},
 		},
-		Options: options.Index().SetName("userID_1"),
+		Options: options.Index().SetName(idxFailedOtpAttemptsUserID),
 	},
 	{
 		Keys: bson.D{
 			{Key: "timestamp", Value: 1},
 		},
-		Options: options.Index().SetExpireAfterSeconds(FAILED_OTP_ATTEMP_WINDOW).SetName("timestamp_1"),
+		Options: options.Index().SetExpireAfterSeconds(FAILED_OTP_ATTEMP_WINDOW).SetName(idxFailedOtpAttemptsTimestamp),
 	},
 }
 
@@ -45,7 +50,7 @@ func (dbService *ParticipantUserDBService) DropIndexForFailedOtpAttemptsCollecti
 			slog.Error("Error dropping all indexes for FailedOtpAttempts", slog.String("error", err.Error()))
 		}
 	} else {
-		for _, indexName := range failedOTPAttemptIndexNames {
+		for _, indexName := range defaultFailedOtpAttemptIndexNames {
 			if indexName == "" {
 				slog.Error("Index name is empty for FailedOtpAttempts collection")
 				continue
@@ -62,11 +67,10 @@ func (dbService *ParticipantUserDBService) CreateDefaultIndexesForFailedOtpAttem
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	names, err := dbService.collectionFailedOtpAttempts(instanceID).Indexes().CreateMany(ctx, indexesForFailedOtpAttemptsCollection)
+	_, err := dbService.collectionFailedOtpAttempts(instanceID).Indexes().CreateMany(ctx, indexesForFailedOtpAttemptsCollection)
 	if err != nil {
 		slog.Error("Error creating index for FailedOtpAttempts", slog.String("error", err.Error()))
 	}
-	failedOTPAttemptIndexNames = names
 }
 
 func (dbService *ParticipantUserDBService) CountFailedOtpAttempts(instanceID string, userID string) (int64, error) {

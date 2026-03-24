@@ -1,7 +1,6 @@
 package study
 
 import (
-	"fmt"
 	"log/slog"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -11,21 +10,29 @@ import (
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
-var studyRuleIndexNames []string
+const (
+	idxStudyRulesStudyKey           = "studyKey_1"
+	idxStudyRulesUploadedAtStudyKey = "uploadedAt_1_studyKey_1"
+)
+
+var defaultStudyRuleIndexNames = []string{
+	idxStudyRulesStudyKey,
+	idxStudyRulesUploadedAtStudyKey,
+}
 
 var indexesForStudyRulesCollection = []mongo.IndexModel{
 	{
 		Keys: bson.D{
 			{Key: "studyKey", Value: 1},
 		},
-		Options: options.Index().SetName("studyKey_1"),
+		Options: options.Index().SetName(idxStudyRulesStudyKey),
 	},
 	{
 		Keys: bson.D{
 			{Key: "uploadedAt", Value: 1},
 			{Key: "studyKey", Value: 1},
 		},
-		Options: options.Index().SetName("uploadedAt_1_studyKey_1"),
+		Options: options.Index().SetName(idxStudyRulesUploadedAtStudyKey),
 	},
 }
 
@@ -41,9 +48,9 @@ func (dbService *StudyDBService) DropIndexForStudyRulesCollection(instanceID str
 			slog.Error("Error dropping all indexes for studyRules", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 		}
 	} else {
-		for _, indexName := range studyRuleIndexNames {
+		for _, indexName := range defaultStudyRuleIndexNames {
 			if indexName == "" {
-				slog.Error("Index name is empty for studyRules collection", slog.String("index", fmt.Sprintf("%+v", indexName)))
+				slog.Error("Index name is empty for studyRules collection")
 				continue
 			}
 			err := collection.Indexes().DropOne(ctx, indexName)
@@ -59,11 +66,10 @@ func (dbService *StudyDBService) CreateDefaultIndexesForStudyRulesCollection(ins
 	defer cancel()
 
 	collection := dbService.collectionStudyRules(instanceID)
-	names, err := collection.Indexes().CreateMany(ctx, indexesForStudyRulesCollection)
+	_, err := collection.Indexes().CreateMany(ctx, indexesForStudyRulesCollection)
 	if err != nil {
 		slog.Error("Error creating index for studyRules", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 	}
-	studyRuleIndexNames = names
 }
 
 func (dbService *StudyDBService) deleteStudyRules(instanceID string, studyKey string) error {

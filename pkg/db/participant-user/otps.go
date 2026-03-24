@@ -14,10 +14,15 @@ import (
 )
 
 const (
-	OTP_TTL = 60 * 15
+	OTP_TTL           = 60 * 15
+	idxOTPsUserIDCode = "uniq_userID_1_code_1"
+	idxOTPsCreatedAt  = "createdAt_1"
 )
 
-var otpIndexNames []string
+var defaultOTPIndexNames = []string{
+	idxOTPsUserIDCode,
+	idxOTPsCreatedAt,
+}
 
 var indexesForOTPsCollection = []mongo.IndexModel{
 	{
@@ -25,13 +30,13 @@ var indexesForOTPsCollection = []mongo.IndexModel{
 			{Key: "userID", Value: 1},
 			{Key: "code", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("uniq_userID_1_code_1"),
+		Options: options.Index().SetUnique(true).SetName(idxOTPsUserIDCode),
 	},
 	{
 		Keys: bson.D{
 			{Key: "createdAt", Value: 1},
 		},
-		Options: options.Index().SetExpireAfterSeconds(OTP_TTL).SetName("createdAt_1"),
+		Options: options.Index().SetExpireAfterSeconds(OTP_TTL).SetName(idxOTPsCreatedAt),
 	},
 }
 
@@ -45,7 +50,7 @@ func (dbService *ParticipantUserDBService) DropIndexForOTPsCollection(instanceID
 			slog.Error("Error dropping all indexes for OTPs", slog.String("error", err.Error()))
 		}
 	} else {
-		for _, indexName := range otpIndexNames {
+		for _, indexName := range defaultOTPIndexNames {
 			if indexName == "" {
 				slog.Error("Index name is empty for OTPs collection")
 				continue
@@ -62,11 +67,10 @@ func (dbService *ParticipantUserDBService) CreateDefaultIndexesForOTPsCollection
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	names, err := dbService.collectionOTPs(instanceID).Indexes().CreateMany(ctx, indexesForOTPsCollection)
+	_, err := dbService.collectionOTPs(instanceID).Indexes().CreateMany(ctx, indexesForOTPsCollection)
 	if err != nil {
 		slog.Error("Error creating index for OTPs", slog.String("error", err.Error()))
 	}
-	otpIndexNames = names
 }
 
 func (dbService *ParticipantUserDBService) CreateOTP(instanceID string, userID string, code string, t userTypes.OTPType, maxOTPCount int64) error {

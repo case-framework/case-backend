@@ -13,11 +13,20 @@ import (
 )
 
 const (
-	RENEW_TOKEN_GRACE_PERIOD     = 30 // seconds
-	RENEW_TOKEN_DEFAULT_LIFETIME = 60 * 60 * 24 * 90
+	RENEW_TOKEN_GRACE_PERIOD                = 30 // seconds
+	RENEW_TOKEN_DEFAULT_LIFETIME            = 60 * 60 * 24 * 90
+	idxRenewTokensUserIDRenewTokenExpiresAt = "userID_1_renewToken_1_expiresAt_1"
+	idxRenewTokensUserIDSessionID           = "userID_1_sessionID_1"
+	idxRenewTokensExpiresAt                 = "expiresAt_1"
+	idxRenewTokensUniqueRenewToken          = "uniq_renewToken_1"
 )
 
-var renewTokenIndexNames []string
+var defaultRenewTokenIndexNames = []string{
+	idxRenewTokensUserIDRenewTokenExpiresAt,
+	idxRenewTokensUserIDSessionID,
+	idxRenewTokensExpiresAt,
+	idxRenewTokensUniqueRenewToken,
+}
 
 var indexesForRenewTokensCollection = []mongo.IndexModel{
 	{
@@ -26,26 +35,26 @@ var indexesForRenewTokensCollection = []mongo.IndexModel{
 			{Key: "renewToken", Value: 1},
 			{Key: "expiresAt", Value: 1},
 		},
-		Options: options.Index().SetName("userID_1_renewToken_1_expiresAt_1"),
+		Options: options.Index().SetName(idxRenewTokensUserIDRenewTokenExpiresAt),
 	},
 	{
 		Keys: bson.D{
 			{Key: "userID", Value: 1},
 			{Key: "sessionID", Value: 1},
 		},
-		Options: options.Index().SetName("userID_1_sessionID_1"),
+		Options: options.Index().SetName(idxRenewTokensUserIDSessionID),
 	},
 	{
 		Keys: bson.D{
 			{Key: "expiresAt", Value: 1},
 		},
-		Options: options.Index().SetExpireAfterSeconds(RENEW_TOKEN_GRACE_PERIOD).SetName("expiresAt_1"),
+		Options: options.Index().SetExpireAfterSeconds(RENEW_TOKEN_GRACE_PERIOD).SetName(idxRenewTokensExpiresAt),
 	},
 	{
 		Keys: bson.D{
 			{Key: "renewToken", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("uniq_renewToken_1"),
+		Options: options.Index().SetUnique(true).SetName(idxRenewTokensUniqueRenewToken),
 	},
 }
 
@@ -59,7 +68,7 @@ func (dbService *ParticipantUserDBService) DropIndexForRenewTokensCollection(ins
 			slog.Error("Error dropping all indexes for renew tokens", slog.String("error", err.Error()))
 		}
 	} else {
-		for _, indexName := range renewTokenIndexNames {
+		for _, indexName := range defaultRenewTokenIndexNames {
 			if indexName == "" {
 				slog.Error("Index name is empty for renew tokens collection")
 				continue
@@ -76,13 +85,12 @@ func (dbService *ParticipantUserDBService) CreateDefaultIndexesForRenewTokensCol
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	names, err := dbService.collectionRenewTokens(instanceID).Indexes().CreateMany(
+	_, err := dbService.collectionRenewTokens(instanceID).Indexes().CreateMany(
 		ctx, indexesForRenewTokensCollection,
 	)
 	if err != nil {
 		slog.Error("Error creating index for renew tokens", slog.String("error", err.Error()))
 	}
-	renewTokenIndexNames = names
 }
 
 func (dbService *ParticipantUserDBService) CreateRenewToken(instanceID string, userID string, token string, lifeTimeInSec int, sessionID string) error {

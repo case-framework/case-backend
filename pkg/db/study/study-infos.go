@@ -1,7 +1,6 @@
 package study
 
 import (
-	"fmt"
 	"log/slog"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -11,14 +10,18 @@ import (
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
-var studyInfoIndexNames []string
+const idxStudyInfosKey = "key_1"
+
+var defaultStudyInfoIndexNames = []string{
+	idxStudyInfosKey,
+}
 
 var indexesForStudyInfosCollection = []mongo.IndexModel{
 	{
 		Keys: bson.D{
 			{Key: "key", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("key_1"),
+		Options: options.Index().SetUnique(true).SetName(idxStudyInfosKey),
 	},
 }
 
@@ -32,9 +35,9 @@ func (dbService *StudyDBService) DropIndexForStudyInfosCollection(instanceID str
 			slog.Error("Error dropping all indexes for studyInfos", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 		}
 	} else {
-		for _, indexName := range studyInfoIndexNames {
+		for _, indexName := range defaultStudyInfoIndexNames {
 			if indexName == "" {
-				slog.Error("Index name is empty for studyInfos collection", slog.String("index", fmt.Sprintf("%+v", indexName)))
+				slog.Error("Index name is empty for studyInfos collection")
 				continue
 			}
 			err := dbService.collectionStudyInfos(instanceID).Indexes().DropOne(ctx, indexName)
@@ -49,11 +52,10 @@ func (dbService *StudyDBService) CreateDefaultIndexesForStudyInfosCollection(ins
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	names, err := dbService.collectionStudyInfos(instanceID).Indexes().CreateMany(ctx, indexesForStudyInfosCollection)
+	_, err := dbService.collectionStudyInfos(instanceID).Indexes().CreateMany(ctx, indexesForStudyInfosCollection)
 	if err != nil {
 		slog.Error("Error creating index for studyInfos", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 	}
-	studyInfoIndexNames = names
 }
 
 // get studies

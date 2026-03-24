@@ -8,7 +8,11 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-var confidentialIDMapIndexNames []string
+const idxConfidentialIDMapConfidentialIDStudyKey = "confidentialID_1_studyKey_1"
+
+var defaultConfidentialIDMapIndexNames = []string{
+	idxConfidentialIDMapConfidentialIDStudyKey,
+}
 
 var indexesForConfidentialIDMapCollection = []mongo.IndexModel{
 	{
@@ -16,7 +20,7 @@ var indexesForConfidentialIDMapCollection = []mongo.IndexModel{
 			{Key: "confidentialID", Value: 1},
 			{Key: "studyKey", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("confidentialID_1_studyKey_1"),
+		Options: options.Index().SetUnique(true).SetName(idxConfidentialIDMapConfidentialIDStudyKey),
 	},
 }
 
@@ -31,7 +35,7 @@ func (dbService *StudyDBService) DropIndexForConfidentialIDMapCollection(instanc
 			slog.Error("Error dropping all indexes for confidentialIDMap", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 		}
 	} else {
-		for _, indexName := range confidentialIDMapIndexNames {
+		for _, indexName := range defaultConfidentialIDMapIndexNames {
 			if indexName == "" {
 				slog.Error("Index name is empty for confidentialIDMap collection")
 				continue
@@ -48,11 +52,10 @@ func (dbService *StudyDBService) CreateDefaultIndexesForConfidentialIDMapCollect
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	names, err := dbService.collectionConfidentialIDMap(instanceID).Indexes().CreateMany(ctx, indexesForConfidentialIDMapCollection)
+	_, err := dbService.collectionConfidentialIDMap(instanceID).Indexes().CreateMany(ctx, indexesForConfidentialIDMapCollection)
 	if err != nil {
 		slog.Error("Error creating index for confidentialIDMap", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 	}
-	confidentialIDMapIndexNames = names
 }
 
 func (dbService *StudyDBService) AddConfidentialIDMapEntry(instanceID, confidentialID, profileID, studyKey string) error {

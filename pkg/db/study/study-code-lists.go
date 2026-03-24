@@ -1,7 +1,6 @@
 package study
 
 import (
-	"fmt"
 	"log/slog"
 	"time"
 
@@ -12,7 +11,11 @@ import (
 	studytypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
-var studyCodeListIndexNames []string
+const idxStudyCodeListsStudyKeyListKeyCode = "studyKey_1_listKey_1_code_1"
+
+var defaultStudyCodeListIndexNames = []string{
+	idxStudyCodeListsStudyKeyListKeyCode,
+}
 
 var indexesForStudyCodeListsCollection = []mongo.IndexModel{
 	{
@@ -21,7 +24,7 @@ var indexesForStudyCodeListsCollection = []mongo.IndexModel{
 			{Key: "listKey", Value: 1},
 			{Key: "code", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("studyKey_1_listKey_1_code_1"),
+		Options: options.Index().SetUnique(true).SetName(idxStudyCodeListsStudyKeyListKeyCode),
 	},
 }
 
@@ -36,9 +39,9 @@ func (dbService *StudyDBService) DropIndexForStudyCodeListsCollection(instanceID
 			slog.Error("Error dropping all indexes for studyCodeLists", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 		}
 	} else {
-		for _, indexName := range studyCodeListIndexNames {
+		for _, indexName := range defaultStudyCodeListIndexNames {
 			if indexName == "" {
-				slog.Error("Index name is empty for studyCodeLists collection", slog.String("index", fmt.Sprintf("%+v", indexName)), slog.String("instanceID", instanceID))
+				slog.Error("Index name is empty for studyCodeLists collection", slog.String("instanceID", instanceID))
 				continue
 			}
 			err := collection.Indexes().DropOne(ctx, indexName)
@@ -54,11 +57,10 @@ func (dbService *StudyDBService) CreateDefaultIndexesForStudyCodeListsCollection
 	defer cancel()
 
 	collection := dbService.collectionStudyCodeLists(instanceID)
-	names, err := collection.Indexes().CreateMany(ctx, indexesForStudyCodeListsCollection)
+	_, err := collection.Indexes().CreateMany(ctx, indexesForStudyCodeListsCollection)
 	if err != nil {
 		slog.Error("Error creating index for studyCodeLists", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 	}
-	studyCodeListIndexNames = names
 }
 
 func (dbService *StudyDBService) AddStudyCodeListEntry(instanceID string, studyKey string, listKey string, code string) error {

@@ -12,12 +12,16 @@ import (
 	userTypes "github.com/case-framework/case-backend/pkg/user-management/types"
 )
 
-var participantUserAttributeIndexNames []string
+const idxParticipantUserAttributesUserIdType = "userId_1_type_1"
+
+var defaultParticipantUserAttributeIndexNames = []string{
+	idxParticipantUserAttributesUserIdType,
+}
 
 var indexesForParticipantUserAttributesCollection = []mongo.IndexModel{
 	{
 		Keys:    bson.D{{Key: "userId", Value: 1}, {Key: "type", Value: 1}},
-		Options: options.Index().SetName("userId_1_type_1").SetUnique(true),
+		Options: options.Index().SetName(idxParticipantUserAttributesUserIdType).SetUnique(true),
 	},
 }
 
@@ -31,7 +35,7 @@ func (dbService *ParticipantUserDBService) DropIndexForParticipantUserAttributes
 			slog.Error("Error dropping all indexes for participant user attributes", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 		}
 	} else {
-		for _, indexName := range participantUserAttributeIndexNames {
+		for _, indexName := range defaultParticipantUserAttributeIndexNames {
 			if indexName == "" {
 				slog.Error("Index name is empty for participant user attributes collection", slog.String("instanceID", instanceID))
 				continue
@@ -48,11 +52,10 @@ func (dbService *ParticipantUserDBService) CreateDefaultIndexesForParticipantUse
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	names, err := dbService.collectionParticipantUserAttributes(instanceID).Indexes().CreateMany(ctx, indexesForParticipantUserAttributesCollection)
+	_, err := dbService.collectionParticipantUserAttributes(instanceID).Indexes().CreateMany(ctx, indexesForParticipantUserAttributesCollection)
 	if err != nil {
 		slog.Error("Error creating index for participant user attributes", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 	}
-	participantUserAttributeIndexNames = names
 }
 
 // Create or update a user attribute for a user by type

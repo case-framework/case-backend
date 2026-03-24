@@ -3,7 +3,6 @@ package study
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"time"
 
@@ -14,14 +13,28 @@ import (
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
-var responseIndexNames []string
+const (
+	idxResponsesParticipantID               = "participantID_1"
+	idxResponsesParticipantIDKeySubmittedAt = "participantID_1_key_1_submittedAt_1"
+	idxResponsesSubmittedAt                 = "submittedAt_1"
+	idxResponsesArrivedAt                   = "arrivedAt_1"
+	idxResponsesKey                         = "key_1"
+)
+
+var defaultResponseIndexNames = []string{
+	idxResponsesParticipantID,
+	idxResponsesParticipantIDKeySubmittedAt,
+	idxResponsesSubmittedAt,
+	idxResponsesArrivedAt,
+	idxResponsesKey,
+}
 
 var indexesForResponsesCollection = []mongo.IndexModel{
 	{
 		Keys: bson.D{
 			{Key: "participantID", Value: 1},
 		},
-		Options: options.Index().SetName("participantID_1"),
+		Options: options.Index().SetName(idxResponsesParticipantID),
 	},
 	{
 		Keys: bson.D{
@@ -29,25 +42,25 @@ var indexesForResponsesCollection = []mongo.IndexModel{
 			{Key: "key", Value: 1},
 			{Key: "submittedAt", Value: 1},
 		},
-		Options: options.Index().SetName("participantID_1_key_1_submittedAt_1"),
+		Options: options.Index().SetName(idxResponsesParticipantIDKeySubmittedAt),
 	},
 	{
 		Keys: bson.D{
 			{Key: "submittedAt", Value: 1},
 		},
-		Options: options.Index().SetName("submittedAt_1"),
+		Options: options.Index().SetName(idxResponsesSubmittedAt),
 	},
 	{
 		Keys: bson.D{
 			{Key: "arrivedAt", Value: 1},
 		},
-		Options: options.Index().SetName("arrivedAt_1"),
+		Options: options.Index().SetName(idxResponsesArrivedAt),
 	},
 	{
 		Keys: bson.D{
 			{Key: "key", Value: 1},
 		},
-		Options: options.Index().SetName("key_1"),
+		Options: options.Index().SetName(idxResponsesKey),
 	},
 }
 
@@ -61,9 +74,9 @@ func (dbService *StudyDBService) DropIndexForResponsesCollection(instanceID stri
 			slog.Error("Error dropping all indexes for responses", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 		}
 	} else {
-		for _, indexName := range responseIndexNames {
+		for _, indexName := range defaultResponseIndexNames {
 			if indexName == "" {
-				slog.Error("Index name is empty for responses collection", slog.String("index", fmt.Sprintf("%+v", indexName)))
+				slog.Error("Index name is empty for responses collection")
 				continue
 			}
 			err := dbService.collectionResponses(instanceID, studyKey).Indexes().DropOne(ctx, indexName)
@@ -79,11 +92,10 @@ func (dbService *StudyDBService) CreateDefaultIndexesForResponsesCollection(inst
 	defer cancel()
 
 	collection := dbService.collectionResponses(instanceID, studyKey)
-	names, err := collection.Indexes().CreateMany(ctx, indexesForResponsesCollection)
+	_, err := collection.Indexes().CreateMany(ctx, indexesForResponsesCollection)
 	if err != nil {
 		slog.Error("Error creating index for responses", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 	}
-	responseIndexNames = names
 }
 
 func (dbService *StudyDBService) AddSurveyResponse(instanceID string, studyKey string, response studyTypes.SurveyResponse) (string, error) {

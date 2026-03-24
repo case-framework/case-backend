@@ -3,7 +3,6 @@ package study
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"time"
 
@@ -14,39 +13,53 @@ import (
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
-var participantIndexNames []string
+const (
+	idxParticipantsParticipantID              = "participantID_1"
+	idxParticipantsStudyStatus                = "studyStatus_1"
+	idxParticipantsEnteredAt                  = "enteredAt_1"
+	idxParticipantsMessagesScheduledForStatus = "messages.scheduledFor_1_studyStatus_1"
+	idxParticipantsMessagesScheduledFor       = "messages.scheduledFor_1"
+)
+
+var defaultParticipantIndexNames = []string{
+	idxParticipantsParticipantID,
+	idxParticipantsStudyStatus,
+	idxParticipantsEnteredAt,
+	idxParticipantsMessagesScheduledForStatus,
+	idxParticipantsMessagesScheduledFor,
+}
 
 var indexesForParticipantsCollection = []mongo.IndexModel{
 	{
 		Keys: bson.D{
 			{Key: "participantID", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("participantID_1"),
+		Options: options.Index().SetUnique(true).SetName(idxParticipantsParticipantID),
 	},
 	{
 		Keys: bson.D{
 			{Key: "studyStatus", Value: 1},
 		},
-		Options: options.Index().SetName("studyStatus_1"),
+		Options: options.Index().SetName(idxParticipantsStudyStatus),
 	},
 	{
 		Keys: bson.D{
 			{Key: "enteredAt", Value: 1},
 		},
-		Options: options.Index().SetName("enteredAt_1"),
+		Options: options.Index().SetName(idxParticipantsEnteredAt),
 	},
 	{
 		Keys: bson.D{
 			{Key: "messages.scheduledFor", Value: 1},
 			{Key: "studyStatus", Value: 1},
 		},
-		Options: options.Index().SetName("messages.scheduledFor_1_studyStatus_1"),
+		Options: options.Index().SetName(idxParticipantsMessagesScheduledForStatus),
 	},
 	{
 		Keys: bson.D{
 			{Key: "messages.scheduledFor", Value: 1},
 		},
-		Options: options.Index().SetName("messages.scheduledFor_1"),
+		Options: options.Index().SetName(idxParticipantsMessagesScheduledFor),
 	},
 }
 
@@ -62,9 +75,9 @@ func (dbService *StudyDBService) DropIndexForParticipantsCollection(instanceID s
 			slog.Error("Error dropping all indexes for participants", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 		}
 	} else {
-		for _, indexName := range participantIndexNames {
+		for _, indexName := range defaultParticipantIndexNames {
 			if indexName == "" {
-				slog.Error("Index name is empty for participants collection", slog.String("index", fmt.Sprintf("%+v", indexName)))
+				slog.Error("Index name is empty for participants collection")
 				continue
 			}
 			err := collection.Indexes().DropOne(ctx, indexName)
@@ -80,11 +93,10 @@ func (dbService *StudyDBService) CreateDefaultIndexesForParticipantsCollection(i
 	defer cancel()
 
 	collection := dbService.collectionParticipants(instanceID, studyKey)
-	names, err := collection.Indexes().CreateMany(ctx, indexesForParticipantsCollection)
+	_, err := collection.Indexes().CreateMany(ctx, indexesForParticipantsCollection)
 	if err != nil {
 		slog.Error("Error creating index for participants", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 	}
-	participantIndexNames = names
 }
 
 func (dbService *StudyDBService) SaveParticipantState(instanceID string, studyKey string, pState studyTypes.Participant) (studyTypes.Participant, error) {

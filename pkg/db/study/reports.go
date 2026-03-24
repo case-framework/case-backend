@@ -22,20 +22,30 @@ type ReportKeyFilters struct {
 	ToTS          int64
 }
 
-var reportIndexNames []string
+const (
+	idxReportsParticipantID             = "participantID_1"
+	idxReportsTimestamp                 = "timestamp_1"
+	idxReportsParticipantIDKeyTimestamp = "participantID_1_key_1_timestamp_1"
+)
+
+var defaultReportIndexNames = []string{
+	idxReportsParticipantID,
+	idxReportsTimestamp,
+	idxReportsParticipantIDKeyTimestamp,
+}
 
 var indexesForReportsCollection = []mongo.IndexModel{
 	{
 		Keys: bson.D{
 			{Key: "participantID", Value: 1},
 		},
-		Options: options.Index().SetName("participantID_1"),
+		Options: options.Index().SetName(idxReportsParticipantID),
 	},
 	{
 		Keys: bson.D{
 			{Key: "timestamp", Value: 1},
 		},
-		Options: options.Index().SetName("timestamp_1"),
+		Options: options.Index().SetName(idxReportsTimestamp),
 	},
 	{
 		Keys: bson.D{
@@ -43,7 +53,7 @@ var indexesForReportsCollection = []mongo.IndexModel{
 			{Key: "key", Value: 1},
 			{Key: "timestamp", Value: 1},
 		},
-		Options: options.Index().SetName("participantID_1_key_1_timestamp_1"),
+		Options: options.Index().SetName(idxReportsParticipantIDKeyTimestamp),
 	},
 }
 
@@ -59,7 +69,7 @@ func (dbService *StudyDBService) DropIndexForReportsCollection(instanceID string
 			slog.Error("Error dropping all indexes for reports", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 		}
 	} else {
-		for _, indexName := range reportIndexNames {
+		for _, indexName := range defaultReportIndexNames {
 			if indexName == "" {
 				slog.Error("Index name is empty for reports collection", slog.String("index", fmt.Sprintf("%+v", indexName)))
 				continue
@@ -77,11 +87,10 @@ func (dbService *StudyDBService) CreateDefaultIndexesForReportsCollection(instan
 	defer cancel()
 
 	collection := dbService.collectionReports(instanceID, studyKey)
-	names, err := collection.Indexes().CreateMany(ctx, indexesForReportsCollection)
+	_, err := collection.Indexes().CreateMany(ctx, indexesForReportsCollection)
 	if err != nil {
 		slog.Error("Error creating index for reports", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 	}
-	reportIndexNames = names
 }
 
 func (dbService *StudyDBService) SaveReport(instanceID string, studyKey string, report studyTypes.Report) error {

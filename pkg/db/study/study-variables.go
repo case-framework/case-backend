@@ -1,7 +1,6 @@
 package study
 
 import (
-	"fmt"
 	"log/slog"
 
 	"time"
@@ -13,7 +12,11 @@ import (
 	studytypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
-var studyVariableIndexNames []string
+const idxStudyVariablesStudyKeyKey = "studyKey_1_key_1"
+
+var defaultStudyVariableIndexNames = []string{
+	idxStudyVariablesStudyKeyKey,
+}
 
 var indexesForStudyVariablesCollection = []mongo.IndexModel{
 	{
@@ -21,7 +24,7 @@ var indexesForStudyVariablesCollection = []mongo.IndexModel{
 			{Key: "studyKey", Value: 1},
 			{Key: "key", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("studyKey_1_key_1"),
+		Options: options.Index().SetUnique(true).SetName(idxStudyVariablesStudyKeyKey),
 	},
 }
 
@@ -46,9 +49,9 @@ func (dbService *StudyDBService) DropIndexForStudyVariablesCollection(instanceID
 			slog.Error("Error dropping all indexes for studyVariables", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 		}
 	} else {
-		for _, indexName := range studyVariableIndexNames {
+		for _, indexName := range defaultStudyVariableIndexNames {
 			if indexName == "" {
-				slog.Error("Index name is empty for studyVariables collection", slog.String("index", fmt.Sprintf("%+v", indexName)), slog.String("instanceID", instanceID))
+				slog.Error("Index name is empty for studyVariables collection", slog.String("instanceID", instanceID))
 				continue
 			}
 			err := collection.Indexes().DropOne(ctx, indexName)
@@ -63,11 +66,10 @@ func (dbService *StudyDBService) CreateDefaultIndexesForStudyVariablesCollection
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	names, err := dbService.collectionStudyVariables(instanceID).Indexes().CreateMany(ctx, indexesForStudyVariablesCollection)
+	_, err := dbService.collectionStudyVariables(instanceID).Indexes().CreateMany(ctx, indexesForStudyVariablesCollection)
 	if err != nil {
 		slog.Error("Error creating index for studyVariables", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 	}
-	studyVariableIndexNames = names
 }
 
 // create a study variable

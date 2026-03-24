@@ -1,7 +1,6 @@
 package study
 
 import (
-	"fmt"
 	"log/slog"
 	"time"
 
@@ -14,16 +13,19 @@ import (
 
 const (
 	REMOVE_TASK_FROM_QUEUE_AFTER = 60 * 60 * 24 * 2 // 2 days
+	idxTaskQueueUpdatedAt        = "updatedAt_1"
 )
+
+var defaultTaskQueueIndexNames = []string{
+	idxTaskQueueUpdatedAt,
+}
 
 var indexesForTaskQueueCollection = []mongo.IndexModel{
 	{
 		Keys:    bson.D{{Key: "updatedAt", Value: 1}},
-		Options: options.Index().SetExpireAfterSeconds(REMOVE_TASK_FROM_QUEUE_AFTER).SetName("updatedAt_1"),
+		Options: options.Index().SetExpireAfterSeconds(REMOVE_TASK_FROM_QUEUE_AFTER).SetName(idxTaskQueueUpdatedAt),
 	},
 }
-
-var taskQueueIndexNames []string
 
 func (dbService *StudyDBService) DropIndexForTaskQueueCollection(instanceID string, dropAll bool) {
 	ctx, cancel := dbService.getContext()
@@ -35,9 +37,9 @@ func (dbService *StudyDBService) DropIndexForTaskQueueCollection(instanceID stri
 			slog.Error("Error dropping all indexes for task queue", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 		}
 	} else {
-		for _, indexName := range taskQueueIndexNames {
+		for _, indexName := range defaultTaskQueueIndexNames {
 			if indexName == "" {
-				slog.Error("Index name is empty for task queue collection", slog.String("index", fmt.Sprintf("%+v", indexName)))
+				slog.Error("Index name is empty for task queue collection")
 				continue
 			}
 			err := dbService.collectionTaskQueue(instanceID).Indexes().DropOne(ctx, indexName)
@@ -52,11 +54,10 @@ func (dbService *StudyDBService) CreateDefaultIndexesForTaskQueueCollection(inst
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	names, err := dbService.collectionTaskQueue(instanceID).Indexes().CreateMany(ctx, indexesForTaskQueueCollection)
+	_, err := dbService.collectionTaskQueue(instanceID).Indexes().CreateMany(ctx, indexesForTaskQueueCollection)
 	if err != nil {
 		slog.Error("Error creating index for task queue", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 	}
-	taskQueueIndexNames = names
 }
 
 // create task

@@ -1,7 +1,6 @@
 package study
 
 import (
-	"fmt"
 	"log/slog"
 	"time"
 
@@ -12,7 +11,15 @@ import (
 	studytypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
-var participantFileIndexNames []string
+const (
+	idxParticipantFilesParticipantIDCreatedAt = "participantID_1_createdAt_-1"
+	idxParticipantFilesCreatedAt              = "createdAt_-1"
+)
+
+var defaultParticipantFileIndexNames = []string{
+	idxParticipantFilesParticipantIDCreatedAt,
+	idxParticipantFilesCreatedAt,
+}
 
 var indexesForParticipantFilesCollection = []mongo.IndexModel{
 	{
@@ -20,13 +27,13 @@ var indexesForParticipantFilesCollection = []mongo.IndexModel{
 			{Key: "participantID", Value: 1},
 			{Key: "createdAt", Value: -1},
 		},
-		Options: options.Index().SetName("participantID_1_createdAt_-1"),
+		Options: options.Index().SetName(idxParticipantFilesParticipantIDCreatedAt),
 	},
 	{
 		Keys: bson.D{
 			{Key: "createdAt", Value: -1},
 		},
-		Options: options.Index().SetName("createdAt_-1"),
+		Options: options.Index().SetName(idxParticipantFilesCreatedAt),
 	},
 }
 
@@ -42,9 +49,9 @@ func (dbService *StudyDBService) DropIndexForParticipantFilesCollection(instance
 			slog.Error("Error dropping all indexes for participant files", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 		}
 	} else {
-		for _, indexName := range participantFileIndexNames {
+		for _, indexName := range defaultParticipantFileIndexNames {
 			if indexName == "" {
-				slog.Error("Index name is empty for participant files collection", slog.String("index", fmt.Sprintf("%+v", indexName)), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
+				slog.Error("Index name is empty for participant files collection", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 				continue
 			}
 			err := collection.Indexes().DropOne(ctx, indexName)
@@ -60,11 +67,10 @@ func (dbService *StudyDBService) CreateDefaultIndexesForParticipantFilesCollecti
 	defer cancel()
 
 	collection := dbService.collectionFiles(instanceID, studyKey)
-	names, err := collection.Indexes().CreateMany(ctx, indexesForParticipantFilesCollection)
+	_, err := collection.Indexes().CreateMany(ctx, indexesForParticipantFilesCollection)
 	if err != nil {
 		slog.Error("Error creating index for participant files", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 	}
-	participantFileIndexNames = names
 }
 
 // get one by id
