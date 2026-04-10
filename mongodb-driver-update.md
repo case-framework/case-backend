@@ -10,20 +10,21 @@
 - Index Model: The old `IndexOptionsBuilder` type was removed and `IndexModel.Options.Name` is no longer accessible as a field. Required steps:
   - define static default index name constants/lists per collection
   - reuse those names for both index creation and `DropOne` in `drop defaults`
+  - TESTING REQUIRED: expired Indexes and unique indexes
 
 ### Messaging
 
 #### email-templates
 
-- save email template: use the options builder, and pass a pointer returned by options.FindOneAndReplace() instead of constructing FindOneAndReplaceOptions as a struct literal (testing? Line 128/129)
+- save email template: use the options builder, and pass a pointer returned by options.FindOneAndReplace() instead of constructing FindOneAndReplaceOptions as a struct literal (manually tested, see SaveEmailTemplate protocol)
 
 #### scheduled-emails
 
-- TESTING REQUIRED: save scheduled-emails: use the options builder, and pass a pointer returned by options.FindOneAndReplace() instead of constructing FindOneAndReplaceOptions as a struct literal
+- save scheduled-emails: use the options builder, and pass a pointer returned by options.FindOneAndReplace() instead of constructing FindOneAndReplaceOptions as a struct literal (manually tested)
 
 #### sms-templates
 
-- TESTING REQUIRED: save sms template: use the options builder, and pass a pointer returned by options.FindOneAndReplace() instead of constructing FindOneAndReplaceOptions as a struct literal
+- save sms template: use the options builder, and pass a pointer returned by options.FindOneAndReplace() instead of constructing FindOneAndReplaceOptions as a struct literal (manually tested, see SaveScheduledEmail protocol)
 
 ### participant user
 
@@ -69,7 +70,7 @@ TESTING REQUIRED:
 
 - GetSurveyKeysForStudy: `Distinct()` no longer returns `([]interface{}, error)`; it returns a single result type on which you call `.Decode(&target)` directly into a `[]string`, eliminating the manual type-assertion loop.TESTING REQUIRED:
 - GetCurrentSurveyVersion: create FindOneOptions using the options.FindOne() builder and setters (for example, options.FindOne().SetSort(sortByPublishedDesc)) instead of instantiating &options.FindOneOptions{} and mutating its fields. TESTING REQUIRED:
-- GetSurveyVersions: create FindOptions using the options.Find() builder and its setters (for example, options.Find().SetProjection(...).SetSort(...)) instead of instantiating &options.FindOptions{} and mutating its fields. TESTING REQUIRED:
+- GetSurveyVersions: create FindOptions using the options.Find() builder and its setters (for example, options.Find().SetProjection(...).SetSort(...)) instead of instantiating &options.FindOptions{} and mutating its fields.
 
 ## Manual Test Protocol (Index Migration)
 
@@ -134,3 +135,50 @@ Conclusion:
 
 - No behavioral change observed in the covered `SaveEmailTemplate` flows.
 - Current implementation remains consistent with previous driver-v1 behavior for UI-accessible paths.
+
+## Manual Test Protocol (SaveScheduledEmail)
+
+Date: 07.04.2026
+
+Scope:
+
+- Verify unchanged behavior for scheduled-email and sms-template save flows after switching to options-builder usage for FindOneAndReplace options.
+
+Test execution:
+
+1. Created new scheduled emails in UI and saved them.
+2. Updated existing scheduled emails in UI and saved the changes.
+3. Created new SMS templates in UI and saved them.
+4. Updated existing SMS templates in UI and saved the changes.
+
+Expected and observed results:
+
+1. Create path: new schedules are created successfully.
+2. Update path: existing schedules are updated successfully.
+3. Create/update path for SMS templates: works successfully as before.
+
+Conclusion:
+
+- No behavioral change observed in the tested `SaveScheduledEmail` and `SaveSMSTemplate` create/update flows.
+
+## Manual Test Protocol (GetSurveyVersions)
+
+Date: 09.04.2026
+
+Scope:
+
+- Verify unchanged behavior for `GetSurveyVersions` after switching to `options.Find()` builder with setters.
+
+Test execution:
+
+1. Opened survey version list in UI for a study/survey.
+2. Verified API request used endpoint `GET /v1/studies/:studyKey/surveys/:surveyKey/versions`.
+
+Expected and observed results:
+
+1. Survey versions are returned and displayed as expected.
+2. No behavioral change observed compared to previous behavior.
+
+Conclusion:
+
+- `GetSurveyVersions` behavior is unchanged for the tested UI/API flow.
