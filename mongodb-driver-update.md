@@ -69,7 +69,7 @@ TESTING REQUIRED:
 #### surveys
 
 - GetSurveyKeysForStudy: `Distinct()` no longer returns `([]interface{}, error)`; it returns a single result type on which you call `.Decode(&target)` directly into a `[]string`, eliminating the manual type-assertion loop.TESTING REQUIRED:
-- GetCurrentSurveyVersion: create FindOneOptions using the options.FindOne() builder and setters (for example, options.FindOne().SetSort(sortByPublishedDesc)) instead of instantiating &options.FindOneOptions{} and mutating its fields. TESTING REQUIRED:
+- GetCurrentSurveyVersion: create FindOneOptions using the options.FindOne() builder and setters (for example, options.FindOne().SetSort(sortByPublishedDesc)) instead of instantiating &options.FindOneOptions{} and mutating its fields.
 - GetSurveyVersions: create FindOptions using the options.Find() builder and its setters (for example, options.Find().SetProjection(...).SetSort(...)) instead of instantiating &options.FindOptions{} and mutating its fields.
 
 ## Manual Test Protocol (Index Migration)
@@ -182,3 +182,25 @@ Expected and observed results:
 Conclusion:
 
 - `GetSurveyVersions` behavior is unchanged for the tested UI/API flow.
+
+## Manual Test Protocol (GetCurrentSurveyVersions)
+
+Date: 10.04.2026
+
+Scope:
+
+- Verify unchanged behavior for `GetCurrentSurveyVersions` after switching to `options.FindOne()` builder with setters.
+
+Test execution:
+
+1. Exported study configuration as JSON via the UI (study configuration export).
+2. `GetCurrentSurveyVersions` is called internally during this export to retrieve the current version of all surveys belonging to the study.
+
+Expected and observed results:
+
+1. The exported JSON file is identical to the file exported with the previous MongoDB driver version.
+2. No behavioral change observed.
+
+Conclusion:
+
+- `GetCurrentSurveyVersions` behavior is unchanged after the driver migration.
