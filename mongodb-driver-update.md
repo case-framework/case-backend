@@ -30,7 +30,7 @@
 
 #### user-attributes
 
-- TESTING REQUIRED: The UpdateOptions has been chnaged to UpdateOneOptions to configure UpdateOne operation.
+- TESTING REQUIRED: The UpdateOptions has been changed to UpdateOneOptions to configure UpdateOne operation.
 
 #### users
 
@@ -55,11 +55,11 @@ run concurrent OTP creations to confirm only the allowed number of documents is 
 
 #### confidential responses
 
-- configure replace options via the options.Replace() builder (for example, options.Replace().SetUpsert(true)) instead of instantiating a ReplaceOptions struct literal and passing its address. TESTING REQUIRED
+- configure replace options via the options.Replace() builder (for example, options.Replace().SetUpsert(true)) instead of instantiating a ReplaceOptions struct literal and passing its address.
 
 #### study-rules
 
-- &options.FindOneOptions{ Sort: sortByPublished } becomes options.FindOne().SetSort(sortByPublished). TESTING REQUIRED
+- &options.FindOneOptions{ Sort: sortByPublished } becomes options.FindOne().SetSort(sortByPublished).
 
 #### reports
 
@@ -204,3 +204,47 @@ Expected and observed results:
 Conclusion:
 
 - `GetCurrentSurveyVersions` behavior is unchanged after the driver migration.
+
+## Manual Test Protocol (GetCurrentStudyRules)
+
+Date: 10.04.2026
+
+Scope:
+
+- Verify unchanged behavior for `GetCurrentStudyRules` after switching to `options.FindOne()` builder with setters.
+
+Test execution:
+
+1. Exported study configuration as JSON via the UI (study configuration export).
+2. `GetCurrentStudyRules` is called internally during this export to retrieve the current study rules belonging to the study.
+
+Expected and observed results:
+
+1. The exported JSON file is identical to the file exported with the previous MongoDB driver version.
+2. No behavioral change observed.
+
+Conclusion:
+
+- `GetCurrentStudyRules` behavior is unchanged after the driver migration.
+
+## Manual Test Protocol (ReplaceConfidentialResponse)
+
+Date: 13.04.2026
+
+Scope:
+
+- Verify unchanged behavior for `ReplaceConfidentialResponse` after switching to `options.Replace().SetUpsert(true)` builder usage.
+
+Test execution:
+
+1. Submitted a survey with confidential responses for a participant for the first time (insert path).
+2. Submitted the same survey again for the same participant (replace path), so the existing confidential response was replaced by the new one.
+
+Expected and observed results:
+
+1. First submission: confidential response was inserted as a new document in the database.
+2. Subsequent submission: existing confidential response was replaced by the new response, no duplicate was created.
+
+Conclusion:
+
+- No behavioral change observed for the insert and replace paths of `ReplaceConfidentialResponse`.
