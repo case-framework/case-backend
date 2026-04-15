@@ -63,12 +63,11 @@ run concurrent OTP creations to confirm only the allowed number of documents is 
 
 #### reports
 
-- GetUniqueReportKeysForStudy:`Distinct()` no longer returns `([]interface{}, error)`; it returns a single result type on which you call `.Decode(&target)` directly into a `[]string`, eliminating the manual type-assertion loop.
-TESTING REQUIRED:
+- GetUniqueReportKeysForStudy:`Distinct()` no longer returns `([]interface{}, error)`; it returns a single result type on which you call `.Decode(&target)` directly into a `[]string`, eliminating the manual type-assertion loop. (manually tested, see `GetUniqueReportKeysForStudy` protocol)
 
 #### surveys
 
-- GetSurveyKeysForStudy: `Distinct()` no longer returns `([]interface{}, error)`; it returns a single result type on which you call `.Decode(&target)` directly into a `[]string`, eliminating the manual type-assertion loop.TESTING REQUIRED:
+- GetSurveyKeysForStudy: `Distinct()` no longer returns `([]interface{}, error)`; it returns a single result type on which you call `.Decode(&target)` directly into a `[]string`, eliminating the manual type-assertion loop. (manually tested, see `GetSurveyKeysForStudy` protocol)
 - GetCurrentSurveyVersion: create FindOneOptions using the options.FindOne() builder and setters (for example, options.FindOne().SetSort(sortByPublishedDesc)) instead of instantiating &options.FindOneOptions{} and mutating its fields.
 - GetSurveyVersions: create FindOptions using the options.Find() builder and its setters (for example, options.Find().SetProjection(...).SetSort(...)) instead of instantiating &options.FindOptions{} and mutating its fields.
 
@@ -334,3 +333,49 @@ Expected and observed results:
 Conclusion:
 
 - No behavioral change observed for the insert path of `SetUserAttribute`.
+
+## Manual Test Protocol (GetUniqueReportKeysForStudy)
+
+Date: 15.04.2026
+
+Scope:
+
+- Verify unchanged behavior for `GetUniqueReportKeysForStudy` after switching to the new `Distinct()` API that returns a result type decoded directly into `[]string`.
+
+Test execution:
+
+1. Opened the reports page in the CASE management UI for a study with existing reports.
+2. Checked the dropdown that lists all available report keys.
+3. Applied a `participantID` filter and verified the dropdown updated accordingly.
+4. Applied `from` and `until` date filters and verified the dropdown updated accordingly.
+
+Expected and observed results:
+
+1. All available and filtered report keys were listed correctly in the dropdown.
+2. No behavioral change observed compared to previous behavior.
+
+Conclusion:
+
+- No behavioral change observed for `GetUniqueReportKeysForStudy` after the driver migration.
+
+## Manual Test Protocol (GetSurveyKeysForStudy)
+
+Date: 15.04.2026
+
+Scope:
+
+- Verify unchanged behavior for `GetSurveyKeysForStudy` after switching to the new `Distinct()` API that returns a result type decoded directly into `[]string`.
+
+Test execution:
+
+1. Opened the CASE management UI and checked the survey dropdown used to manually assign a survey to a participant – verified that all available survey keys were listed correctly.
+2. Exported study configuration as JSON via the UI and verified that the survey keys are correctly included in the export.
+
+Expected and observed results:
+
+1. All available survey keys were listed correctly in the dropdown.
+2. The exported study configuration JSON contained the correct survey keys, identical to the export with the previous MongoDB driver version.
+
+Conclusion:
+
+- No behavioral change observed for `GetSurveyKeysForStudy` after the driver migration.
