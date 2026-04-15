@@ -30,12 +30,12 @@
 
 #### user-attributes
 
-- TESTING REQUIRED: The UpdateOptions has been changed to UpdateOneOptions to configure UpdateOne operation.
+- The UpdateOptions has been changed to UpdateOneOptions to configure UpdateOne operation. (manually tested, see `SetUserAttribute` protocol)
 
 #### users
 
-- add user: MongoDB Go Driver v2 no longer allows constructing or modifying option structs directly, so update options must now be created through the new builder API (options.UpdateOne().SetUpsert(true)) instead of setting fields on UpdateOptions manually. TESTING REQUIRED
-- update user in db: FindOneAndReplaceOptions can no longer be created or populated as a struct, so the v2 driver requires using the builder pattern (options.FindOneAndReplace().SetReturnDocument(options.After)) instead of setting option fields directly. TESTING REQUIRED
+- add user: MongoDB Go Driver v2 no longer allows constructing or modifying option structs directly, so update options must now be created through the new builder API (options.UpdateOne().SetUpsert(true)) instead of setting fields on UpdateOptions manually.
+- update user in db: FindOneAndReplaceOptions can no longer be created or populated as a struct, so the v2 driver requires using the builder pattern (options.FindOneAndReplace().SetReturnDocument(options.After)) instead of setting option fields directly. (manually tested, see `_updateUserInDB` protocol)
 
 #### otps
 
@@ -51,7 +51,7 @@ run concurrent OTP creations to confirm only the allowed number of documents is 
 
 #### participants
 
-- configure FindOneAndReplaceOptions through options.FindOneAndReplace().Set... instead of filling the struct fields directly. TESTING REQUIRED
+- saveParticipantSate: configure FindOneAndReplaceOptions through options.FindOneAndReplace().Set... instead of filling the struct fields directly.
 
 #### confidential responses
 
@@ -248,3 +248,89 @@ Expected and observed results:
 Conclusion:
 
 - No behavioral change observed for the insert and replace paths of `ReplaceConfidentialResponse`.
+
+## Manual Test Protocol (SaveParticipantState)
+
+Date: 13.04.2026
+
+Scope:
+
+- Verify unchanged behavior for `SaveParticipantState` after switching to `options.FindOneAndReplace().SetUpsert(true).SetReturnDocument(options.After)` builder usage.
+
+Test execution:
+
+1. Created a new participant by enrolling in a study (insert path).
+2. Changed the state of an existing participant (replace path), e.g. by submitting a survey that modifies participant flags or survey assignments.
+
+Expected and observed results:
+
+1. Insert path: new participant document was created successfully in the database.
+2. Replace path: existing participant state was updated correctly, no duplicate was created.
+
+Conclusion:
+
+- No behavioral change observed for the insert and replace paths of `SaveParticipantState`.
+
+## Manual Test Protocol (AddUser)
+
+Date: 14.04.2026
+
+Scope:
+
+- Verify unchanged behavior for `AddUser` after switching to `options.UpdateOne().SetUpsert(true)` builder usage.
+
+Test execution:
+
+1. Created a new user with a fresh email address (insert path).
+2. Attempted to create another new user with the same email address as an already existing user (duplicate path).
+
+Expected and observed results:
+
+1. Insert path: new user was created successfully in the database.
+2. Duplicate path: error `"user already exists"` was returned correctly, no duplicate user was created in the database.
+
+Conclusion:
+
+- No behavioral change observed for the insert and duplicate paths of `AddUser`.
+
+## Manual Test Protocol (_updateUserInDB)
+
+Date: 14.04.2026
+
+Scope:
+
+- Verify unchanged behavior for `_updateUserInDB` (called via `ReplaceUser`) after switching to `options.FindOneAndReplace().SetReturnDocument(options.After)` builder usage.
+
+Test execution:
+
+1. Logged in as a participant user (triggers `ReplaceUser` → `_updateUserInDB` to update login timestamps).
+2. Created a new profile for the logged-in user (triggers another `ReplaceUser` → `_updateUserInDB` to persist the updated user document).
+
+Expected and observed results:
+
+1. Login: user document was updated correctly in the database (e.g. `lastLogin` timestamp).
+2. New profile: profile was saved correctly and the updated user document was returned, no duplicate was created.
+
+Conclusion:
+
+- No behavioral change observed for the replace path of `_updateUserInDB`.
+
+## Manual Test Protocol (SetUserAttribute)
+
+Date: 15.04.2026
+
+Scope:
+
+- Verify unchanged behavior for `SetUserAttribute` after switching to `options.UpdateOne().SetUpsert(true)` builder usage.
+
+Test execution:
+
+1. Registered a new user at flusurvey (insert path: user attribute document created for the first time).
+
+Expected and observed results:
+
+1. Insert path: user attribute was created successfully as a new document in the database.
+
+Conclusion:
+
+- No behavioral change observed for the insert path of `SetUserAttribute`.
