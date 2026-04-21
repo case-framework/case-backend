@@ -2,35 +2,34 @@
 
 ## Overview of Changes
 
-### All files
-
 The following is a list of all changes made for the update of the MongoDB Go Driver from v1 to v2. The `bson/primitive` types were replaced globally throughout the codebase. This is followed by changes that were applied uniformly across all DB packages, and finally by changes specific to individual DB collections.
+
+### All files
 
 - The bson/primitive package has been merged into the bson package —> changed any instance of primitive.ObjectID to bson.ObjectId.
 
 ### All DB packages
 
-- context.Context parameter has been removed from mongo.Connect() because the deployment connector doesn’t accept a context, meaning that the context passed to mongo.Connect() in previous versions didn't serve a purpose.
-- Simplfied DropOne and DropAll methods by removing the server response
+- context.Context parameter has been removed from mongo.Connect(): the deployment connector doesn’t accept a context, meaning that the context passed to mongo.Connect() in previous versions didn't serve a purpose.
+- Simplfied DropOne and DropAll methods by removing the unused server response
 - removed unused return value for context.WithTimeout()
 - Index Model: The old `IndexOptionsBuilder` type was removed and `IndexModel.Options.Name` is no longer accessible as a field. Required steps:
   - define static default index name constants/lists per collection
   - reuse those names for both index creation and `DropOne` in `drop defaults`
-  - TESTING REQUIRED: expired Indexes and unique indexes
 
 ### Messaging
 
 #### email-templates
 
-- save email template: use the options builder, and pass a pointer returned by options.FindOneAndReplace() instead of constructing FindOneAndReplaceOptions as a struct literal (manually tested, see SaveEmailTemplate protocol)
+- `SaveEmailTemplate`: use the options builder, and pass a pointer returned by options.FindOneAndReplace() instead of constructing FindOneAndReplaceOptions as a struct literal (manually tested, see SaveEmailTemplate protocol)
 
 #### scheduled-emails
 
-- save scheduled-emails: use the options builder, and pass a pointer returned by options.FindOneAndReplace() instead of constructing FindOneAndReplaceOptions as a struct literal (manually tested)
+- `SaveScheduledEmail`: use the options builder, and pass a pointer returned by options.FindOneAndReplace() instead of constructing FindOneAndReplaceOptions as a struct literal (manually tested)
 
 #### sms-templates
 
-- save sms template: use the options builder, and pass a pointer returned by options.FindOneAndReplace() instead of constructing FindOneAndReplaceOptions as a struct literal (manually tested, see SaveScheduledEmail protocol)
+- `SaveSMSTemplate`: use the options builder, and pass a pointer returned by options.FindOneAndReplace() instead of constructing FindOneAndReplaceOptions as a struct literal (manually tested, see SaveScheduledEmail protocol)
 
 ### Participant User
 
@@ -40,18 +39,18 @@ The following is a list of all changes made for the update of the MongoDB Go Dri
 
 #### users
 
-- add user: MongoDB Go Driver v2 no longer allows constructing or modifying option structs directly, so update options must now be created through the new builder API (options.UpdateOne().SetUpsert(true)) instead of setting fields on UpdateOptions manually.
-- update user in db: FindOneAndReplaceOptions can no longer be created or populated as a struct, so the v2 driver requires using the builder pattern (options.FindOneAndReplace().SetReturnDocument(options.After)) instead of setting option fields directly. (manually tested, see `_updateUserInDB` protocol)
+- `AddUser`: MongoDB Go Driver v2 no longer allows constructing or modifying option structs directly, so update options must now be created through the new builder API (options.UpdateOne().SetUpsert(true)) instead of setting fields on UpdateOptions manually.
+- `_updateUserInDB`: FindOneAndReplaceOptions can no longer be created or populated as a struct, so the v2 driver requires using the builder pattern (options.FindOneAndReplace().SetReturnDocument(options.After)) instead of setting option fields directly. (manually tested, see `_updateUserInDB` protocol)
 
 #### otps
 
-- update the callback for mongo.WithSession to use a context.Context implementation, rather than the custom mongo.SessionContext
+- `CreateOTP`: update the callback for mongo.WithSession to use a context.Context implementation, rather than the custom mongo.SessionContext
 
 ### Study
 
 #### participants
 
-- saveParticipantSate: configure FindOneAndReplaceOptions through options.FindOneAndReplace().Set... instead of filling the struct fields directly.
+- `SaveParticipantState`: configure FindOneAndReplaceOptions through options.FindOneAndReplace().Set... instead of filling the struct fields directly.
 
 #### confidential responses
 
@@ -71,7 +70,9 @@ The following is a list of all changes made for the update of the MongoDB Go Dri
 - GetCurrentSurveyVersion: create FindOneOptions using the options.FindOne() builder and setters (for example, options.FindOne().SetSort(sortByPublishedDesc)) instead of instantiating &options.FindOneOptions{} and mutating its fields.
 - GetSurveyVersions: create FindOptions using the options.Find() builder and its setters (for example, options.Find().SetProjection(...).SetSort(...)) instead of instantiating &options.FindOptions{} and mutating its fields.
 
-## Manual Test Protocol (Index Migration)
+## Manual Test Protocol
+
+### Index Migration
 
 Date: 24.03.2026
 
@@ -110,7 +111,7 @@ Conclusion:
   - `create defaults` restores the default indexes again.
   - unique and TTL index properties are correctly applied after recreation.
 
-## Manual Test Protocol (SaveEmailTemplate)
+### SaveEmailTemplate
 
 Date: 25.03.2026
 
@@ -138,7 +139,7 @@ Conclusion:
 - No behavioral change observed in the covered `SaveEmailTemplate` flows.
 - Current implementation remains consistent with previous driver-v1 behavior for UI-accessible paths.
 
-## Manual Test Protocol (SaveScheduledEmail)
+### SaveScheduledEmail
 
 Date: 07.04.2026
 
@@ -163,7 +164,7 @@ Conclusion:
 
 - No behavioral change observed in the tested `SaveScheduledEmail` and `SaveSMSTemplate` create/update flows.
 
-## Manual Test Protocol (GetSurveyVersions)
+### GetSurveyVersions
 
 Date: 09.04.2026
 
@@ -185,7 +186,7 @@ Conclusion:
 
 - `GetSurveyVersions` behavior is unchanged for the tested UI/API flow.
 
-## Manual Test Protocol (GetCurrentSurveyVersions)
+### GetCurrentSurveyVersions
 
 Date: 10.04.2026
 
@@ -207,7 +208,7 @@ Conclusion:
 
 - `GetCurrentSurveyVersions` behavior is unchanged after the driver migration.
 
-## Manual Test Protocol (GetCurrentStudyRules)
+### GetCurrentStudyRules
 
 Date: 10.04.2026
 
@@ -229,7 +230,7 @@ Conclusion:
 
 - `GetCurrentStudyRules` behavior is unchanged after the driver migration.
 
-## Manual Test Protocol (ReplaceConfidentialResponse)
+### ReplaceConfidentialResponse
 
 Date: 13.04.2026
 
@@ -251,7 +252,7 @@ Conclusion:
 
 - No behavioral change observed for the insert and replace paths of `ReplaceConfidentialResponse`.
 
-## Manual Test Protocol (SaveParticipantState)
+### SaveParticipantState
 
 Date: 13.04.2026
 
@@ -273,7 +274,7 @@ Conclusion:
 
 - No behavioral change observed for the insert and replace paths of `SaveParticipantState`.
 
-## Manual Test Protocol (AddUser)
+### AddUser
 
 Date: 14.04.2026
 
@@ -295,7 +296,7 @@ Conclusion:
 
 - No behavioral change observed for the insert and duplicate paths of `AddUser`.
 
-## Manual Test Protocol (_updateUserInDB)
+### _updateUserInDB
 
 Date: 14.04.2026
 
@@ -317,7 +318,7 @@ Conclusion:
 
 - No behavioral change observed for the replace path of `_updateUserInDB`.
 
-## Manual Test Protocol (SetUserAttribute)
+### SetUserAttribute
 
 Date: 15.04.2026
 
@@ -337,7 +338,7 @@ Conclusion:
 
 - No behavioral change observed for the insert path of `SetUserAttribute`.
 
-## Manual Test Protocol (GetUniqueReportKeysForStudy)
+### GetUniqueReportKeysForStudy
 
 Date: 15.04.2026
 
@@ -361,7 +362,7 @@ Conclusion:
 
 - No behavioral change observed for `GetUniqueReportKeysForStudy` after the driver migration.
 
-## Manual Test Protocol (GetSurveyKeysForStudy)
+### GetSurveyKeysForStudy
 
 Date: 15.04.2026
 
@@ -383,7 +384,7 @@ Conclusion:
 
 - No behavioral change observed for `GetSurveyKeysForStudy` after the driver migration.
 
-## Manual Test Protocol (CreateOTP)
+### CreateOTP
 
 Date: 21.04.2026
 
