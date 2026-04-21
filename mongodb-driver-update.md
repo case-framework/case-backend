@@ -2,11 +2,13 @@
 
 ## Overview of Changes
 
+### All files
+
 The following is a list of all changes made for the update of the MongoDB Go Driver from v1 to v2. The `bson/primitive` types were replaced globally throughout the codebase. This is followed by changes that were applied uniformly across all DB packages, and finally by changes specific to individual DB collections.
 
 - The bson/primitive package has been merged into the bson package —> changed any instance of primitive.ObjectID to bson.ObjectId.
 
-## All DB packages
+### All DB packages
 
 - context.Context parameter has been removed from mongo.Connect() because the deployment connector doesn’t accept a context, meaning that the context passed to mongo.Connect() in previous versions didn't serve a purpose.
 - Simplfied DropOne and DropAll methods by removing the server response
@@ -30,7 +32,7 @@ The following is a list of all changes made for the update of the MongoDB Go Dri
 
 - save sms template: use the options builder, and pass a pointer returned by options.FindOneAndReplace() instead of constructing FindOneAndReplaceOptions as a struct literal (manually tested, see SaveScheduledEmail protocol)
 
-### participant user
+### Participant User
 
 #### user-attributes
 
@@ -43,9 +45,9 @@ The following is a list of all changes made for the update of the MongoDB Go Dri
 
 #### otps
 
-- update the callback for mongo.WithSession to use a context.Context implementation, rather than the custom mongo.SessionContext 
+- update the callback for mongo.WithSession to use a context.Context implementation, rather than the custom mongo.SessionContext
 
-### study
+### Study
 
 #### participants
 
