@@ -1,4 +1,8 @@
-# Update mongodb driver
+# Update mongodb driver: v1 → v2
+
+## Overview of Changes
+
+The following is a list of all changes made for the update of the MongoDB Go Driver from v1 to v2. The `bson/primitive` types were replaced globally throughout the codebase. This is followed by changes that were applied uniformly across all DB packages, and finally by changes specific to individual DB collections.
 
 - The bson/primitive package has been merged into the bson package —> changed any instance of primitive.ObjectID to bson.ObjectId.
 
@@ -39,13 +43,7 @@
 
 #### otps
 
-- update the callback for mongo.WithSession to use a context.Context implementation, rather than the custom mongo.SessionContext TESTING REQUIRED
-
-TEST: If you want to be extra safe, you can:
-Deploy this change to a non‑production environment first.
-Run a few test flows that:
-exceed the maxOTPCount to ensure the “too many OTP requests” path still works,
-run concurrent OTP creations to confirm only the allowed number of documents is written.
+- update the callback for mongo.WithSession to use a context.Context implementation, rather than the custom mongo.SessionContext 
 
 ### study
 
@@ -397,8 +395,6 @@ Test execution:
 2. Verified the OTP by entering the received code successfully.
 3. Triggered OTP requests repeatedly until the `maxOTPCount` limit was reached — subsequent requests correctly returned an error.
 4. Waited for OTP expiry (TTL of 15 minutes) and verified the OTP document was automatically deleted from the database.
-
-Note: During testing, two OTPs were created in one session due to the frontend sending the OTP request twice. This is a pre-existing frontend behavior unrelated to the MongoDB driver migration.
 
 Expected and observed results:
 
