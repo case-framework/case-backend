@@ -99,6 +99,8 @@ Result summary:
 
 - Default indexes were removed in phase 2 and recreated in phase 3 as expected.
 - Manually added custom index remained untouched by `drop defaults`.
+- Unique index behavior verified: inserting a document with the same index field value as an existing document is rejected by MongoDB.
+- TTL index behavior verified: documents are automatically deleted by MongoDB once the `expireAfterSeconds` threshold has passed.
 
 Conclusion:
 
@@ -106,6 +108,7 @@ Conclusion:
   - `drop defaults` removes only default indexes.
   - custom manually added indexes remain untouched.
   - `create defaults` restores the default indexes again.
+  - unique and TTL index properties are correctly applied after recreation.
 
 ## Manual Test Protocol (SaveEmailTemplate)
 
@@ -379,3 +382,31 @@ Expected and observed results:
 Conclusion:
 
 - No behavioral change observed for `GetSurveyKeysForStudy` after the driver migration.
+
+## Manual Test Protocol (CreateOTP)
+
+Date: 21.04.2026
+
+Scope:
+
+- Verify unchanged behavior for `CreateOTP` after switching the `mongo.WithSession` callback from `mongo.SessionContext` to `context.Context`.
+
+Test execution:
+
+1. Triggered an OTP request via the login flow (normal case: OTP created and email received).
+2. Verified the OTP by entering the received code successfully.
+3. Triggered OTP requests repeatedly until the `maxOTPCount` limit was reached — subsequent requests correctly returned an error.
+4. Waited for OTP expiry (TTL of 15 minutes) and verified the OTP document was automatically deleted from the database.
+
+Note: During testing, two OTPs were created in one session due to the frontend sending the OTP request twice. This is a pre-existing frontend behavior unrelated to the MongoDB driver migration.
+
+Expected and observed results:
+
+1. Normal case: OTP was created and email was sent successfully.
+2. Verification: OTP verification succeeded with the correct code.
+3. Limit case: Error returned correctly after exceeding `maxOTPCount`, no additional OTP was created.
+4. TTL: OTP document was deleted automatically after expiry.
+
+Conclusion:
+
+- No behavioral change observed for `CreateOTP` after the driver migration.
