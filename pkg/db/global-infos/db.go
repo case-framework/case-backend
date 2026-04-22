@@ -26,9 +26,6 @@ type GlobalInfosDBService struct {
 }
 
 func NewGlobalInfosDBService(configs db.DBConfig) (*GlobalInfosDBService, error) {
-	_, cancel := context.WithTimeout(context.Background(), time.Duration(configs.Timeout)*time.Second)
-	defer cancel()
-
 	dbClient, err := mongo.Connect(
 		options.Client().ApplyURI(configs.URI),
 		options.Client().SetMaxConnIdleTime(time.Duration(configs.IdleConnTimeout)*time.Second),

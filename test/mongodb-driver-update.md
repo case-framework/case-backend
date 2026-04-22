@@ -11,8 +11,8 @@ The following lists all changes in the upgrade from MongoDB Go Driver v1 to v2. 
 ### All DB packages
 
 - `mongo.Connect()`: context.Context parameter has been removed. (The deployment connector doesn’t accept a context, meaning that the context passed to mongo.Connect() in previous versions didn't serve a purpose.)
+- `context.WithTimeout()`: removed unused `context.WithTimeout()` call (including `defer cancel()`) before `mongo.Connect()` — the context was discarded with `_` and never passed to `mongo.Connect()`, which in v2 no longer accepts a context parameter anyway.
 - `DropOne` and `DropAll`: simplified methods by removing the unused server response
-- `context.WithTimeout()`: removed unused return value
 - **Index Model**: The old `IndexOptionsBuilder` type was removed and `IndexModel.Options.Name` is no longer accessible as a field. Required steps:
   - define static default index name constants/lists per collection
   - reuse those names for both index creation and `DropOne` in `drop defaults`
