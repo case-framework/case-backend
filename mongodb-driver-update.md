@@ -2,11 +2,11 @@
 
 ## Overview of Changes
 
-The following is a list of all changes made for the update of the MongoDB Go Driver from v1 to v2. The `bson/primitive` types were replaced globally throughout the codebase. This is followed by changes that were applied uniformly across all DB packages, and finally by changes specific to individual DB collections.
+The following lists all changes in the upgrade from MongoDB Go Driver v1 to v2. The `bson/primitive` types were replaced globally throughout the codebase. This is followed by changes that were applied uniformly across all DB packages, and finally by changes specific to individual DB collections.
 
 ### All files
 
-- **primitve package**: The bson/primitive package has been merged into the bson package —> changed any instance of primitive.ObjectID to bson.ObjectID.
+- **primitive package**: The bson/primitive package has been merged into the bson package —> changed any instance of primitive.ObjectID to bson.ObjectID.
 
 ### All DB packages
 
@@ -16,60 +16,60 @@ The following is a list of all changes made for the update of the MongoDB Go Dri
 - **Index Model**: The old `IndexOptionsBuilder` type was removed and `IndexModel.Options.Name` is no longer accessible as a field. Required steps:
   - define static default index name constants/lists per collection
   - reuse those names for both index creation and `DropOne` in `drop defaults`
-  - manually tested, see [`Index migration` test protocol](#index-migration)
+  - tested, see [Index migration test protocol](#index-migration)
 
 ### Messaging
 
 #### email-templates
 
-- `SaveEmailTemplate`: use the options builder, and pass a pointer returned by options.FindOneAndReplace() instead of constructing FindOneAndReplaceOptions as a struct literal (manually tested, see [`SaveEmailTemplate` test protocol](#saveemailtemplate))
+- `SaveEmailTemplate`: use the options builder, and pass a pointer returned by options.FindOneAndReplace() instead of constructing FindOneAndReplaceOptions as a struct literal (tested, see [SaveEmailTemplate test protocol](#saveemailtemplate))
 
 #### scheduled-emails
 
-- `SaveScheduledEmail`: use the options builder, and pass a pointer returned by options.FindOneAndReplace() instead of constructing FindOneAndReplaceOptions as a struct literal (manually tested, see [`SaveScheduledEmail` test protocol](#savescheduledemail-and-savesmstemplate))
+- `SaveScheduledEmail`: use the options builder, and pass a pointer returned by options.FindOneAndReplace() instead of constructing FindOneAndReplaceOptions as a struct literal (tested, see [SaveScheduledEmail test protocol](#savescheduledemail-and-savesmstemplate))
 
 #### sms-templates
 
-- `SaveSMSTemplate`: use the options builder, and pass a pointer returned by options.FindOneAndReplace() instead of constructing FindOneAndReplaceOptions as a struct literal (manually tested, see [`SaveScheduledEmail` test protocol](#savescheduledemail-and-savesmstemplate))
+- `SaveSMSTemplate`: use the options builder, and pass a pointer returned by options.FindOneAndReplace() instead of constructing FindOneAndReplaceOptions as a struct literal (tested, see [SaveScheduledEmail test protocol](#savescheduledemail-and-savesmstemplate))
 
 ### Participant User
 
 #### user-attributes
 
-- `SetUserAttribute`: `UpdateOptions` has been changed to `UpdateOneOptions` to configure UpdateOne operation. (manually tested, see [`SetUserAttribute` test protocol](#setuserattribute))
+- `SetUserAttribute`: `UpdateOptions` has been changed to `UpdateOneOptions` to configure UpdateOne operation. (tested, see [SetUserAttribute test protocol](#setuserattribute))
 
 #### users
 
-- `AddUser`: MongoDB Go Driver v2 no longer allows constructing or modifying option structs directly, so update options must now be created through the new builder API (options.UpdateOne().SetUpsert(true)) instead of setting fields on UpdateOptions manually. (manually tested, see [`AddUser` test protocol](#adduser))
-- `_updateUserInDB`: `FindOneAndReplaceOptions` can no longer be created or populated as a struct, so the v2 driver requires using the builder pattern (options.FindOneAndReplace().SetReturnDocument(options.After)) instead of setting option fields directly. (manually tested, see [`_updateUserInDB` test protocol](#_updateuserindb))
+- `AddUser`: MongoDB Go Driver v2 no longer allows constructing or modifying option structs directly, so update options must now be created through the new builder API (options.UpdateOne().SetUpsert(true)) instead of setting fields on UpdateOptions manually. (tested, see [AddUser test protocol](#adduser))
+- `_updateUserInDB`: `FindOneAndReplaceOptions` can no longer be created or populated as a struct, so the v2 driver requires using the builder pattern (options.FindOneAndReplace().SetReturnDocument(options.After)) instead of setting option fields directly. (tested, see [_updateUserInDB test protocol](#_updateuserindb))
 
 #### otps
 
-- `CreateOTP`: update the callback for mongo.WithSession to use a context.Context implementation, rather than the custom mongo.SessionContext (manually tested, see [`CreateOTP` test protocol](#createotp))
+- `CreateOTP`: update the callback for mongo.WithSession to use a context.Context implementation, rather than the custom mongo.SessionContext (tested, see [CreateOTP test protocol](#createotp))
 
 ### Study
 
 #### participants
 
-- `SaveParticipantState`: `FindOneAndReplaceOptions` can no longer be created or populated as a struct, so the v2 driver requires using the builder pattern (options.FindOneAndReplace().SetUpsert(true).SetReturnDocument(options.After)) instead of setting option fields directly. (manually tested, see [`SaveParticipantState` test protocol](#saveparticipantstate))
+- `SaveParticipantState`: `FindOneAndReplaceOptions` can no longer be created or populated as a struct, so the v2 driver requires using the builder pattern (options.FindOneAndReplace().SetUpsert(true).SetReturnDocument(options.After)) instead of setting option fields directly. (tested, see [SaveParticipantState test protocol](#saveparticipantstate))
 
 #### confidential-responses
 
-- `ReplaceConfidentialResponse`: `ReplaceOptions` can no longer be created or populated as a struct, so the v2 driver requires using the builder pattern (options.Replace().SetUpsert(true)) instead of setting option fields directly. (manually tested, see [`ReplaceConfidentialResponse` test protocol](#replaceconfidentialresponse))
+- `ReplaceConfidentialResponse`: `ReplaceOptions` can no longer be created or populated as a struct, so the v2 driver requires using the builder pattern (options.Replace().SetUpsert(true)) instead of setting option fields directly. (tested, see [ReplaceConfidentialResponse test protocol](#replaceconfidentialresponse))
 
 #### study-rules
 
-- `GetCurrentStudyRules`: `FindOneOptions` can no longer be created or populated as a struct, so the v2 driver requires using the builder pattern (options.FindOne().SetSort(sortByPublished)) instead of setting option fields directly. (manually tested, see [`GetCurrentStudyRules` test protocol](#getcurrentstudyrules))
+- `GetCurrentStudyRules`: `FindOneOptions` can no longer be created or populated as a struct, so the v2 driver requires using the builder pattern (options.FindOne().SetSort(sortByPublished)) instead of setting option fields directly. (tested, see [GetCurrentStudyRules test protocol](#getcurrentstudyrules))
 
 #### reports
 
-- `GetUniqueReportKeysForStudy`: `Distinct()` no longer returns `([]interface{}, error)`; it returns a single result type on which you call `.Decode(&target)` directly into a `[]string`, eliminating the manual type-assertion loop. (manually tested, see [`GetUniqueReportKeysForStudy` test protocol](#getuniquereportkeysforstudy))
+- `GetUniqueReportKeysForStudy`: `Distinct()` no longer returns `([]interface{}, error)`; it returns a single result type on which you call `.Decode(&target)` directly into a `[]string`, eliminating the manual type-assertion loop. (tested, see [GetUniqueReportKeysForStudy test protocol](#getuniquereportkeysforstudy))
 
 #### surveys
 
-- `GetSurveyKeysForStudy`: `Distinct()` no longer returns `([]interface{}, error)`; it returns a single result type on which you call `.Decode(&target)` directly into a `[]string`, eliminating the manual type-assertion loop. (manually tested, see [`GetSurveyKeysForStudy` test protocol](#getsurveykeysforstudy))
-- `GetCurrentSurveyVersion`: create FindOneOptions using the options.FindOne() builder and setters (for example, options.FindOne().SetSort(sortByPublishedDesc)) instead of instantiating &options.FindOneOptions{} and mutating its fields. (manually tested, see [`GetCurrentSurveyVersion` test protocol](#getcurrentsurveyversion))
-- `GetSurveyVersions`: create FindOptions using the options.Find() builder and its setters (for example, options.Find().SetProjection(...).SetSort(...)) instead of instantiating &options.FindOptions{} and mutating its fields. (manually tested, see [`GetSurveyVersions` test protocol](#getsurveyversions))
+- `GetSurveyKeysForStudy`: `Distinct()` no longer returns `([]interface{}, error)`; it returns a single result type on which you call `.Decode(&target)` directly into a `[]string`, eliminating the manual type-assertion loop. (tested, see [GetSurveyKeysForStudy test protocol](#getsurveykeysforstudy))
+- `GetCurrentSurveyVersion`: create FindOneOptions using the options.FindOne() builder and setters (for example, options.FindOne().SetSort(sortByPublishedDesc)) instead of instantiating &options.FindOneOptions{} and mutating its fields. (tested, see [GetCurrentSurveyVersion test protocol](#getcurrentsurveyversion))
+- `GetSurveyVersions`: create FindOptions using the options.Find() builder and its setters (for example, options.Find().SetProjection(...).SetSort(...)) instead of instantiating &options.FindOptions{} and mutating its fields. (tested, see [GetSurveyVersions test protocol](#getsurveyversions))
 
 ## Manual Test Protocol
 
