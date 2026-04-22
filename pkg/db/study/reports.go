@@ -71,7 +71,7 @@ func (dbService *StudyDBService) DropIndexForReportsCollection(instanceID string
 	} else {
 		for _, indexName := range defaultReportIndexNames {
 			if indexName == "" {
-				slog.Error("Index name is empty for reports collection", slog.String("index", fmt.Sprintf("%+v", indexName)))
+				slog.Error("Index name is empty for reports collection")
 				continue
 			}
 			err := collection.Indexes().DropOne(ctx, indexName)
