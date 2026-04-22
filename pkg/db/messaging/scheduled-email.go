@@ -105,12 +105,12 @@ func (dbService *MessagingDBService) SaveScheduledEmail(instanceID string, sched
 	if !scheduledEmail.ID.IsZero() {
 		filter := bson.M{"_id": scheduledEmail.ID}
 
-		options := options.FindOneAndReplace().
+		opts := options.FindOneAndReplace().
 			SetUpsert(false).
 			SetReturnDocument(options.After)
 		elem := messagingTypes.ScheduledEmail{}
 		err := dbService.collectionEmailSchedules(instanceID).
-			FindOneAndReplace(ctx, filter, scheduledEmail, options).
+			FindOneAndReplace(ctx, filter, scheduledEmail, opts).
 			Decode(&elem)
 		return elem, err
 	} else {
