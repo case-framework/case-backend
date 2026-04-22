@@ -104,7 +104,6 @@ func (dbService *StudyDBService) FindConfidentialResponses(instanceID string, st
 	cur, err := dbService.collectionConfidentialResponses(instanceID, studyKey).Find(
 		ctx,
 		filter,
-		nil,
 	)
 
 	if err != nil {
