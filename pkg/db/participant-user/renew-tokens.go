@@ -117,7 +117,7 @@ func (dbService *ParticipantUserDBService) DeleteRenewTokenByToken(instanceID st
 
 	ctx, cancel := dbService.getContext()
 	defer cancel()
-	res, err := dbService.collectionRenewTokens(instanceID).DeleteOne(ctx, filter, nil)
+	res, err := dbService.collectionRenewTokens(instanceID).DeleteOne(ctx, filter)
 	if err != nil {
 		return err
 	}
@@ -132,7 +132,7 @@ func (dbService *ParticipantUserDBService) DeleteRenewTokensForUser(instanceID s
 
 	ctx, cancel := dbService.getContext()
 	defer cancel()
-	res, err := dbService.collectionRenewTokens(instanceID).DeleteMany(ctx, filter, nil)
+	res, err := dbService.collectionRenewTokens(instanceID).DeleteMany(ctx, filter)
 	if err != nil {
 		return 0, err
 	}
@@ -144,7 +144,7 @@ func (dbService *ParticipantUserDBService) DeleteRenewTokensForSession(instanceI
 
 	ctx, cancel := dbService.getContext()
 	defer cancel()
-	res, err := dbService.collectionRenewTokens(instanceID).DeleteMany(ctx, filter, nil)
+	res, err := dbService.collectionRenewTokens(instanceID).DeleteMany(ctx, filter)
 	if err != nil {
 		return 0, err
 	}
