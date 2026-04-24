@@ -111,7 +111,7 @@ func (dbService *MessagingDBService) DeleteOutgoingEmail(instanceID string, id s
 	_id, _ := bson.ObjectIDFromHex(id)
 	filter := bson.M{"_id": _id}
 
-	res, err := dbService.collectionOutgoingEmails(instanceID).DeleteOne(ctx, filter, nil)
+	res, err := dbService.collectionOutgoingEmails(instanceID).DeleteOne(ctx, filter)
 	if err != nil {
 		return err
 	}
