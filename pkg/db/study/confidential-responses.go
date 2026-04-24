@@ -70,8 +70,11 @@ func (dbService *StudyDBService) AddConfidentialResponse(instanceID string, stud
 		return "", errors.New("participantID must be defined")
 	}
 	res, err := dbService.collectionConfidentialResponses(instanceID, studyKey).InsertOne(ctx, response)
+	if err != nil {
+		return "", err
+	}
 	id := res.InsertedID.(bson.ObjectID)
-	return id.Hex(), err
+	return id.Hex(), nil
 }
 
 func (dbService *StudyDBService) ReplaceConfidentialResponse(instanceID string, studyKey string, response studyTypes.SurveyResponse) error {

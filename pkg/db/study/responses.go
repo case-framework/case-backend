@@ -106,8 +106,11 @@ func (dbService *StudyDBService) AddSurveyResponse(instanceID string, studyKey s
 		response.ArrivedAt = time.Now().Unix()
 	}
 	res, err := dbService.collectionResponses(instanceID, studyKey).InsertOne(ctx, response)
+	if err != nil {
+		return "", err
+	}
 	id := res.InsertedID.(bson.ObjectID)
-	return id.Hex(), err
+	return id.Hex(), nil
 }
 
 // get response by id
