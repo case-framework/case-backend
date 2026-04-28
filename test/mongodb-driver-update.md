@@ -30,7 +30,7 @@ The following lists all changes in the upgrade from MongoDB Go Driver v1 to v2. 
 
 #### sms-templates
 
-- `SaveSMSTemplate`: use the options builder, and pass a pointer returned by options.FindOneAndReplace() instead of constructing FindOneAndReplaceOptions as a struct literal (tested, see [SaveScheduledEmail test protocol](#savescheduledemail-and-savesmstemplate))
+- `SaveSMSTemplate`: use the options builder, and pass a pointer returned by options.FindOneAndReplace() instead of constructing FindOneAndReplaceOptions as a struct literal (tested, see [SaveSMSTemplate test protocol](#savescheduledemail-and-savesmstemplate))
 
 ### Participant User
 
