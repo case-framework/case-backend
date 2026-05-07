@@ -38,6 +38,7 @@ type StudyProps struct {
 type StudyConfigs struct {
 	ParticipantFileUploadRule *Expression `bson:"participantFileUploadRule" json:"participantFileUploadRule"`
 	IdMappingMethod           string      `bson:"idMappingMethod" json:"idMappingMethod"`
+	TrackAccount              bool        `bson:"trackAccount" json:"trackAccount"`
 }
 
 type StudyStats struct {
