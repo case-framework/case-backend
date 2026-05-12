@@ -8,7 +8,7 @@ const (
 )
 
 const (
-	DEFAULT_ID_MAPPING_METHOD = "sha-256"
+	DEFAULT_ID_MAPPING_METHOD = "sha256"
 )
 
 type Study struct {
