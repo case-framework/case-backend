@@ -22,6 +22,7 @@ import (
 	surveyresponses "github.com/case-framework/case-backend/pkg/study/exporter/survey-responses"
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 	studyutils "github.com/case-framework/case-backend/pkg/study/utils"
+	umUtils "github.com/case-framework/case-backend/pkg/user-management/utils"
 )
 
 const (
@@ -373,7 +374,16 @@ func (h *HttpEndpoints) enterStudy(c *gin.Context) {
 
 	slog.Debug("entering study", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
 
-	result, err := studyService.OnEnterStudy(token.InstanceID, studyKey, req.ProfileID)
+	user, err := h.userDBConn.GetUser(token.InstanceID, token.Subject)
+	if err != nil {
+		slog.Error("error getting user", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting user"})
+		return
+	}
+	mainProfileID, _ := umUtils.GetMainAndOtherProfiles(user)
+	isMainProfile := mainProfileID == req.ProfileID
+
+	result, err := studyService.OnEnterStudy(token.InstanceID, studyKey, req.ProfileID, user.Account.AccountID, isMainProfile)
 	if err != nil {
 		slog.Error("error entering study", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error entering study"})
