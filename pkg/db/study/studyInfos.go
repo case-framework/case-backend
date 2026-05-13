@@ -182,6 +182,22 @@ func (dbService *StudyDBService) UpdateStudyFileUploadRule(instanceID string, st
 	return nil
 }
 
+func (dbService *StudyDBService) UpdateStudyTrackAccount(instanceID string, studyKey string, trackAccount bool) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	collection := dbService.collectionStudyInfos(instanceID)
+	filter := bson.M{"key": studyKey}
+	update := bson.M{"$set": bson.M{"configs.trackAccount": trackAccount}}
+
+	_, err := collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (dbService *StudyDBService) UpdateStudyDisplayProps(instanceID string, studyKey string, name []studyTypes.LocalisedObject, description []studyTypes.LocalisedObject, tags []studyTypes.Tag) error {
 	ctx, cancel := dbService.getContext()
 	defer cancel()

@@ -163,6 +163,17 @@ func (h *HttpEndpoints) addGeneralStudyEndpoints(rg *gin.RouterGroup) {
 		h.updateStudyFileUploadRule,
 	))
 
+	rg.PUT("/track-account", mw.RequirePayload(), h.useAuthorisedHandler(
+		RequiredPermission{
+			ResourceType:        pc.RESOURCE_TYPE_STUDY,
+			ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
+			ExtractResourceKeys: getStudyKeyFromParams,
+			Action:              pc.ACTION_UPDATE_STUDY_PROPS,
+		},
+		nil,
+		h.updateStudyTrackAccount,
+	))
+
 	rg.DELETE("/", h.useAuthorisedHandler(
 		RequiredPermission{
 			ResourceType:        pc.RESOURCE_TYPE_STUDY,
@@ -1403,6 +1414,33 @@ func (h *HttpEndpoints) updateStudyFileUploadRule(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "study file upload rule updated"})
+}
+
+type StudyTrackAccountUpdateReq struct {
+	TrackAccount bool `json:"trackAccount"`
+}
+
+func (h *HttpEndpoints) updateStudyTrackAccount(c *gin.Context) {
+	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
+
+	studyKey := c.Param("studyKey")
+
+	var req StudyTrackAccountUpdateReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error("failed to bind request", slog.String("error", err.Error()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	slog.Info("updating study track account", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey), slog.Bool("trackAccount", req.TrackAccount))
+
+	err := h.studyDBConn.UpdateStudyTrackAccount(token.InstanceID, studyKey, req.TrackAccount)
+	if err != nil {
+		slog.Error("failed to update study track account", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update study track account"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "study track account updated"})
 }
 
 func (h *HttpEndpoints) deleteStudy(c *gin.Context) {
