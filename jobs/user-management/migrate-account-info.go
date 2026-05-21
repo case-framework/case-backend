@@ -71,6 +71,10 @@ func migrateAccountInfo() {
 							continue
 						}
 
+						if accountID == "" {
+							continue
+						}
+
 						// Reuse same hashing mechanism to pseudonymize the account ID
 						hashedAccountID, err := studyUtils.ProfileIDtoParticipantID(accountID, conf.StudyConfigs.GlobalSecret, study.SecretKey, study.Configs.IdMappingMethod)
 						if err != nil {
