@@ -37,6 +37,8 @@ func migrateAccountInfo() {
 
 		slog.Info("Found studies with account tracking", slog.String("instanceID", instanceID), slog.Int("count", len(trackingStudies)))
 
+		migratedCount := 0
+
 		err = participantUserDBService.FindAndExecuteOnUsers(
 			context.Background(),
 			instanceID,
@@ -87,6 +89,7 @@ func migrateAccountInfo() {
 							continue
 						}
 
+						migratedCount++
 						slog.Debug("Migrated account info for participant", slog.String("instanceID", instanceID), slog.String("studyKey", study.Key), slog.String("participantID", participantID))
 					}
 				}
@@ -97,6 +100,6 @@ func migrateAccountInfo() {
 			slog.Error("Error iterating users for account info migration", slog.String("instanceID", instanceID), slog.String("error", err.Error()))
 		}
 
-		slog.Info("Finished migrating account info for participants", slog.String("instanceID", instanceID))
+		slog.Info("Finished migrating account info for participants", slog.String("instanceID", instanceID), slog.Int("migratedCount", migratedCount))
 	}
 }
