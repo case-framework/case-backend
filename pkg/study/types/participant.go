@@ -23,12 +23,8 @@ type Participant struct {
 	AssignedSurveys     []AssignedSurvey     `bson:"assignedSurveys" json:"assignedSurveys"`
 	LastSubmissions     map[string]int64     `bson:"lastSubmission" json:"lastSubmissions"` // surveyKey with timestamp
 	Messages            []ParticipantMessage `bson:"messages" json:"messages"`
-	AccountInfo         *AccountInfo         `bson:"accountInfo,omitempty" json:"accountInfo,omitempty"`
-}
-
-type AccountInfo struct {
-	HashedAccountID string `bson:"hashedAccountID" json:"hashedAccountID"`
-	IsMainProfile   bool   `bson:"isMainProfile" json:"isMainProfile"`
+	HashedAccountID     *string              `bson:"hashedAccountID,omitempty" json:"hashedAccountID,omitempty"`
+	IsMainProfile       *bool                `bson:"isMainProfile,omitempty" json:"isMainProfile,omitempty"`
 }
 
 type ParticipantMessage struct {

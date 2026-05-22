@@ -93,10 +93,8 @@ func OnEnterStudy(instanceID string, studyKey string, profileID string, accountI
 			if hashErr != nil {
 				slog.Error("Error hashing account ID", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("error", hashErr.Error()))
 			} else {
-				pState.AccountInfo = &studyTypes.AccountInfo{
-					HashedAccountID: hashedAccountID,
-					IsMainProfile:   isMainProfile,
-				}
+				pState.HashedAccountID = &hashedAccountID
+				pState.IsMainProfile = &isMainProfile
 			}
 		}
 	}

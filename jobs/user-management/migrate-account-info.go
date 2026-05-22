@@ -66,7 +66,7 @@ func migrateAccountInfo() {
 							continue
 						}
 
-						if pState.AccountInfo != nil {
+						if pState.HashedAccountID != nil {
 							// Already migrated, skip
 							continue
 						}
@@ -82,10 +82,8 @@ func migrateAccountInfo() {
 							continue
 						}
 
-						pState.AccountInfo = &studyTypes.AccountInfo{
-							HashedAccountID: hashedAccountID,
-							IsMainProfile:   isMainProfile,
-						}
+						pState.HashedAccountID = &hashedAccountID
+						pState.IsMainProfile = &isMainProfile
 
 						_, err = studyDBService.SaveParticipantState(instanceID, study.Key, pState)
 						if err != nil {
