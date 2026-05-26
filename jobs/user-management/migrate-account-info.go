@@ -47,6 +47,10 @@ func migrateAccountInfo() {
 			false,
 			func(user umTypes.User, args ...interface{}) error {
 				accountID := user.Account.AccountID
+				if accountID == "" {
+					return nil
+				}
+
 				mainProfileID, _ := umUtils.GetMainAndOtherProfiles(user)
 
 				for _, profile := range user.Profiles {
@@ -68,10 +72,6 @@ func migrateAccountInfo() {
 
 						if pState.HashedAccountID != nil {
 							// Already migrated, skip
-							continue
-						}
-
-						if accountID == "" {
 							continue
 						}
 
