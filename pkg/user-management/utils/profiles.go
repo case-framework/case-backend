@@ -16,6 +16,9 @@ func GetMainAndOtherProfiles(user userTypes.User) (mainProfileID string, otherPr
 		}
 	}
 	if mainProfileID == "" {
+		if len(otherProfileIDs) == 0 {
+			return "", []string{}
+		}
 		mainProfileID = otherProfileIDs[0]
 		otherProfileIDs = otherProfileIDs[1:]
 	}
