@@ -154,6 +154,28 @@ func (dbService *StudyDBService) UpdateReportData(
 	return nil
 }
 
+// delete report by id (with participant ID verification for safety)
+func (dbService *StudyDBService) DeleteReportByID(instanceID string, studyKey string, reportID string, participantID string) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	_id, err := primitive.ObjectIDFromHex(reportID)
+	if err != nil {
+		return err
+	}
+
+	filter := bson.M{"_id": _id, "participantID": participantID}
+
+	res, err := dbService.collectionReports(instanceID, studyKey).DeleteOne(ctx, filter)
+	if err != nil {
+		return err
+	}
+	if res.DeletedCount == 0 {
+		return errors.New("report not found or does not belong to participant")
+	}
+	return nil
+}
+
 var reportSortOnTimestamp = bson.D{
 	primitive.E{Key: "timestamp", Value: -1},
 }
