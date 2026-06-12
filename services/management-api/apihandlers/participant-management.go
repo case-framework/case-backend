@@ -67,7 +67,7 @@ func (h *HttpEndpoints) addParticipantManagementEndpoints(rg *gin.RouterGroup) {
 			h.submitParticipantEvent,
 		))
 
-	participantGroup.POST("/:participantID/resolve-session",
+	participantGroup.POST("/:participantID/remove-session",
 		mw.RequirePayload(),
 		h.useAuthorisedHandler(
 			RequiredPermission{
@@ -77,7 +77,7 @@ func (h *HttpEndpoints) addParticipantManagementEndpoints(rg *gin.RouterGroup) {
 				Action:              pc.ACTION_EDIT_PARTICIPANT_DATA,
 			},
 			nil,
-			h.resolveStudySession,
+			h.removeStudySession,
 		))
 
 	participantGroup.POST("/:participantID/reports",
@@ -213,30 +213,30 @@ func (h *HttpEndpoints) getParticipantResponses(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"responses": resps, "pagination": paginationInfo})
 }
 
-type ResolveStudySessionRequest struct {
-	SessionToResolve    string `json:"sessionToResolve"`
-	ReplacementSession  string `json:"replacementSession"` // optional; if empty, session association is removed
+type RemoveStudySessionRequest struct {
+	SessionToRemove    string `json:"sessionToRemove"`
+	ReplacementSession string `json:"replacementSession"` // optional; if empty, session association is removed
 }
 
-func (h *HttpEndpoints) resolveStudySession(c *gin.Context) {
+func (h *HttpEndpoints) removeStudySession(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 
 	studyKey := c.Param("studyKey")
 	participantID := c.Param("participantID")
 
-	var req ResolveStudySessionRequest
+	var req RemoveStudySessionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		slog.Error("failed to bind request", slog.String("error", err.Error()))
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if req.SessionToResolve == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "sessionToResolve is required"})
+	if req.SessionToRemove == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "sessionToRemove is required"})
 		return
 	}
 
-	// Update participant's current session if it matches the one being resolved
+	// Update participant's current session if it matches the one being removed
 	p, err := h.studyDBConn.GetParticipantByID(token.InstanceID, studyKey, participantID)
 	if err != nil {
 		slog.Error("failed to get participant", slog.String("error", err.Error()))
@@ -244,7 +244,7 @@ func (h *HttpEndpoints) resolveStudySession(c *gin.Context) {
 		return
 	}
 
-	if p.CurrentStudySession == req.SessionToResolve {
+	if p.CurrentStudySession == req.SessionToRemove {
 		p.CurrentStudySession = req.ReplacementSession
 		p, err = h.studyDBConn.UpdateParticipantIfNotModified(token.InstanceID, studyKey, p)
 		if err != nil {
@@ -254,25 +254,25 @@ func (h *HttpEndpoints) resolveStudySession(c *gin.Context) {
 		}
 	}
 
-	// Migrate session label on all responses recorded under the resolved session
-	count, err := h.studyDBConn.UpdateResponseSessionContext(token.InstanceID, studyKey, participantID, req.SessionToResolve, req.ReplacementSession)
+	// Migrate session label on all responses recorded under the removed session
+	count, err := h.studyDBConn.UpdateResponseSessionContext(token.InstanceID, studyKey, participantID, req.SessionToRemove, req.ReplacementSession)
 	if err != nil {
 		slog.Error("failed to update response sessions", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update response sessions"})
 		return
 	}
 
-	slog.Info("resolved study session",
+	slog.Info("removed study session",
 		slog.String("instanceID", token.InstanceID),
 		slog.String("studyKey", studyKey),
 		slog.String("participantID", participantID),
-		slog.String("sessionToResolve", req.SessionToResolve),
+		slog.String("sessionToRemove", req.SessionToRemove),
 		slog.String("replacementSession", req.ReplacementSession),
 		slog.Int64("responsesUpdated", count),
 	)
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":          "session resolved",
+		"message":          "session removed",
 		"participant":      p,
 		"responsesUpdated": count,
 	})
