@@ -365,7 +365,15 @@ func (h *HttpEndpoints) enterStudy(c *gin.Context) {
 		return
 	}
 
-	if !h.checkProfileBelongsToUser(token.InstanceID, token.Subject, req.ProfileID) {
+	user, err := h.userDBConn.GetUser(token.InstanceID, token.Subject)
+	if err != nil {
+		slog.Error("error getting user", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting user"})
+		return
+	}
+
+	profile, err := user.FindProfile(req.ProfileID)
+	if err != nil {
 		slog.Warn("profile not found", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("profileID", req.ProfileID))
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "profile not found"})
 		return
@@ -373,7 +381,9 @@ func (h *HttpEndpoints) enterStudy(c *gin.Context) {
 
 	slog.Debug("entering study", slog.String("instanceID", token.InstanceID), slog.String("userID", token.Subject), slog.String("studyKey", studyKey))
 
-	result, err := studyService.OnEnterStudy(token.InstanceID, studyKey, req.ProfileID)
+	isMainProfile := profile.MainProfile
+
+	result, err := studyService.OnEnterStudy(token.InstanceID, studyKey, req.ProfileID, user.Account.AccountID, isMainProfile)
 	if err != nil {
 		slog.Error("error entering study", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error entering study"})

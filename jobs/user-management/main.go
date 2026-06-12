@@ -34,6 +34,10 @@ func main() {
 		generateProfileIDLookup()
 	}
 
+	if conf.RunTasks.MigrateAccountInfo {
+		migrateAccountInfo()
+	}
+
 	slog.Info("User management jobs completed", slog.String("duration", time.Since(start).String()))
 }
 

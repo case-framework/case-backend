@@ -42,7 +42,7 @@ func Init(
 	studyengine.CurrentStudyEngine.RegisterStudyMessageSender(studyMessageSender)
 }
 
-func OnEnterStudy(instanceID string, studyKey string, profileID string) (result []studyTypes.AssignedSurvey, err error) {
+func OnEnterStudy(instanceID string, studyKey string, profileID string, accountID string, isMainProfile bool) (result []studyTypes.AssignedSurvey, err error) {
 	study, err := getStudyIfActive(instanceID, studyKey)
 	if err != nil {
 		slog.Error("error getting study", slog.String("error", err.Error()))
@@ -86,6 +86,16 @@ func OnEnterStudy(instanceID string, studyKey string, profileID string) (result 
 		// save particicpant id profile lookup
 		if err = studyDBService.AddConfidentialIDMapEntry(instanceID, confidentialID, profileID, studyKey); err != nil {
 			slog.Error("Error saving participant ID profile lookup", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
+		}
+		if study.Configs.TrackAccount && accountID != "" {
+			// reuse same hashing mechanism to pseudonymize the account ID
+			hashedAccountID, hashErr := studyUtils.ProfileIDtoParticipantID(accountID, globalSecret, study.SecretKey, study.Configs.IdMappingMethod)
+			if hashErr != nil {
+				slog.Error("Error hashing account ID", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("error", hashErr.Error()))
+			} else {
+				pState.HashedAccountID = &hashedAccountID
+				pState.IsMainProfile = &isMainProfile
+			}
 		}
 	}
 
