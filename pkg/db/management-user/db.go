@@ -53,6 +53,7 @@ func NewManagementUserDBService(configs db.DBConfig) (*ManagementUserDBService, 
 	defer conCancel()
 
 	if err != nil {
+		_ = dbClient.Disconnect(context.Background())
 		return nil, err
 	}
 

@@ -47,6 +47,7 @@ func NewParticipantUserDBService(configs db.DBConfig) (*ParticipantUserDBService
 	defer conCancel()
 
 	if err != nil {
+		_ = dbClient.Disconnect(context.Background())
 		return nil, err
 	}
 
