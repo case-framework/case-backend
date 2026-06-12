@@ -52,11 +52,6 @@ const (
 	ENV_FILESTORE_PATH = "FILESTORE_PATH"
 )
 
-const (
-	dbConnectMaxAttempts = 10
-	dbConnectRetryDelay  = 10 * time.Second
-)
-
 var (
 	studyDBService           *studyDB.StudyDBService
 	muDBService              *muDB.ManagementUserDBService
@@ -123,7 +118,7 @@ func init() {
 
 func initDBs() {
 	var err error
-	muDBService, err = db.ConnectWithRetry("Management User DB", dbConnectMaxAttempts, dbConnectRetryDelay, func() (*muDB.ManagementUserDBService, error) {
+	muDBService, err = db.ConnectWithRetry("Management User DB", db.DefaultConnectMaxAttempts, db.DefaultConnectRetryDelay, func() (*muDB.ManagementUserDBService, error) {
 		return muDB.NewManagementUserDBService(db.DBConfigFromYamlObj(conf.DBConfigs.ManagementUserDB, conf.AllowedInstanceIDs))
 	})
 	if err != nil {
@@ -131,7 +126,7 @@ func initDBs() {
 		panic(err)
 	}
 
-	messagingDBService, err = db.ConnectWithRetry("Messaging DB", dbConnectMaxAttempts, dbConnectRetryDelay, func() (*messagingDB.MessagingDBService, error) {
+	messagingDBService, err = db.ConnectWithRetry("Messaging DB", db.DefaultConnectMaxAttempts, db.DefaultConnectRetryDelay, func() (*messagingDB.MessagingDBService, error) {
 		return messagingDB.NewMessagingDBService(db.DBConfigFromYamlObj(conf.DBConfigs.MessagingDB, conf.AllowedInstanceIDs))
 	})
 	if err != nil {
@@ -139,7 +134,7 @@ func initDBs() {
 		panic(err)
 	}
 
-	studyDBService, err = db.ConnectWithRetry("Study DB", dbConnectMaxAttempts, dbConnectRetryDelay, func() (*studyDB.StudyDBService, error) {
+	studyDBService, err = db.ConnectWithRetry("Study DB", db.DefaultConnectMaxAttempts, db.DefaultConnectRetryDelay, func() (*studyDB.StudyDBService, error) {
 		return studyDB.NewStudyDBService(db.DBConfigFromYamlObj(conf.DBConfigs.StudyDB, conf.AllowedInstanceIDs))
 	})
 	if err != nil {
@@ -147,7 +142,7 @@ func initDBs() {
 		panic(err)
 	}
 
-	participantUserDBService, err = db.ConnectWithRetry("Participant User DB", dbConnectMaxAttempts, dbConnectRetryDelay, func() (*userDB.ParticipantUserDBService, error) {
+	participantUserDBService, err = db.ConnectWithRetry("Participant User DB", db.DefaultConnectMaxAttempts, db.DefaultConnectRetryDelay, func() (*userDB.ParticipantUserDBService, error) {
 		return userDB.NewParticipantUserDBService(db.DBConfigFromYamlObj(conf.DBConfigs.ParticipantUserDB, conf.AllowedInstanceIDs))
 	})
 	if err != nil {
@@ -155,7 +150,7 @@ func initDBs() {
 		panic(err)
 	}
 
-	globalInfosDBService, err = db.ConnectWithRetry("Global Infos DB", dbConnectMaxAttempts, dbConnectRetryDelay, func() (*globalinfosDB.GlobalInfosDBService, error) {
+	globalInfosDBService, err = db.ConnectWithRetry("Global Infos DB", db.DefaultConnectMaxAttempts, db.DefaultConnectRetryDelay, func() (*globalinfosDB.GlobalInfosDBService, error) {
 		return globalinfosDB.NewGlobalInfosDBService(db.DBConfigFromYamlObj(conf.DBConfigs.GlobalInfosDB, conf.AllowedInstanceIDs))
 	})
 	if err != nil {
