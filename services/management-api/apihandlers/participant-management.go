@@ -105,18 +105,6 @@ func (h *HttpEndpoints) addParticipantManagementEndpoints(rg *gin.RouterGroup) {
 			h.updateParticipantReport,
 		))
 
-	participantGroup.DELETE("/:participantID/reports/:reportID",
-		h.useAuthorisedHandler(
-			RequiredPermission{
-				ResourceType:        pc.RESOURCE_TYPE_STUDY,
-				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
-				ExtractResourceKeys: getStudyKeyFromParams,
-				Action:              pc.ACTION_EDIT_PARTICIPANT_DATA,
-			},
-			nil,
-			h.deleteParticipantReport,
-		))
-
 	participantGroup.POST("/merge",
 		mw.RequirePayload(),
 		h.useAuthorisedHandler(
@@ -394,25 +382,6 @@ func (h *HttpEndpoints) updateParticipantReport(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "report updated"})
-}
-
-func (h *HttpEndpoints) deleteParticipantReport(c *gin.Context) {
-	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
-
-	studyKey := c.Param("studyKey")
-	participantID := c.Param("participantID")
-	reportID := c.Param("reportID")
-
-	slog.Info("deleting report for participant", slog.String("participantID", participantID), slog.String("studyKey", studyKey), slog.String("userID", token.Subject), slog.String("instanceID", token.InstanceID), slog.String("reportID", reportID))
-
-	err := h.studyDBConn.DeleteReportByID(token.InstanceID, studyKey, reportID, participantID)
-	if err != nil {
-		slog.Error("failed to delete report", slog.String("error", err.Error()))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete report"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "report deleted"})
 }
 
 type MergeParticipantsRequest struct {
