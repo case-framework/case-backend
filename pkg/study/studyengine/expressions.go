@@ -13,7 +13,7 @@ import (
 	"github.com/case-framework/case-backend/pkg/apihelpers"
 	httpclient "github.com/case-framework/case-backend/pkg/http-client"
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
-	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 func ExpressionEval(expression studyTypes.Expression, evalCtx EvalContext) (val interface{}, err error) {

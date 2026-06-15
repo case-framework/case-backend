@@ -1,13 +1,18 @@
 package study
 
 import (
-	"fmt"
 	"log/slog"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
+
+const idxConfidentialIDMapConfidentialIDStudyKey = "confidentialID_1_studyKey_1"
+
+var defaultConfidentialIDMapIndexNames = []string{
+	idxConfidentialIDMapConfidentialIDStudyKey,
+}
 
 var indexesForConfidentialIDMapCollection = []mongo.IndexModel{
 	{
@@ -15,7 +20,7 @@ var indexesForConfidentialIDMapCollection = []mongo.IndexModel{
 			{Key: "confidentialID", Value: 1},
 			{Key: "studyKey", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("confidentialID_1_studyKey_1"),
+		Options: options.Index().SetUnique(true).SetName(idxConfidentialIDMapConfidentialIDStudyKey),
 	},
 }
 
@@ -25,18 +30,17 @@ func (dbService *StudyDBService) DropIndexForConfidentialIDMapCollection(instanc
 
 	collection := dbService.collectionConfidentialIDMap(instanceID)
 	if dropAll {
-		_, err := collection.Indexes().DropAll(ctx)
+		err := collection.Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for confidentialIDMap", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 		}
 	} else {
-		for _, index := range indexesForConfidentialIDMapCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for confidentialIDMap collection", slog.String("index", fmt.Sprintf("%+v", index)))
+		for _, indexName := range defaultConfidentialIDMapIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for confidentialIDMap collection")
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := collection.Indexes().DropOne(ctx, indexName)
+			err := collection.Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for confidentialIDMap", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("indexName", indexName))
 			}

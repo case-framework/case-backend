@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 func createGlobalKey() string {
@@ -21,8 +21,8 @@ func testProfileIDtoParticipantMethod(t *testing.T, method string, studySecret s
 
 	globalKey := createGlobalKey()
 
-	testProfileID := primitive.NewObjectID().Hex()
-	testProfileID2 := primitive.NewObjectID().Hex()
+	testProfileID := bson.NewObjectID().Hex()
+	testProfileID2 := bson.NewObjectID().Hex()
 
 	t.Run("same user same keys", func(t *testing.T) {
 		pId, err := ProfileIDtoParticipantID(testProfileID, globalKey, studySecret, method)
@@ -134,7 +134,7 @@ func benchmarkMappingParticipantID(b *testing.B, method string) {
 	studySecret := "this!study.-a.sd"
 	globalKey := createGlobalKey()
 	for n := 0; n < b.N; n++ {
-		testProfileID := primitive.NewObjectID().Hex()
+		testProfileID := bson.NewObjectID().Hex()
 		_, err := ProfileIDtoParticipantID(testProfileID, globalKey, studySecret, method)
 		if err != nil {
 			b.Errorf("unexpected error: %s", err.Error())

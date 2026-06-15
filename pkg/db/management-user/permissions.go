@@ -1,14 +1,16 @@
 package managementuser
 
 import (
-	"fmt"
 	"log/slog"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
+
+const idxPermissionsSubjectResourceAction = "subjectId_1_subjectType_1_resourceType_1_resourceKey_1_action_1"
+
+var defaultPermissionIndexNames = []string{idxPermissionsSubjectResourceAction}
 
 var indexesForPermissionsCollection = []mongo.IndexModel{
 	{
@@ -19,7 +21,7 @@ var indexesForPermissionsCollection = []mongo.IndexModel{
 			{Key: "resourceKey", Value: 1},
 			{Key: "action", Value: 1},
 		},
-		Options: options.Index().SetName("subjectId_1_subjectType_1_resourceType_1_resourceKey_1_action_1"),
+		Options: options.Index().SetName(idxPermissionsSubjectResourceAction),
 	},
 }
 
@@ -28,18 +30,17 @@ func (dbService *ManagementUserDBService) DropIndexForPermissionsCollection(inst
 	defer cancel()
 
 	if dropAll {
-		_, err := dbService.collectionPermissions(instanceID).Indexes().DropAll(ctx)
+		err := dbService.collectionPermissions(instanceID).Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for permissions: ", slog.String("error", err.Error()))
 		}
 	} else {
-		for _, index := range indexesForPermissionsCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for permissions collection: ", slog.String("index", fmt.Sprintf("%+v", index)))
+		for _, indexName := range defaultPermissionIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for permissions collection")
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := dbService.collectionPermissions(instanceID).Indexes().DropOne(ctx, indexName)
+			err := dbService.collectionPermissions(instanceID).Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for permissions: ", slog.String("error", err.Error()), slog.String("indexName", indexName))
 			}
@@ -82,7 +83,7 @@ func (dbService *ManagementUserDBService) CreatePermission(
 	if err != nil {
 		return nil, err
 	}
-	permission.ID = res.InsertedID.(primitive.ObjectID)
+	permission.ID = res.InsertedID.(bson.ObjectID)
 	return permission, nil
 }
 
@@ -94,7 +95,7 @@ func (dbService *ManagementUserDBService) GetPermissionByID(
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	objID, err := primitive.ObjectIDFromHex(permissionID)
+	objID, err := bson.ObjectIDFromHex(permissionID)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +196,7 @@ func (dbService *ManagementUserDBService) UpdatePermissionLimiter(
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	objID, err := primitive.ObjectIDFromHex(permissionID)
+	objID, err := bson.ObjectIDFromHex(permissionID)
 	if err != nil {
 		return err
 	}
@@ -217,7 +218,7 @@ func (dbService *ManagementUserDBService) DeletePermission(
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	objID, err := primitive.ObjectIDFromHex(permissionID)
+	objID, err := bson.ObjectIDFromHex(permissionID)
 	if err != nil {
 		return err
 	}

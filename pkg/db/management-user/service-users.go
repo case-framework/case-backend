@@ -2,15 +2,23 @@ package managementuser
 
 import (
 	"errors"
-	"fmt"
 	"log/slog"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
+
+const (
+	idxServiceUserAPIKeysKey       = "key_1"
+	idxServiceUserAPIKeysExpiresAt = "expiresAt_1"
+)
+
+var defaultServiceUserAPIKeyIndexNames = []string{
+	idxServiceUserAPIKeysKey,
+	idxServiceUserAPIKeysExpiresAt,
+}
 
 func (dbService *ManagementUserDBService) collectionServiceUsers(instanceID string) *mongo.Collection {
 	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_SERVICE_USERS)
@@ -25,13 +33,13 @@ var indexesForServiceUserAPIKeysCollection = []mongo.IndexModel{
 		Keys: bson.D{
 			{Key: "key", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("key_1"),
+		Options: options.Index().SetUnique(true).SetName(idxServiceUserAPIKeysKey),
 	},
 	{
 		Keys: bson.D{
 			{Key: "expiresAt", Value: 1},
 		},
-		Options: options.Index().SetExpireAfterSeconds(0).SetName("expiresAt_1"),
+		Options: options.Index().SetExpireAfterSeconds(0).SetName(idxServiceUserAPIKeysExpiresAt),
 	},
 }
 
@@ -40,18 +48,17 @@ func (dbService *ManagementUserDBService) DropIndexForServiceUserAPIKeysCollecti
 	defer cancel()
 
 	if dropAll {
-		_, err := dbService.collectionServiceUserAPIKeys(instanceID).Indexes().DropAll(ctx)
+		err := dbService.collectionServiceUserAPIKeys(instanceID).Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for service user API keys: ", slog.String("error", err.Error()))
 		}
 	} else {
-		for _, index := range indexesForServiceUserAPIKeysCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for service user API keys collection: ", slog.String("index", fmt.Sprintf("%+v", index)))
+		for _, indexName := range defaultServiceUserAPIKeyIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for service user API keys collection")
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := dbService.collectionServiceUserAPIKeys(instanceID).Indexes().DropOne(ctx, indexName)
+			err := dbService.collectionServiceUserAPIKeys(instanceID).Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for service user API keys: ", slog.String("error", err.Error()), slog.String("indexName", indexName))
 			}
@@ -92,7 +99,7 @@ func (dbService *ManagementUserDBService) CreateServiceUser(instanceID string, l
 		return nil, err
 	}
 
-	serviceUser.ID = result.InsertedID.(primitive.ObjectID)
+	serviceUser.ID = result.InsertedID.(bson.ObjectID)
 
 	return serviceUser, nil
 }
@@ -102,7 +109,7 @@ func (dbService *ManagementUserDBService) GetServiceUserByID(instanceID string, 
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(id)
+	_id, err := bson.ObjectIDFromHex(id)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +155,7 @@ func (dbService *ManagementUserDBService) DeleteServiceUser(instanceID string, i
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(id)
+	_id, err := bson.ObjectIDFromHex(id)
 	if err != nil {
 		slog.Error("Error converting ID to ObjectID", slog.String("error", err.Error()))
 		return err
@@ -180,7 +187,7 @@ func (dbService *ManagementUserDBService) UpdateServiceUser(instanceID string, i
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(id)
+	_id, err := bson.ObjectIDFromHex(id)
 	if err != nil {
 		slog.Error("Error converting ID to ObjectID", slog.String("error", err.Error()))
 		return err
@@ -258,7 +265,7 @@ func (dbService *ManagementUserDBService) DeleteServiceUserAPIKey(instanceID str
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(id)
+	_id, err := bson.ObjectIDFromHex(id)
 	if err != nil {
 		return err
 	}

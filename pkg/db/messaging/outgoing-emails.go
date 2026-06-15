@@ -6,8 +6,7 @@ import (
 	"time"
 
 	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 func (dbService *MessagingDBService) DropIndexForOutgoingEmailsCollection(instanceID string, dropAll bool) {
@@ -15,7 +14,7 @@ func (dbService *MessagingDBService) DropIndexForOutgoingEmailsCollection(instan
 	defer cancel()
 
 	if dropAll {
-		_, err := dbService.collectionOutgoingEmails(instanceID).Indexes().DropAll(ctx)
+		err := dbService.collectionOutgoingEmails(instanceID).Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for outgoing emails", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 		}
@@ -36,7 +35,7 @@ func (dbService *MessagingDBService) AddToOutgoingEmails(instanceID string, emai
 	if err != nil {
 		return email, err
 	}
-	email.ID = res.InsertedID.(primitive.ObjectID)
+	email.ID = res.InsertedID.(bson.ObjectID)
 	return email, nil
 }
 
@@ -92,7 +91,7 @@ func (dbService *MessagingDBService) ResetLastSendAttemptForOutgoing(instanceID 
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, _ := primitive.ObjectIDFromHex(emailID)
+	_id, _ := bson.ObjectIDFromHex(emailID)
 	filter := bson.M{"_id": _id}
 	update := bson.M{"$set": bson.M{"lastSendAttempt": 0}}
 	res, err := dbService.collectionOutgoingEmails(instanceID).UpdateOne(ctx, filter, update)
@@ -109,10 +108,10 @@ func (dbService *MessagingDBService) DeleteOutgoingEmail(instanceID string, id s
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, _ := primitive.ObjectIDFromHex(id)
+	_id, _ := bson.ObjectIDFromHex(id)
 	filter := bson.M{"_id": _id}
 
-	res, err := dbService.collectionOutgoingEmails(instanceID).DeleteOne(ctx, filter, nil)
+	res, err := dbService.collectionOutgoingEmails(instanceID).DeleteOne(ctx, filter)
 	if err != nil {
 		return err
 	}

@@ -1,6 +1,6 @@
 package types
 
-import "go.mongodb.org/mongo-driver/bson/primitive"
+import "go.mongodb.org/mongo-driver/v2/bson"
 
 const (
 	EMAIL_TYPE_REGISTRATION                     = "registration"
@@ -21,7 +21,7 @@ const (
 )
 
 type EmailTemplate struct {
-	ID              primitive.ObjectID  `bson:"_id" json:"id,omitempty"`
+	ID              bson.ObjectID       `bson:"_id" json:"id,omitempty"`
 	MessageType     string              `bson:"messageType" json:"messageType"`
 	StudyKey        string              `bson:"studyKey,omitempty" json:"studyKey"`
 	DefaultLanguage string              `bson:"defaultLanguage" json:"defaultLanguage"`

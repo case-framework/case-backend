@@ -1,16 +1,20 @@
 package messaging
 
 import (
-	"fmt"
 	"log/slog"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 )
+
+const idxEmailTemplatesMessageTypeStudyKey = "messageType_1_studyKey_1"
+
+var defaultEmailTemplateIndexNames = []string{
+	idxEmailTemplatesMessageTypeStudyKey,
+}
 
 var indexesForEmailTemplatesCollection = []mongo.IndexModel{
 	{
@@ -18,7 +22,7 @@ var indexesForEmailTemplatesCollection = []mongo.IndexModel{
 			{Key: "messageType", Value: 1},
 			{Key: "studyKey", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("messageType_1_studyKey_1"),
+		Options: options.Index().SetUnique(true).SetName(idxEmailTemplatesMessageTypeStudyKey),
 	},
 }
 
@@ -27,18 +31,17 @@ func (messagingDBService *MessagingDBService) DropIndexForEmailTemplatesCollecti
 	defer cancel()
 
 	if dropAll {
-		_, err := messagingDBService.collectionEmailTemplates(instanceID).Indexes().DropAll(ctx)
+		err := messagingDBService.collectionEmailTemplates(instanceID).Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for email templates", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 		}
 	} else {
-		for _, index := range indexesForEmailTemplatesCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for email templates collection", slog.String("index", fmt.Sprintf("%+v", index)))
+		for _, indexName := range defaultEmailTemplateIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for email templates collection")
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := messagingDBService.collectionEmailTemplates(instanceID).Indexes().DropOne(ctx, indexName)
+			err := messagingDBService.collectionEmailTemplates(instanceID).Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for email templates", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("indexName", indexName))
 			}
@@ -93,7 +96,7 @@ func (messagingDBService *MessagingDBService) GetEmailTemplateByID(instanceID st
 	ctx, cancel := messagingDBService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(id)
+	_id, err := bson.ObjectIDFromHex(id)
 	if err != nil {
 		return nil, err
 	}
@@ -114,22 +117,21 @@ func (messagingDBService *MessagingDBService) SaveEmailTemplate(instanceID strin
 	defer cancel()
 
 	if emailTemplate.ID.IsZero() {
-		emailTemplate.ID = primitive.NewObjectID()
+		emailTemplate.ID = bson.NewObjectID()
 		// new email template
 		res, err := messagingDBService.collectionEmailTemplates(instanceID).InsertOne(ctx, emailTemplate)
 		if err != nil {
 			return messagingTypes.EmailTemplate{}, err
 		}
-		emailTemplate.ID = res.InsertedID.(primitive.ObjectID)
+		emailTemplate.ID = res.InsertedID.(bson.ObjectID)
 		return emailTemplate, nil
 	}
 
 	// update email template
 	filter := bson.M{"_id": emailTemplate.ID}
-	upsert := false
-	after := options.After
-	opt := options.FindOneAndReplaceOptions{Upsert: &upsert, ReturnDocument: &after}
-	err := messagingDBService.collectionEmailTemplates(instanceID).FindOneAndReplace(ctx, filter, emailTemplate, &opt).Decode(&emailTemplate)
+	opt := options.FindOneAndReplace().SetUpsert(false).SetReturnDocument(options.After)
+	err := messagingDBService.collectionEmailTemplates(instanceID).FindOneAndReplace(ctx, filter, emailTemplate, opt).Decode(&emailTemplate)
+
 	if err != nil {
 		return messagingTypes.EmailTemplate{}, err
 	}

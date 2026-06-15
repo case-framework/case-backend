@@ -7,10 +7,9 @@ import (
 	"log/slog"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
@@ -23,18 +22,30 @@ type ReportKeyFilters struct {
 	ToTS          int64
 }
 
+const (
+	idxReportsParticipantID             = "participantID_1"
+	idxReportsTimestamp                 = "timestamp_1"
+	idxReportsParticipantIDKeyTimestamp = "participantID_1_key_1_timestamp_1"
+)
+
+var defaultReportIndexNames = []string{
+	idxReportsParticipantID,
+	idxReportsTimestamp,
+	idxReportsParticipantIDKeyTimestamp,
+}
+
 var indexesForReportsCollection = []mongo.IndexModel{
 	{
 		Keys: bson.D{
 			{Key: "participantID", Value: 1},
 		},
-		Options: options.Index().SetName("participantID_1"),
+		Options: options.Index().SetName(idxReportsParticipantID),
 	},
 	{
 		Keys: bson.D{
 			{Key: "timestamp", Value: 1},
 		},
-		Options: options.Index().SetName("timestamp_1"),
+		Options: options.Index().SetName(idxReportsTimestamp),
 	},
 	{
 		Keys: bson.D{
@@ -42,7 +53,7 @@ var indexesForReportsCollection = []mongo.IndexModel{
 			{Key: "key", Value: 1},
 			{Key: "timestamp", Value: 1},
 		},
-		Options: options.Index().SetName("participantID_1_key_1_timestamp_1"),
+		Options: options.Index().SetName(idxReportsParticipantIDKeyTimestamp),
 	},
 }
 
@@ -53,18 +64,17 @@ func (dbService *StudyDBService) DropIndexForReportsCollection(instanceID string
 	collection := dbService.collectionReports(instanceID, studyKey)
 
 	if dropAll {
-		_, err := collection.Indexes().DropAll(ctx)
+		err := collection.Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for reports", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 		}
 	} else {
-		for _, index := range indexesForReportsCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for reports collection", slog.String("index", fmt.Sprintf("%+v", index)))
+		for _, indexName := range defaultReportIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for reports collection")
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := collection.Indexes().DropOne(ctx, indexName)
+			err := collection.Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for reports", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("indexName", indexName))
 			}
@@ -95,7 +105,7 @@ func (dbService *StudyDBService) GetReportByID(instanceID string, studyKey strin
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(reportID)
+	_id, err := bson.ObjectIDFromHex(reportID)
 	if err != nil {
 		return report, err
 	}
@@ -127,7 +137,7 @@ func (dbService *StudyDBService) UpdateReportData(
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(reportID)
+	_id, err := bson.ObjectIDFromHex(reportID)
 	if err != nil {
 		return err
 	}
@@ -155,7 +165,7 @@ func (dbService *StudyDBService) UpdateReportData(
 }
 
 var reportSortOnTimestamp = bson.D{
-	primitive.E{Key: "timestamp", Value: -1},
+	{Key: "timestamp", Value: -1},
 }
 
 // get report count for query
@@ -280,16 +290,9 @@ func (dbService *StudyDBService) GetUniqueReportKeysForStudy(
 		}
 	}
 
-	res, err := dbService.collectionReports(instanceID, studyKey).Distinct(ctx, "key", filter)
-	if err != nil {
+	var keys []string
+	if err := dbService.collectionReports(instanceID, studyKey).Distinct(ctx, "key", filter).Decode(&keys); err != nil {
 		return nil, err
-	}
-
-	keys := make([]string, 0, len(res))
-	for _, r := range res {
-		if v, ok := r.(string); ok {
-			keys = append(keys, v)
-		}
 	}
 	return keys, nil
 }

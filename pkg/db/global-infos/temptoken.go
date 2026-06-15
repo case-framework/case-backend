@@ -2,17 +2,28 @@ package globalinfos
 
 import (
 	"errors"
-	"fmt"
 	"log/slog"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	userTypes "github.com/case-framework/case-backend/pkg/user-management/types"
 	umUtils "github.com/case-framework/case-backend/pkg/user-management/utils"
 )
+
+const (
+	idxTemptokensUserIDInstanceIDPurpose = "userID_1_instanceID_1_purpose_1"
+	idxTemptokensExpiration              = "expiration_1"
+	idxTemptokensToken                   = "token_1"
+)
+
+var defaultTemptokenIndexNames = []string{
+	idxTemptokensUserIDInstanceIDPurpose,
+	idxTemptokensExpiration,
+	idxTemptokensToken,
+}
 
 var indexesForTemptokensCollection = []mongo.IndexModel{
 	{
@@ -21,19 +32,19 @@ var indexesForTemptokensCollection = []mongo.IndexModel{
 			{Key: "instanceID", Value: 1},
 			{Key: "purpose", Value: 1},
 		},
-		Options: options.Index().SetName("userID_1_instanceID_1_purpose_1"),
+		Options: options.Index().SetName(idxTemptokensUserIDInstanceIDPurpose),
 	},
 	{
 		Keys: bson.D{
 			{Key: "expiration", Value: 1},
 		},
-		Options: options.Index().SetExpireAfterSeconds(0).SetName("expiration_1"),
+		Options: options.Index().SetExpireAfterSeconds(0).SetName(idxTemptokensExpiration),
 	},
 	{
 		Keys: bson.D{
 			{Key: "token", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("token_1"),
+		Options: options.Index().SetUnique(true).SetName(idxTemptokensToken),
 	},
 }
 
@@ -42,17 +53,16 @@ func (dbService *GlobalInfosDBService) DropIndexForTemptokensCollection(dropAll 
 	defer cancel()
 
 	if dropAll {
-		if _, err := dbService.collectionTemptokens().Indexes().DropAll(ctx); err != nil {
+		if err := dbService.collectionTemptokens().Indexes().DropAll(ctx); err != nil {
 			slog.Error("Error dropping indexes for temptokens", slog.String("error", err.Error()))
 		}
 	} else {
-		for _, index := range indexesForTemptokensCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for temptokens collection", slog.String("index", fmt.Sprintf("%+v", index)))
+		for _, indexName := range defaultTemptokenIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for temptokens collection")
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := dbService.collectionTemptokens().Indexes().DropOne(ctx, indexName)
+			err := dbService.collectionTemptokens().Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for temptokens", slog.String("error", err.Error()), slog.String("indexName", indexName))
 			}

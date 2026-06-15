@@ -4,14 +4,14 @@ import (
 	"testing"
 
 	userTypes "github.com/case-framework/case-backend/pkg/user-management/types"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 func TestGetMainAndOtherProfiles(t *testing.T) {
 	t.Run("with a single profile with main flag", func(t *testing.T) {
 		user := userTypes.User{
 			Profiles: []userTypes.Profile{
-				{ID: primitive.NewObjectID(), MainProfile: true},
+				{ID: bson.NewObjectID(), MainProfile: true},
 			},
 		}
 		main, others := GetMainAndOtherProfiles(user)
@@ -26,7 +26,7 @@ func TestGetMainAndOtherProfiles(t *testing.T) {
 	t.Run("with a single profile without main flag", func(t *testing.T) {
 		user := userTypes.User{
 			Profiles: []userTypes.Profile{
-				{ID: primitive.NewObjectID()},
+				{ID: bson.NewObjectID()},
 			},
 		}
 		main, others := GetMainAndOtherProfiles(user)
@@ -41,10 +41,10 @@ func TestGetMainAndOtherProfiles(t *testing.T) {
 	t.Run("with mulitple profiles without main flag", func(t *testing.T) {
 		user := userTypes.User{
 			Profiles: []userTypes.Profile{
-				{ID: primitive.NewObjectID(), MainProfile: false},
-				{ID: primitive.NewObjectID(), MainProfile: false},
-				{ID: primitive.NewObjectID(), MainProfile: false},
-				{ID: primitive.NewObjectID(), MainProfile: false},
+				{ID: bson.NewObjectID(), MainProfile: false},
+				{ID: bson.NewObjectID(), MainProfile: false},
+				{ID: bson.NewObjectID(), MainProfile: false},
+				{ID: bson.NewObjectID(), MainProfile: false},
 			},
 		}
 		main, others := GetMainAndOtherProfiles(user)
@@ -59,9 +59,9 @@ func TestGetMainAndOtherProfiles(t *testing.T) {
 	t.Run("with mulitple profiles one main flag", func(t *testing.T) {
 		user := userTypes.User{
 			Profiles: []userTypes.Profile{
-				{ID: primitive.NewObjectID(), MainProfile: false},
-				{ID: primitive.NewObjectID(), MainProfile: true},
-				{ID: primitive.NewObjectID(), MainProfile: false},
+				{ID: bson.NewObjectID(), MainProfile: false},
+				{ID: bson.NewObjectID(), MainProfile: true},
+				{ID: bson.NewObjectID(), MainProfile: false},
 			},
 		}
 		main, others := GetMainAndOtherProfiles(user)
@@ -76,9 +76,9 @@ func TestGetMainAndOtherProfiles(t *testing.T) {
 	t.Run("with mulitple profiles multiply main flag", func(t *testing.T) {
 		user := userTypes.User{
 			Profiles: []userTypes.Profile{
-				{ID: primitive.NewObjectID(), MainProfile: false},
-				{ID: primitive.NewObjectID(), MainProfile: true},
-				{ID: primitive.NewObjectID(), MainProfile: true},
+				{ID: bson.NewObjectID(), MainProfile: false},
+				{ID: bson.NewObjectID(), MainProfile: true},
+				{ID: bson.NewObjectID(), MainProfile: true},
 			},
 		}
 		main, others := GetMainAndOtherProfiles(user)

@@ -1,6 +1,6 @@
 package types
 
-import "go.mongodb.org/mongo-driver/bson/primitive"
+import "go.mongodb.org/mongo-driver/v2/bson"
 
 const (
 	SURVEY_ITEM_TYPE_PAGE_BREAK = "pageBreak"
@@ -8,11 +8,11 @@ const (
 )
 
 type SurveyItem struct {
-	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	Key       string             `bson:"key" json:"key"`
-	Follows   []string           `bson:"follows,omitempty" json:"follows,omitempty"`
-	Condition *Expression        `bson:"condition,omitempty" json:"condition,omitempty"`
-	Priority  float32            `bson:"priority,omitempty" json:"priority,omitempty"`
+	ID        bson.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	Key       string        `bson:"key" json:"key"`
+	Follows   []string      `bson:"follows,omitempty" json:"follows,omitempty"`
+	Condition *Expression   `bson:"condition,omitempty" json:"condition,omitempty"`
+	Priority  float32       `bson:"priority,omitempty" json:"priority,omitempty"`
 
 	Metadata map[string]string `bson:"metadata,omitempty" json:"metadata,omitempty"`
 
