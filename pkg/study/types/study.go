@@ -8,7 +8,7 @@ const (
 )
 
 const (
-	DEFAULT_ID_MAPPING_METHOD = "sha-256"
+	DEFAULT_ID_MAPPING_METHOD = "sha256"
 )
 
 type Study struct {
@@ -38,6 +38,7 @@ type StudyProps struct {
 type StudyConfigs struct {
 	ParticipantFileUploadRule *Expression `bson:"participantFileUploadRule" json:"participantFileUploadRule"`
 	IdMappingMethod           string      `bson:"idMappingMethod" json:"idMappingMethod"`
+	TrackAccount              bool        `bson:"trackAccount" json:"trackAccount"`
 }
 
 type StudyStats struct {

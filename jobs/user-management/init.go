@@ -74,6 +74,7 @@ type config struct {
 		SendReminderToConfirmAccounts bool `json:"send_reminder_to_confirm_accounts" yaml:"send_reminder_to_confirm_accounts"`
 		HandleInactiveUsers           bool `json:"handle_inactive_users" yaml:"handle_inactive_users"`
 		GenerateProfileIDLookup       bool `json:"generate_profile_id_lookup" yaml:"generate_profile_id_lookup"`
+		MigrateAccountInfo            bool `json:"migrate_account_info" yaml:"migrate_account_info"`
 	} `json:"run_tasks" yaml:"run_tasks"`
 }
 
@@ -141,7 +142,7 @@ func init() {
 }
 
 func shouldInitStudyService() bool {
-	return conf.RunTasks.GenerateProfileIDLookup || conf.RunTasks.HandleInactiveUsers || conf.RunTasks.SendReminderToConfirmAccounts
+	return conf.RunTasks.GenerateProfileIDLookup || conf.RunTasks.HandleInactiveUsers || conf.RunTasks.SendReminderToConfirmAccounts || conf.RunTasks.MigrateAccountInfo
 }
 
 func secretsOverride() {

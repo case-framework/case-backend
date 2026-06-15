@@ -142,12 +142,8 @@ func (h *HttpEndpoints) checkProfileBelongsToUser(instanceID, userID, profileID 
 		return false
 	}
 
-	for _, profile := range user.Profiles {
-		if profile.ID.Hex() == profileID {
-			return true
-		}
-	}
-	return false
+	_, err = user.FindProfile(profileID)
+	return err == nil
 }
 
 func (h *HttpEndpoints) checkAllProfilesBelongsToUser(instanceID, userID string, profileIDs []string) bool {

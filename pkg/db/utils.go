@@ -3,9 +3,17 @@ package db
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log/slog"
+	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+)
+
+const (
+	DefaultConnectMaxAttempts = 10
+	DefaultConnectRetryDelay  = 10 * time.Second
 )
 
 func ListCollectionIndexes(ctx context.Context, collection *mongo.Collection) ([]bson.M, error) {
@@ -24,4 +32,30 @@ func ListCollectionIndexes(ctx context.Context, collection *mongo.Collection) ([
 		return nil, err
 	}
 	return indexes, nil
+}
+
+func ConnectWithRetry[T any](dbLabel string, maxAttempts int, retryDelay time.Duration, connect func() (T, error)) (T, error) {
+	var result T
+	var err error
+
+	if maxAttempts <= 0 {
+		return result, fmt.Errorf("invalid DB retry attempts for %q: %d", dbLabel, maxAttempts)
+	}
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		result, err = connect()
+		if err == nil {
+			if attempt > 1 {
+				slog.Info("Connected to DB after retry", slog.String("db", dbLabel), slog.Int("attempt", attempt))
+			}
+			return result, nil
+		}
+
+		slog.Error("Error connecting to DB", slog.String("db", dbLabel), slog.Int("attempt", attempt), slog.Int("maxAttempts", maxAttempts), slog.String("error", err.Error()))
+		if attempt < maxAttempts {
+			time.Sleep(retryDelay)
+		}
+	}
+
+	return result, err
 }

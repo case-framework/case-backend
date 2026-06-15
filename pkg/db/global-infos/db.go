@@ -41,6 +41,7 @@ func NewGlobalInfosDBService(configs db.DBConfig) (*GlobalInfosDBService, error)
 	defer conCancel()
 
 	if err != nil {
+		_ = dbClient.Disconnect(context.Background())
 		return nil, err
 	}
 
