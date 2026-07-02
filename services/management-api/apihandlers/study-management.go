@@ -929,7 +929,7 @@ func (h *HttpEndpoints) addStudyDataExplorerEndpoints(rg *gin.RouterGroup) {
 			h.getStudyResponses,
 		))
 
-		responsesGroup.GET("/:responseId", h.useAuthorisedHandler(
+		responsesGroup.GET("/:responseID", h.useAuthorisedHandler(
 			RequiredPermission{
 				ResourceType:        pc.RESOURCE_TYPE_STUDY,
 				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
@@ -952,7 +952,7 @@ func (h *HttpEndpoints) addStudyDataExplorerEndpoints(rg *gin.RouterGroup) {
 			h.deleteStudyResponses,
 		))
 
-		responsesGroup.DELETE("/:responseId", h.useAuthorisedHandler(
+		responsesGroup.DELETE("/:responseID", h.useAuthorisedHandler(
 			RequiredPermission{
 				ResourceType:        pc.RESOURCE_TYPE_STUDY,
 				ResourceKeys:        []string{pc.RESOURCE_KEY_STUDY_ALL},
