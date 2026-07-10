@@ -3,7 +3,7 @@ package types
 import (
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 const (
@@ -15,12 +15,12 @@ const (
 )
 
 type Task struct {
-	ID             primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	CreatedAt      time.Time          `bson:"createdAt" json:"createdAt"`
-	CreatedBy      string             `bson:"createdBy" json:"createdBy"`
-	UpdatedAt      time.Time          `bson:"updatedAt" json:"updatedAt"`
-	Status         string             `bson:"status" json:"status"`
-	TargetCount    int                `bson:"targetCount" json:"targetCount"`
+	ID             bson.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	CreatedAt      time.Time     `bson:"createdAt" json:"createdAt"`
+	CreatedBy      string        `bson:"createdBy" json:"createdBy"`
+	UpdatedAt      time.Time     `bson:"updatedAt" json:"updatedAt"`
+	Status         string        `bson:"status" json:"status"`
+	TargetCount    int           `bson:"targetCount" json:"targetCount"`
 	ProcessedCount int                `bson:"processedCount" json:"processedCount"`
 	ResultFile     string             `bson:"resultFile" json:"resultFile"`
 	FileType       string             `bson:"fileType" json:"fileType"`

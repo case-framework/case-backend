@@ -1,20 +1,22 @@
 package managementuser
 
 import (
-	"fmt"
 	"log/slog"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
+
+const idxManagementUsersSub = "uniq_sub_1"
+
+var defaultManagementUserIndexNames = []string{idxManagementUsersSub}
 
 var indexesForManagementUsersCollection = []mongo.IndexModel{
 	{
 		Keys:    bson.D{{Key: "sub", Value: 1}},
-		Options: options.Index().SetUnique(true).SetName("uniq_sub_1"),
+		Options: options.Index().SetUnique(true).SetName(idxManagementUsersSub),
 	},
 }
 
@@ -23,18 +25,17 @@ func (dbService *ManagementUserDBService) DropIndexForManagementUsersCollection(
 	defer cancel()
 
 	if dropAll {
-		_, err := dbService.collectionManagementUsers(instanceID).Indexes().DropAll(ctx)
+		err := dbService.collectionManagementUsers(instanceID).Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for management users", slog.String("error", err.Error()))
 		}
 	} else {
-		for _, index := range indexesForManagementUsersCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for management users collection", slog.String("index", fmt.Sprintf("%+v", index)), slog.String("instanceID", instanceID))
+		for _, indexName := range defaultManagementUserIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for management users collection", slog.String("instanceID", instanceID))
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := dbService.collectionManagementUsers(instanceID).Indexes().DropOne(ctx, indexName)
+			err := dbService.collectionManagementUsers(instanceID).Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for management users", slog.String("error", err.Error()), slog.String("indexName", indexName), slog.String("instanceID", instanceID))
 			}
@@ -62,7 +63,7 @@ func (dbService *ManagementUserDBService) CreateUser(
 	if err != nil {
 		return nil, err
 	}
-	newUser.ID = res.InsertedID.(primitive.ObjectID)
+	newUser.ID = res.InsertedID.(bson.ObjectID)
 	return newUser, nil
 }
 
@@ -89,7 +90,7 @@ func (dbService *ManagementUserDBService) GetUserByID(
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 	var user ManagementUser
-	objID, err := primitive.ObjectIDFromHex(id)
+	objID, err := bson.ObjectIDFromHex(id)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +114,7 @@ func (dbService *ManagementUserDBService) UpdateUser(
 ) error {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
-	objID, err := primitive.ObjectIDFromHex(id)
+	objID, err := bson.ObjectIDFromHex(id)
 	if err != nil {
 		return err
 	}
@@ -149,7 +150,7 @@ func (dbService *ManagementUserDBService) DeleteUser(
 	}
 
 	// delete the user
-	objID, err := primitive.ObjectIDFromHex(id)
+	objID, err := bson.ObjectIDFromHex(id)
 	if err != nil {
 		return err
 	}
@@ -204,9 +205,9 @@ func (dbService *ManagementUserDBService) GetUsersByIDs(
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	var objIDs []primitive.ObjectID
+	var objIDs []bson.ObjectID
 	for _, id := range ids {
-		objID, err := primitive.ObjectIDFromHex(id)
+		objID, err := bson.ObjectIDFromHex(id)
 		if err != nil {
 			return nil, err
 		}

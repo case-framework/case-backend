@@ -1,26 +1,29 @@
 package study
 
 import (
-	"fmt"
 	"log/slog"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
 const (
 	REMOVE_TASK_FROM_QUEUE_AFTER = 60 * 60 * 24 * 2 // 2 days
+	idxTaskQueueUpdatedAt        = "updatedAt_1"
 )
+
+var defaultTaskQueueIndexNames = []string{
+	idxTaskQueueUpdatedAt,
+}
 
 var indexesForTaskQueueCollection = []mongo.IndexModel{
 	{
 		Keys:    bson.D{{Key: "updatedAt", Value: 1}},
-		Options: options.Index().SetExpireAfterSeconds(REMOVE_TASK_FROM_QUEUE_AFTER).SetName("updatedAt_1"),
+		Options: options.Index().SetExpireAfterSeconds(REMOVE_TASK_FROM_QUEUE_AFTER).SetName(idxTaskQueueUpdatedAt),
 	},
 }
 
@@ -29,18 +32,17 @@ func (dbService *StudyDBService) DropIndexForTaskQueueCollection(instanceID stri
 	defer cancel()
 
 	if dropAll {
-		_, err := dbService.collectionTaskQueue(instanceID).Indexes().DropAll(ctx)
+		err := dbService.collectionTaskQueue(instanceID).Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for task queue", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 		}
 	} else {
-		for _, index := range indexesForTaskQueueCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for task queue collection", slog.String("index", fmt.Sprintf("%+v", index)))
+		for _, indexName := range defaultTaskQueueIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for task queue collection")
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := dbService.collectionTaskQueue(instanceID).Indexes().DropOne(ctx, indexName)
+			err := dbService.collectionTaskQueue(instanceID).Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for task queue", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("indexName", indexName))
 			}
@@ -82,7 +84,7 @@ func (dbService *StudyDBService) CreateTask(
 	if err != nil {
 		return task, err
 	}
-	task.ID = ret.InsertedID.(primitive.ObjectID)
+	task.ID = ret.InsertedID.(bson.ObjectID)
 	return task, nil
 }
 
@@ -91,7 +93,7 @@ func (dbService *StudyDBService) GetTaskByID(instanceID string, taskID string) (
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(taskID)
+	_id, err := bson.ObjectIDFromHex(taskID)
 	if err != nil {
 		return task, err
 	}
@@ -125,7 +127,7 @@ func (dbService *StudyDBService) UpdateTaskTotalCount(instanceID string, taskID 
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(taskID)
+	_id, err := bson.ObjectIDFromHex(taskID)
 	if err != nil {
 		return err
 	}
@@ -148,7 +150,7 @@ func (dbService *StudyDBService) UpdateTaskProgress(instanceID string, taskID st
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(taskID)
+	_id, err := bson.ObjectIDFromHex(taskID)
 	if err != nil {
 		return err
 	}
@@ -177,7 +179,7 @@ func (dbService *StudyDBService) UpdateTaskCompleted(
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(taskID)
+	_id, err := bson.ObjectIDFromHex(taskID)
 	if err != nil {
 		return err
 	}
@@ -203,7 +205,7 @@ func (dbService *StudyDBService) DeleteTaskByID(instanceID string, taskID string
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(taskID)
+	_id, err := bson.ObjectIDFromHex(taskID)
 	if err != nil {
 		return err
 	}

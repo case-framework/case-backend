@@ -1,9 +1,9 @@
 package types
 
-import "go.mongodb.org/mongo-driver/bson/primitive"
+import "go.mongodb.org/mongo-driver/v2/bson"
 
 type SurveyResponse struct {
-	ID            primitive.ObjectID   `bson:"_id,omitempty" json:"id,omitempty"`
+	ID            bson.ObjectID        `bson:"_id,omitempty" json:"id,omitempty"`
 	Key           string               `bson:"key" json:"key"`
 	ParticipantID string               `bson:"participantID" json:"participantId"`
 	VersionID     string               `bson:"versionID" json:"versionId"`

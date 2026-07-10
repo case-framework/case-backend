@@ -2,21 +2,31 @@ package participantuser
 
 import (
 	"errors"
-	"fmt"
 	"log/slog"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	userTypes "github.com/case-framework/case-backend/pkg/user-management/types"
 )
 
 const (
-	RENEW_TOKEN_GRACE_PERIOD     = 30 // seconds
-	RENEW_TOKEN_DEFAULT_LIFETIME = 60 * 60 * 24 * 90
+	RENEW_TOKEN_GRACE_PERIOD                = 30 // seconds
+	RENEW_TOKEN_DEFAULT_LIFETIME            = 60 * 60 * 24 * 90
+	idxRenewTokensUserIDRenewTokenExpiresAt = "userID_1_renewToken_1_expiresAt_1"
+	idxRenewTokensUserIDSessionID           = "userID_1_sessionID_1"
+	idxRenewTokensExpiresAt                 = "expiresAt_1"
+	idxRenewTokensUniqueRenewToken          = "uniq_renewToken_1"
 )
+
+var defaultRenewTokenIndexNames = []string{
+	idxRenewTokensUserIDRenewTokenExpiresAt,
+	idxRenewTokensUserIDSessionID,
+	idxRenewTokensExpiresAt,
+	idxRenewTokensUniqueRenewToken,
+}
 
 var indexesForRenewTokensCollection = []mongo.IndexModel{
 	{
@@ -25,26 +35,26 @@ var indexesForRenewTokensCollection = []mongo.IndexModel{
 			{Key: "renewToken", Value: 1},
 			{Key: "expiresAt", Value: 1},
 		},
-		Options: options.Index().SetName("userID_1_renewToken_1_expiresAt_1"),
+		Options: options.Index().SetName(idxRenewTokensUserIDRenewTokenExpiresAt),
 	},
 	{
 		Keys: bson.D{
 			{Key: "userID", Value: 1},
 			{Key: "sessionID", Value: 1},
 		},
-		Options: options.Index().SetName("userID_1_sessionID_1"),
+		Options: options.Index().SetName(idxRenewTokensUserIDSessionID),
 	},
 	{
 		Keys: bson.D{
 			{Key: "expiresAt", Value: 1},
 		},
-		Options: options.Index().SetExpireAfterSeconds(RENEW_TOKEN_GRACE_PERIOD).SetName("expiresAt_1"),
+		Options: options.Index().SetExpireAfterSeconds(RENEW_TOKEN_GRACE_PERIOD).SetName(idxRenewTokensExpiresAt),
 	},
 	{
 		Keys: bson.D{
 			{Key: "renewToken", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("uniq_renewToken_1"),
+		Options: options.Index().SetUnique(true).SetName(idxRenewTokensUniqueRenewToken),
 	},
 }
 
@@ -53,18 +63,17 @@ func (dbService *ParticipantUserDBService) DropIndexForRenewTokensCollection(ins
 	defer cancel()
 
 	if dropAll {
-		_, err := dbService.collectionRenewTokens(instanceID).Indexes().DropAll(ctx)
+		err := dbService.collectionRenewTokens(instanceID).Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for renew tokens", slog.String("error", err.Error()))
 		}
 	} else {
-		for _, index := range indexesForRenewTokensCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for renew tokens collection", slog.String("index", fmt.Sprintf("%+v", index)))
+		for _, indexName := range defaultRenewTokenIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for renew tokens collection")
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := dbService.collectionRenewTokens(instanceID).Indexes().DropOne(ctx, indexName)
+			err := dbService.collectionRenewTokens(instanceID).Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for renew tokens", slog.String("error", err.Error()), slog.String("indexName", indexName))
 			}
@@ -108,7 +117,7 @@ func (dbService *ParticipantUserDBService) DeleteRenewTokenByToken(instanceID st
 
 	ctx, cancel := dbService.getContext()
 	defer cancel()
-	res, err := dbService.collectionRenewTokens(instanceID).DeleteOne(ctx, filter, nil)
+	res, err := dbService.collectionRenewTokens(instanceID).DeleteOne(ctx, filter)
 	if err != nil {
 		return err
 	}
@@ -123,7 +132,7 @@ func (dbService *ParticipantUserDBService) DeleteRenewTokensForUser(instanceID s
 
 	ctx, cancel := dbService.getContext()
 	defer cancel()
-	res, err := dbService.collectionRenewTokens(instanceID).DeleteMany(ctx, filter, nil)
+	res, err := dbService.collectionRenewTokens(instanceID).DeleteMany(ctx, filter)
 	if err != nil {
 		return 0, err
 	}
@@ -135,7 +144,7 @@ func (dbService *ParticipantUserDBService) DeleteRenewTokensForSession(instanceI
 
 	ctx, cancel := dbService.getContext()
 	defer cancel()
-	res, err := dbService.collectionRenewTokens(instanceID).DeleteMany(ctx, filter, nil)
+	res, err := dbService.collectionRenewTokens(instanceID).DeleteMany(ctx, filter)
 	if err != nil {
 		return 0, err
 	}

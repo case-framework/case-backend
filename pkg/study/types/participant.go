@@ -1,6 +1,6 @@
 package types
 
-import "go.mongodb.org/mongo-driver/bson/primitive"
+import "go.mongodb.org/mongo-driver/v2/bson"
 
 const (
 	PARTICIPANT_STUDY_STATUS_ACTIVE          = "active"
@@ -12,7 +12,7 @@ const (
 
 // Participant defines the datamodel for current state of the participant in a study as stored in the database
 type Participant struct {
-	ID                  primitive.ObjectID   `bson:"_id,omitempty" json:"id,omitempty"`
+	ID                  bson.ObjectID        `bson:"_id,omitempty" json:"id,omitempty"`
 	ParticipantID       string               `bson:"participantID" json:"participantId"` // reference to the study specific participant ID
 	CurrentStudySession string               `bson:"currentStudySession" json:"currentStudySession"`
 	ModifiedAt          int64                `bson:"modifiedAt" json:"modifiedAt"`

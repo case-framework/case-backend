@@ -4,7 +4,7 @@ import (
 	"time"
 
 	userTypes "github.com/case-framework/case-backend/pkg/user-management/types"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 func InitNewEmailUser(
@@ -22,7 +22,7 @@ func InitNewEmailUser(
 		},
 		Profiles: []userTypes.Profile{
 			{
-				ID:                 primitive.NewObjectID(),
+				ID:                 bson.NewObjectID(),
 				Alias:              BlurEmailAddress(email),
 				MainProfile:        true,
 				AvatarID:           "default",

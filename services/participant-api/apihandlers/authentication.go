@@ -17,8 +17,7 @@ import (
 	"github.com/case-framework/case-backend/pkg/user-management/pwhash"
 	umUtils "github.com/case-framework/case-backend/pkg/user-management/utils"
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 
 	userTypes "github.com/case-framework/case-backend/pkg/user-management/types"
 )
@@ -310,7 +309,7 @@ func (h *HttpEndpoints) signupWithEmail(c *gin.Context) {
 		return
 
 	}
-	newUser.ID, _ = primitive.ObjectIDFromHex(id)
+	newUser.ID, _ = bson.ObjectIDFromHex(id)
 
 	// contact verification in go routine
 	go h.prepAndSendEmailVerification(

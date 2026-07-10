@@ -1,17 +1,25 @@
 package study
 
 import (
-	"fmt"
 	"log/slog"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	studytypes "github.com/case-framework/case-backend/pkg/study/types"
 )
+
+const (
+	idxParticipantFilesParticipantIDCreatedAt = "participantID_1_createdAt_-1"
+	idxParticipantFilesCreatedAt              = "createdAt_-1"
+)
+
+var defaultParticipantFileIndexNames = []string{
+	idxParticipantFilesParticipantIDCreatedAt,
+	idxParticipantFilesCreatedAt,
+}
 
 var indexesForParticipantFilesCollection = []mongo.IndexModel{
 	{
@@ -19,13 +27,13 @@ var indexesForParticipantFilesCollection = []mongo.IndexModel{
 			{Key: "participantID", Value: 1},
 			{Key: "createdAt", Value: -1},
 		},
-		Options: options.Index().SetName("participantID_1_createdAt_-1"),
+		Options: options.Index().SetName(idxParticipantFilesParticipantIDCreatedAt),
 	},
 	{
 		Keys: bson.D{
 			{Key: "createdAt", Value: -1},
 		},
-		Options: options.Index().SetName("createdAt_-1"),
+		Options: options.Index().SetName(idxParticipantFilesCreatedAt),
 	},
 }
 
@@ -36,18 +44,17 @@ func (dbService *StudyDBService) DropIndexForParticipantFilesCollection(instance
 	collection := dbService.collectionFiles(instanceID, studyKey)
 
 	if dropAll {
-		_, err := collection.Indexes().DropAll(ctx)
+		err := collection.Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for participant files", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 		}
 	} else {
-		for _, index := range indexesForParticipantFilesCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for participant files collection", slog.String("index", fmt.Sprintf("%+v", index)), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
+		for _, indexName := range defaultParticipantFileIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for participant files collection", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := collection.Indexes().DropOne(ctx, indexName)
+			err := collection.Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for participant files", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("indexName", indexName))
 			}
@@ -71,7 +78,7 @@ func (dbService *StudyDBService) GetParticipantFileInfoByID(instanceID string, s
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(fileInfoID)
+	_id, err := bson.ObjectIDFromHex(fileInfoID)
 	if err != nil {
 		return participantFileInfo, err
 	}
@@ -89,7 +96,7 @@ func (dbService *StudyDBService) DeleteParticipantFileInfoByID(instanceID string
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(fileInfoID)
+	_id, err := bson.ObjectIDFromHex(fileInfoID)
 	if err != nil {
 		return err
 	}
@@ -132,7 +139,7 @@ func (dbService *StudyDBService) GetParticipantFileInfos(instanceID string, stud
 	)
 
 	sortByCreatedAt := bson.D{
-		primitive.E{Key: "createdAt", Value: -1},
+		{Key: "createdAt", Value: -1},
 	}
 
 	opts := options.Find()
@@ -161,7 +168,7 @@ func (dbService *StudyDBService) CreateParticipantFileInfo(instanceID string, st
 		return fileInfo, err
 	}
 
-	if oid, ok := result.InsertedID.(primitive.ObjectID); ok {
+	if oid, ok := result.InsertedID.(bson.ObjectID); ok {
 		fileInfo.ID = oid
 	}
 
@@ -173,7 +180,7 @@ func (dbService *StudyDBService) UpdateParticipantFileInfoPathAndStatus(instance
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(fileInfoID)
+	_id, err := bson.ObjectIDFromHex(fileInfoID)
 	if err != nil {
 		return err
 	}
