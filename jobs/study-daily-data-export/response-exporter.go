@@ -36,7 +36,7 @@ func runResponseExportsForTask(rExpTask ResponseExportTask) {
 	}
 
 	for _, surveyKey := range rExpTask.SurveyKeys {
-		parser, err := initResponseParser(rExpTask.InstanceID, rExpTask.StudyKey, surveyKey, rExpTask.ShortKeys, rExpTask.Separator)
+		parser, trackAccount, err := initResponseParser(rExpTask.InstanceID, rExpTask.StudyKey, surveyKey, rExpTask.ShortKeys, rExpTask.Separator)
 		if err != nil {
 			continue
 		}
@@ -46,7 +46,7 @@ func runResponseExportsForTask(rExpTask ResponseExportTask) {
 				targetDate := time.Now().Add(
 					time.Duration(-(conf.ResponseExports.RetentionDays - i)) * time.Hour * 24,
 				)
-				generateExportForSurveyForTargetDate(rExpTask.InstanceID, rExpTask.StudyKey, surveyKey, rExpTask.ExportFormat, targetDate, exportFolderPathForTask, parser, rExpTask.CreateEmptyFile)
+				generateExportForSurveyForTargetDate(rExpTask.InstanceID, rExpTask.StudyKey, surveyKey, rExpTask.ExportFormat, targetDate, exportFolderPathForTask, parser, rExpTask.CreateEmptyFile, trackAccount)
 			}
 		}
 
@@ -54,19 +54,19 @@ func runResponseExportsForTask(rExpTask ResponseExportTask) {
 		targetDate := time.Now().Add(
 			time.Duration(-1 * time.Hour * 24),
 		)
-		generateExportForSurveyForTargetDate(rExpTask.InstanceID, rExpTask.StudyKey, surveyKey, rExpTask.ExportFormat, targetDate, exportFolderPathForTask, parser, rExpTask.CreateEmptyFile)
+		generateExportForSurveyForTargetDate(rExpTask.InstanceID, rExpTask.StudyKey, surveyKey, rExpTask.ExportFormat, targetDate, exportFolderPathForTask, parser, rExpTask.CreateEmptyFile, trackAccount)
 
 		// today
 		targetDate = time.Now()
-		generateExportForSurveyForTargetDate(rExpTask.InstanceID, rExpTask.StudyKey, surveyKey, rExpTask.ExportFormat, targetDate, exportFolderPathForTask, parser, rExpTask.CreateEmptyFile)
+		generateExportForSurveyForTargetDate(rExpTask.InstanceID, rExpTask.StudyKey, surveyKey, rExpTask.ExportFormat, targetDate, exportFolderPathForTask, parser, rExpTask.CreateEmptyFile, trackAccount)
 	}
 }
 
-func initResponseParser(instanceID string, studyKey string, surveyKey string, shortKeys bool, separator string) (parser *surveyresponses.ResponseParser, err error) {
+func initResponseParser(instanceID string, studyKey string, surveyKey string, shortKeys bool, separator string) (*surveyresponses.ResponseParser, bool, error) {
 	study, err := studyDBService.GetStudy(instanceID, studyKey)
 	if err != nil {
 		slog.Error("failed to get study", slog.String("error", err.Error()))
-		return nil, err
+		return nil, false, err
 	}
 
 	surveyVersions, err := surveydefinition.PrepareSurveyInfosFromDB(
@@ -82,10 +82,10 @@ func initResponseParser(instanceID string, studyKey string, surveyKey string, sh
 	)
 	if err != nil {
 		slog.Error("failed to get survey versions", slog.String("error", err.Error()))
-		return
+		return nil, false, err
 	}
 	extraCols := conf.ResponseExports.ExportTasks[0].ExtraCtxCols
-	parser, err = surveyresponses.NewResponseParser(
+	parser, err := surveyresponses.NewResponseParser(
 		surveyKey,
 		surveyVersions,
 		shortKeys,
@@ -95,12 +95,13 @@ func initResponseParser(instanceID string, studyKey string, surveyKey string, sh
 	)
 	if err != nil {
 		slog.Error("failed to create response parser", slog.String("error", err.Error()))
-		return
+		return nil, false, err
 	}
-	if study.Configs.TrackAccount {
+	trackAccount := study.Configs.TrackAccount
+	if trackAccount {
 		parser.EnableAccountTracking()
 	}
-	return
+	return parser, trackAccount, nil
 }
 
 func getResponseAccountTrackingInfo(instanceID, studyKey, participantID string) surveyresponses.AccountTrackingInfo {
@@ -112,13 +113,7 @@ func getResponseAccountTrackingInfo(instanceID, studyKey, participantID string) 
 	return surveyresponses.AccountTrackingInfoFromParticipant(pState)
 }
 
-func generateExportForSurveyForTargetDate(instanceID string, studyKey string, surveyKey string, format string, targetDate time.Time, exportPath string, parser *surveyresponses.ResponseParser, createEmptyFile bool) {
-	study, err := studyDBService.GetStudy(instanceID, studyKey)
-	if err != nil {
-		slog.Error("failed to get study", slog.String("error", err.Error()))
-		return
-	}
-
+func generateExportForSurveyForTargetDate(instanceID string, studyKey string, surveyKey string, format string, targetDate time.Time, exportPath string, parser *surveyresponses.ResponseParser, createEmptyFile bool, trackAccount bool) {
 	fileName := responseFileName(targetDate, surveyKey, format)
 	responseFilePath := filepath.Join(exportPath, fileName)
 
@@ -172,7 +167,7 @@ func generateExportForSurveyForTargetDate(instanceID string, studyKey string, su
 		false,
 		func(dbService *studyDB.StudyDBService, r studyTypes.SurveyResponse, instanceID, studyKey string, args ...interface{}) error {
 			trackingInfo := surveyresponses.AccountTrackingInfo{}
-			if study.Configs.TrackAccount {
+			if trackAccount {
 				var ok bool
 				trackingInfo, ok = accountInfoCache[r.ParticipantID]
 				if !ok {

@@ -9,12 +9,13 @@ import (
 	studytypes "github.com/case-framework/case-backend/pkg/study/types"
 )
 
-var (
-	defaultCtxColNames = []string{
-		"language",
-		"engineVersion",
-		"session",
-	}
+var defaultCtxColNames = []string{
+	"language",
+	"engineVersion",
+	"session",
+}
+
+const (
 	accountIDColumn   = "accountID"
 	mainProfileColumn = "mainProfile"
 )
