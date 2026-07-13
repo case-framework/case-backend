@@ -63,6 +63,12 @@ func runResponseExportsForTask(rExpTask ResponseExportTask) {
 }
 
 func initResponseParser(instanceID string, studyKey string, surveyKey string, shortKeys bool, separator string) (parser *surveyresponses.ResponseParser, err error) {
+	study, err := studyDBService.GetStudy(instanceID, studyKey)
+	if err != nil {
+		slog.Error("failed to get study", slog.String("error", err.Error()))
+		return nil, err
+	}
+
 	surveyVersions, err := surveydefinition.PrepareSurveyInfosFromDB(
 		studyDBService,
 		instanceID,
@@ -91,10 +97,28 @@ func initResponseParser(instanceID string, studyKey string, surveyKey string, sh
 		slog.Error("failed to create response parser", slog.String("error", err.Error()))
 		return
 	}
+	if study.Configs.TrackAccount {
+		parser.EnableAccountTracking()
+	}
 	return
 }
 
+func getResponseAccountTrackingInfo(instanceID, studyKey, participantID string) surveyresponses.AccountTrackingInfo {
+	pState, err := studyDBService.GetParticipantByID(instanceID, studyKey, participantID)
+	if err != nil {
+		slog.Warn("failed to get participant account tracking info", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("participantID", participantID))
+		return surveyresponses.AccountTrackingInfo{}
+	}
+	return surveyresponses.AccountTrackingInfoFromParticipant(pState)
+}
+
 func generateExportForSurveyForTargetDate(instanceID string, studyKey string, surveyKey string, format string, targetDate time.Time, exportPath string, parser *surveyresponses.ResponseParser, createEmptyFile bool) {
+	study, err := studyDBService.GetStudy(instanceID, studyKey)
+	if err != nil {
+		slog.Error("failed to get study", slog.String("error", err.Error()))
+		return
+	}
+
 	fileName := responseFileName(targetDate, surveyKey, format)
 	responseFilePath := filepath.Join(exportPath, fileName)
 
@@ -138,6 +162,7 @@ func generateExportForSurveyForTargetDate(instanceID string, studyKey string, su
 		return
 	}
 
+	accountInfoCache := map[string]surveyresponses.AccountTrackingInfo{}
 	err = studyDBService.FindAndExecuteOnResponses(
 		context.Background(),
 		instanceID,
@@ -146,7 +171,17 @@ func generateExportForSurveyForTargetDate(instanceID string, studyKey string, su
 		bson.M{"arrivedAt": 1},
 		false,
 		func(dbService *studyDB.StudyDBService, r studyTypes.SurveyResponse, instanceID, studyKey string, args ...interface{}) error {
-			err := exporter.WriteResponse(&r)
+			trackingInfo := surveyresponses.AccountTrackingInfo{}
+			if study.Configs.TrackAccount {
+				var ok bool
+				trackingInfo, ok = accountInfoCache[r.ParticipantID]
+				if !ok {
+					trackingInfo = getResponseAccountTrackingInfo(instanceID, studyKey, r.ParticipantID)
+					accountInfoCache[r.ParticipantID] = trackingInfo
+				}
+			}
+
+			err := exporter.WriteResponse(&r, trackingInfo)
 			if err != nil {
 				return err
 			}
