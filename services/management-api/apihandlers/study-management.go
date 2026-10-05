@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -2140,6 +2141,15 @@ type AddStudyVariableRequest struct {
 	VariableDef studyTypes.StudyVariables `json:"variableDef"`
 }
 
+var studyVariableKeyPattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+
+func (req AddStudyVariableRequest) validate() error {
+	if !studyVariableKeyPattern.MatchString(req.VariableDef.Key) {
+		return fmt.Errorf("variable key must contain only ASCII letters, digits, underscores, or hyphens and must not be empty")
+	}
+	return nil
+}
+
 func (h *HttpEndpoints) addStudyVariable(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ManagementUserClaims)
 	studyKey := c.Param("studyKey")
@@ -2154,6 +2164,11 @@ func (h *HttpEndpoints) addStudyVariable(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		slog.Error("failed to bind request", slog.String("error", err.Error()))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	if err := req.validate(); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
