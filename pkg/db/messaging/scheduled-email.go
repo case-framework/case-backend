@@ -6,9 +6,8 @@ import (
 
 	messagingTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 func (dbService *MessagingDBService) DropIndexForEmailSchedulesCollection(instanceID string, dropAll bool) {
@@ -16,7 +15,7 @@ func (dbService *MessagingDBService) DropIndexForEmailSchedulesCollection(instan
 	defer cancel()
 
 	if dropAll {
-		_, err := dbService.collectionEmailSchedules(instanceID).Indexes().DropAll(ctx)
+		err := dbService.collectionEmailSchedules(instanceID).Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for email schedules", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 		}
@@ -85,7 +84,7 @@ func (dbService *MessagingDBService) GetScheduledEmailByID(instanceID string, id
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(id)
+	_id, err := bson.ObjectIDFromHex(id)
 	if err != nil {
 		return nil, err
 	}
@@ -106,24 +105,21 @@ func (dbService *MessagingDBService) SaveScheduledEmail(instanceID string, sched
 	if !scheduledEmail.ID.IsZero() {
 		filter := bson.M{"_id": scheduledEmail.ID}
 
-		upsert := false
-		rd := options.After
-		options := options.FindOneAndReplaceOptions{
-			Upsert:         &upsert,
-			ReturnDocument: &rd,
-		}
+		opts := options.FindOneAndReplace().
+			SetUpsert(false).
+			SetReturnDocument(options.After)
 		elem := messagingTypes.ScheduledEmail{}
-		err := dbService.collectionEmailSchedules(instanceID).FindOneAndReplace(
-			ctx, filter, scheduledEmail, &options,
-		).Decode(&elem)
+		err := dbService.collectionEmailSchedules(instanceID).
+			FindOneAndReplace(ctx, filter, scheduledEmail, opts).
+			Decode(&elem)
 		return elem, err
 	} else {
-		scheduledEmail.ID = primitive.NewObjectID()
+		scheduledEmail.ID = bson.NewObjectID()
 		res, err := dbService.collectionEmailSchedules(instanceID).InsertOne(ctx, scheduledEmail)
 		if err != nil {
 			return scheduledEmail, err
 		}
-		scheduledEmail.ID = res.InsertedID.(primitive.ObjectID)
+		scheduledEmail.ID = res.InsertedID.(bson.ObjectID)
 		return scheduledEmail, nil
 	}
 }
@@ -133,7 +129,7 @@ func (dbService *MessagingDBService) DeleteScheduledEmail(instanceID string, id 
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(id)
+	_id, err := bson.ObjectIDFromHex(id)
 	if err != nil {
 		return err
 	}

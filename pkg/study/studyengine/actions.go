@@ -15,7 +15,7 @@ import (
 	httpclient "github.com/case-framework/case-backend/pkg/http-client"
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 func ActionEval(action studyTypes.Expression, oldState ActionData, event StudyEvent) (newState ActionData, err error) {
@@ -553,7 +553,7 @@ func addMessage(action studyTypes.Expression, oldState ActionData, event StudyEv
 	}
 
 	newMessage := studyTypes.ParticipantMessage{
-		ID:           primitive.NewObjectID().Hex(),
+		ID:           bson.NewObjectID().Hex(),
 		Type:         messageType,
 		ScheduledFor: int64(timestamp),
 	}

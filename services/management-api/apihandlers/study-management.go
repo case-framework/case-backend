@@ -26,8 +26,7 @@ import (
 	studyutils "github.com/case-framework/case-backend/pkg/study/utils"
 	"github.com/case-framework/case-backend/pkg/utils"
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 
 	studyDB "github.com/case-framework/case-backend/pkg/db/study"
 	studyService "github.com/case-framework/case-backend/pkg/study"
@@ -1239,7 +1238,7 @@ func (h *HttpEndpoints) exportStudyConfig(c *gin.Context) {
 	configWriter.WriteKeyValue("exportedAt", time.Now())
 
 	if includeConfig {
-		study.ID = primitive.NilObjectID
+		study.ID = bson.NilObjectID
 		study.NextTimerEvent = 0
 		study.Stats = studyTypes.StudyStats{}
 		configWriter.WriteString(",")
@@ -1250,7 +1249,7 @@ func (h *HttpEndpoints) exportStudyConfig(c *gin.Context) {
 
 		rules, err := h.studyDBConn.GetCurrentStudyRules(token.InstanceID, studyKey)
 		if err == nil {
-			rules.ID = primitive.NilObjectID
+			rules.ID = bson.NilObjectID
 			rules.UploadedBy = ""
 			configWriter.WriteString(",")
 			configWriter.WriteKeyValue("rules", rules)
@@ -1269,7 +1268,7 @@ func (h *HttpEndpoints) exportStudyConfig(c *gin.Context) {
 					slog.Error("failed to get latest survey", slog.String("error", err.Error()))
 					continue
 				}
-				survey.ID = primitive.NilObjectID
+				survey.ID = bson.NilObjectID
 				surveys = append(surveys, survey)
 			}
 

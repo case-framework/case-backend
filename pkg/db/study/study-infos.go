@@ -1,23 +1,27 @@
 package study
 
 import (
-	"fmt"
 	"log/slog"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
+
+const idxStudyInfosKey = "key_1"
+
+var defaultStudyInfoIndexNames = []string{
+	idxStudyInfosKey,
+}
 
 var indexesForStudyInfosCollection = []mongo.IndexModel{
 	{
 		Keys: bson.D{
 			{Key: "key", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("key_1"),
+		Options: options.Index().SetUnique(true).SetName(idxStudyInfosKey),
 	},
 }
 
@@ -26,18 +30,17 @@ func (dbService *StudyDBService) DropIndexForStudyInfosCollection(instanceID str
 	defer cancel()
 
 	if dropAll {
-		_, err := dbService.collectionStudyInfos(instanceID).Indexes().DropAll(ctx)
+		err := dbService.collectionStudyInfos(instanceID).Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for studyInfos", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 		}
 	} else {
-		for _, index := range indexesForStudyInfosCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for studyInfos collection", slog.String("index", fmt.Sprintf("%+v", index)))
+		for _, indexName := range defaultStudyInfoIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for studyInfos collection")
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := dbService.collectionStudyInfos(instanceID).Indexes().DropOne(ctx, indexName)
+			err := dbService.collectionStudyInfos(instanceID).Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for studyInfos", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("indexName", indexName))
 			}
@@ -68,9 +71,9 @@ func (dbService *StudyDBService) GetStudies(instanceID string, statusFilter stri
 	opts := options.Find()
 	if onlyKeys {
 		projection := bson.D{
-			primitive.E{Key: "key", Value: 1},
-			primitive.E{Key: "secretKey", Value: 1},
-			primitive.E{Key: "configs.idMappingMethod", Value: 1},
+			{Key: "key", Value: 1},
+			{Key: "secretKey", Value: 1},
+			{Key: "configs.idMappingMethod", Value: 1},
 		}
 		opts.SetProjection(projection)
 	}

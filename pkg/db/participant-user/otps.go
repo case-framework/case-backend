@@ -1,21 +1,28 @@
 package participantuser
 
 import (
+	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	userTypes "github.com/case-framework/case-backend/pkg/user-management/types"
 )
 
 const (
-	OTP_TTL = 60 * 15
+	OTP_TTL           = 60 * 15
+	idxOTPsUserIDCode = "uniq_userID_1_code_1"
+	idxOTPsCreatedAt  = "createdAt_1"
 )
+
+var defaultOTPIndexNames = []string{
+	idxOTPsUserIDCode,
+	idxOTPsCreatedAt,
+}
 
 var indexesForOTPsCollection = []mongo.IndexModel{
 	{
@@ -23,13 +30,13 @@ var indexesForOTPsCollection = []mongo.IndexModel{
 			{Key: "userID", Value: 1},
 			{Key: "code", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("uniq_userID_1_code_1"),
+		Options: options.Index().SetUnique(true).SetName(idxOTPsUserIDCode),
 	},
 	{
 		Keys: bson.D{
 			{Key: "createdAt", Value: 1},
 		},
-		Options: options.Index().SetExpireAfterSeconds(OTP_TTL).SetName("createdAt_1"),
+		Options: options.Index().SetExpireAfterSeconds(OTP_TTL).SetName(idxOTPsCreatedAt),
 	},
 }
 
@@ -38,18 +45,17 @@ func (dbService *ParticipantUserDBService) DropIndexForOTPsCollection(instanceID
 	defer cancel()
 
 	if dropAll {
-		_, err := dbService.collectionOTPs(instanceID).Indexes().DropAll(ctx)
+		err := dbService.collectionOTPs(instanceID).Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for OTPs", slog.String("error", err.Error()))
 		}
 	} else {
-		for _, index := range indexesForOTPsCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for OTPs collection", slog.String("index", fmt.Sprintf("%+v", index)))
+		for _, indexName := range defaultOTPIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for OTPs collection")
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := dbService.collectionOTPs(instanceID).Indexes().DropOne(ctx, indexName)
+			err := dbService.collectionOTPs(instanceID).Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for OTPs", slog.String("error", err.Error()), slog.String("indexName", indexName))
 			}
@@ -77,7 +83,7 @@ func (dbService *ParticipantUserDBService) CreateOTP(instanceID string, userID s
 	}
 	defer session.EndSession(ctx)
 
-	createOTPIfLimitNotReached := func(sessCtx mongo.SessionContext) error {
+	createOTPIfLimitNotReached := func(sessCtx context.Context) error {
 
 		filter := bson.M{"userID": userID}
 		count, err := dbService.collectionOTPs(instanceID).CountDocuments(sessCtx, filter)
@@ -98,7 +104,6 @@ func (dbService *ParticipantUserDBService) CreateOTP(instanceID string, userID s
 		_, err = dbService.collectionOTPs(instanceID).InsertOne(sessCtx, otp)
 		return err
 	}
-
 	return mongo.WithSession(ctx, session, createOTPIfLimitNotReached)
 }
 

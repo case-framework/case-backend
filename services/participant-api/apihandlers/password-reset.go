@@ -10,7 +10,7 @@ import (
 	userTypes "github.com/case-framework/case-backend/pkg/user-management/types"
 	umUtils "github.com/case-framework/case-backend/pkg/user-management/utils"
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/v2/bson"
 
 	emailTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 )

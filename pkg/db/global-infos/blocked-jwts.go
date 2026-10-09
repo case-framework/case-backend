@@ -1,14 +1,23 @@
 package globalinfos
 
 import (
-	"fmt"
 	"log/slog"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
+
+const (
+	idxBlockedJwtsToken     = "token_1"
+	idxBlockedJwtsExpiresAt = "expiresAt_1"
+)
+
+var defaultBlockedJwtIndexNames = []string{
+	idxBlockedJwtsToken,
+	idxBlockedJwtsExpiresAt,
+}
 
 type BlockedJwt struct {
 	Token     string    `bson:"token"`
@@ -20,13 +29,13 @@ var indexesForBlockedJwtsCollection = []mongo.IndexModel{
 		Keys: bson.D{
 			{Key: "token", Value: 1},
 		},
-		Options: options.Index().SetName("token_1"),
+		Options: options.Index().SetName(idxBlockedJwtsToken),
 	},
 	{
 		Keys: bson.D{
 			{Key: "expiresAt", Value: 1},
 		},
-		Options: options.Index().SetExpireAfterSeconds(0).SetName("expiresAt_1"),
+		Options: options.Index().SetExpireAfterSeconds(0).SetName(idxBlockedJwtsExpiresAt),
 	},
 }
 
@@ -35,18 +44,17 @@ func (dbService *GlobalInfosDBService) DropIndexForBlockedJwtsCollection(dropAll
 	defer cancel()
 
 	if dropAll {
-		_, err := dbService.collectionBlockedJwts().Indexes().DropAll(ctx)
+		err := dbService.collectionBlockedJwts().Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for blocked jwts", slog.String("error", err.Error()))
 		}
 	} else {
-		for _, index := range indexesForBlockedJwtsCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for blocked jwts collection", slog.String("index", fmt.Sprintf("%+v", index)))
+		for _, indexName := range defaultBlockedJwtIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for blocked jwts collection")
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := dbService.collectionBlockedJwts().Indexes().DropOne(ctx, indexName)
+			err := dbService.collectionBlockedJwts().Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for blocked jwts", slog.String("error", err.Error()), slog.String("indexName", indexName))
 			}

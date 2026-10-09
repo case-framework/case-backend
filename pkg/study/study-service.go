@@ -12,8 +12,7 @@ import (
 	"github.com/case-framework/case-backend/pkg/study/types"
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 	studyUtils "github.com/case-framework/case-backend/pkg/study/utils"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 var (
@@ -137,7 +136,7 @@ func OnRegisterTempParticipant(instanceID string, studyKey string) (pState *stud
 		return
 	}
 
-	tempProfileID := primitive.NewObjectID().Hex()
+	tempProfileID := bson.NewObjectID().Hex()
 	participantID, _, err := ComputeParticipantIDs(study, tempProfileID)
 	if err != nil {
 		slog.Error("Error computing participant IDs", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))
@@ -180,7 +179,7 @@ func OnRegisterVirtualParticipant(instanceID string, studyKey string) (pState *s
 		return
 	}
 
-	virtualProfileID := primitive.NewObjectID().Hex()
+	virtualProfileID := bson.NewObjectID().Hex()
 	participantID, _, err := ComputeParticipantIDs(study, virtualProfileID)
 	if err != nil {
 		slog.Error("Error computing participant IDs", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("error", err.Error()))

@@ -3,19 +3,19 @@ package types
 import (
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 type SentSMS struct {
-	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	UserID      string             `bson:"userID" json:"userID"`
-	MessageType string             `bson:"messageType" json:"messageType"`
-	SentAt      time.Time          `bson:"sentAt" json:"sentAt"`
-	PhoneNumber string             `bson:"phoneNumber" json:"phoneNumber"`
+	ID          bson.ObjectID `bson:"_id,omitempty" json:"id"`
+	UserID      string        `bson:"userID" json:"userID"`
+	MessageType string        `bson:"messageType" json:"messageType"`
+	SentAt      time.Time     `bson:"sentAt" json:"sentAt"`
+	PhoneNumber string        `bson:"phoneNumber" json:"phoneNumber"`
 }
 
 type SMSTemplate struct {
-	ID              primitive.ObjectID  `bson:"_id" json:"id,omitempty"`
+	ID              bson.ObjectID       `bson:"_id" json:"id,omitempty"`
 	MessageType     string              `bson:"messageType" json:"messageType"`
 	DefaultLanguage string              `bson:"defaultLanguage" json:"defaultLanguage"`
 	From            string              `bson:"from" json:"from"`

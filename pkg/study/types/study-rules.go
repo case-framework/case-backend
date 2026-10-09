@@ -3,16 +3,16 @@ package types
 import (
 	"encoding/json"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 type StudyRules struct {
-	ID              primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	StudyKey        string             `bson:"studyKey" json:"studyKey"`
-	UploadedAt      int64              `bson:"uploadedAt" json:"uploadedAt"`
-	UploadedBy      string             `bson:"uploadedBy" json:"uploadedBy"`
-	Rules           []Expression       `bson:"rules,omitempty" json:"rules"`
-	SerialisedRules string             `bson:"serialisedRules,omitempty" json:"serialisedRules,omitempty"`
+	ID              bson.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	StudyKey        string        `bson:"studyKey" json:"studyKey"`
+	UploadedAt      int64         `bson:"uploadedAt" json:"uploadedAt"`
+	UploadedBy      string        `bson:"uploadedBy" json:"uploadedBy"`
+	Rules           []Expression  `bson:"rules,omitempty" json:"rules"`
+	SerialisedRules string        `bson:"serialisedRules,omitempty" json:"serialisedRules,omitempty"`
 }
 
 func (studyRules *StudyRules) MarshalRules() error {

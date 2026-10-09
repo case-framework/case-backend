@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/case-framework/case-backend/pkg/db"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 // collection names
@@ -29,10 +29,7 @@ type ParticipantUserDBService struct {
 }
 
 func NewParticipantUserDBService(configs db.DBConfig) (*ParticipantUserDBService, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(configs.Timeout)*time.Second)
-	defer cancel()
-
-	dbClient, err := mongo.Connect(ctx,
+	dbClient, err := mongo.Connect(
 		options.Client().ApplyURI(configs.URI),
 		options.Client().SetMaxConnIdleTime(time.Duration(configs.IdleConnTimeout)*time.Second),
 		options.Client().SetMaxPoolSize(configs.MaxPoolSize),

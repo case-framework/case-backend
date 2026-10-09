@@ -1,18 +1,24 @@
 package participantuser
 
 import (
-	"fmt"
 	"log/slog"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 const (
-	FAILED_OTP_ATTEMP_WINDOW = 60 * 5
+	FAILED_OTP_ATTEMP_WINDOW      = 60 * 5
+	idxFailedOtpAttemptsUserID    = "userID_1"
+	idxFailedOtpAttemptsTimestamp = "timestamp_1"
 )
+
+var defaultFailedOtpAttemptIndexNames = []string{
+	idxFailedOtpAttemptsUserID,
+	idxFailedOtpAttemptsTimestamp,
+}
 
 type FailedOtpAttempt struct {
 	Timestamp time.Time `json:"timestamp" bson:"timestamp"`
@@ -24,13 +30,13 @@ var indexesForFailedOtpAttemptsCollection = []mongo.IndexModel{
 		Keys: bson.D{
 			{Key: "userID", Value: 1},
 		},
-		Options: options.Index().SetName("userID_1"),
+		Options: options.Index().SetName(idxFailedOtpAttemptsUserID),
 	},
 	{
 		Keys: bson.D{
 			{Key: "timestamp", Value: 1},
 		},
-		Options: options.Index().SetExpireAfterSeconds(FAILED_OTP_ATTEMP_WINDOW).SetName("timestamp_1"),
+		Options: options.Index().SetExpireAfterSeconds(FAILED_OTP_ATTEMP_WINDOW).SetName(idxFailedOtpAttemptsTimestamp),
 	},
 }
 
@@ -39,18 +45,17 @@ func (dbService *ParticipantUserDBService) DropIndexForFailedOtpAttemptsCollecti
 	defer cancel()
 
 	if dropAll {
-		_, err := dbService.collectionFailedOtpAttempts(instanceID).Indexes().DropAll(ctx)
+		err := dbService.collectionFailedOtpAttempts(instanceID).Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for FailedOtpAttempts", slog.String("error", err.Error()))
 		}
 	} else {
-		for _, index := range indexesForFailedOtpAttemptsCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for FailedOtpAttempts collection", slog.String("index", fmt.Sprintf("%+v", index)))
+		for _, indexName := range defaultFailedOtpAttemptIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for FailedOtpAttempts collection")
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := dbService.collectionFailedOtpAttempts(instanceID).Indexes().DropOne(ctx, indexName)
+			err := dbService.collectionFailedOtpAttempts(instanceID).Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for FailedOtpAttempts", slog.String("error", err.Error()), slog.String("indexName", indexName))
 			}

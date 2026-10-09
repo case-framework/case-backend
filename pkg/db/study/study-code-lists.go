@@ -1,16 +1,21 @@
 package study
 
 import (
-	"fmt"
 	"log/slog"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	studytypes "github.com/case-framework/case-backend/pkg/study/types"
 )
+
+const idxStudyCodeListsStudyKeyListKeyCode = "studyKey_1_listKey_1_code_1"
+
+var defaultStudyCodeListIndexNames = []string{
+	idxStudyCodeListsStudyKeyListKeyCode,
+}
 
 var indexesForStudyCodeListsCollection = []mongo.IndexModel{
 	{
@@ -19,7 +24,7 @@ var indexesForStudyCodeListsCollection = []mongo.IndexModel{
 			{Key: "listKey", Value: 1},
 			{Key: "code", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("studyKey_1_listKey_1_code_1"),
+		Options: options.Index().SetUnique(true).SetName(idxStudyCodeListsStudyKeyListKeyCode),
 	},
 }
 
@@ -29,18 +34,17 @@ func (dbService *StudyDBService) DropIndexForStudyCodeListsCollection(instanceID
 
 	collection := dbService.collectionStudyCodeLists(instanceID)
 	if dropAll {
-		_, err := collection.Indexes().DropAll(ctx)
+		err := collection.Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for studyCodeLists", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 		}
 	} else {
-		for _, index := range indexesForStudyCodeListsCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for studyCodeLists collection", slog.String("index", fmt.Sprintf("%+v", index)), slog.String("instanceID", instanceID))
+		for _, indexName := range defaultStudyCodeListIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for studyCodeLists collection", slog.String("instanceID", instanceID))
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := collection.Indexes().DropOne(ctx, indexName)
+			err := collection.Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for studyCodeLists", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("indexName", indexName))
 			}

@@ -3,8 +3,7 @@ package study
 import (
 	"log/slog"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
@@ -52,9 +51,9 @@ func (dbService *StudyDBService) DeleteResearcherMessages(instanceID string, stu
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	idsToDelete := []primitive.ObjectID{}
+	idsToDelete := []bson.ObjectID{}
 	for _, id := range messageIDs {
-		_id, err := primitive.ObjectIDFromHex(id)
+		_id, err := bson.ObjectIDFromHex(id)
 		if err != nil {
 			slog.Debug("unexpected error while converting id to ObjectID: %v", slog.String("error", err.Error()))
 			continue

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 const ACCOUNT_TYPE_EMAIL = "email"
@@ -17,7 +17,7 @@ const (
 )
 
 type User struct {
-	ID primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	ID bson.ObjectID `bson:"_id,omitempty" json:"id"`
 
 	Account            Account            `bson:"account" json:"account"`
 	Timestamps         Timestamps         `bson:"timestamps" json:"timestamps"`
@@ -29,7 +29,7 @@ type User struct {
 // Add a new email address
 func (u *User) AddNewEmail(addr string, confirmed bool) {
 	contactInfo := ContactInfo{
-		ID:          primitive.NewObjectID(),
+		ID:          bson.NewObjectID(),
 		Type:        CONTACT_INFO_TYPE_EMAIL,
 		ConfirmedAt: 0,
 		Email:       addr,
@@ -71,7 +71,7 @@ func (u *User) SetPhoneNumber(phone string) {
 		newContactInfos = append(newContactInfos, ci)
 	}
 	contactInfo := ContactInfo{
-		ID:          primitive.NewObjectID(),
+		ID:          bson.NewObjectID(),
 		Type:        CONTACT_INFO_TYPE_PHONE,
 		ConfirmedAt: 0,
 		Phone:       phone,
@@ -181,7 +181,7 @@ func (u *User) ReplaceContactInfoInContactPreferences(oldId string, newId string
 
 // AddProfile generates unique ID and adds profile to the user's array
 func (u *User) AddProfile(p *Profile) {
-	p.ID = primitive.NewObjectID()
+	p.ID = bson.NewObjectID()
 	p.CreatedAt = time.Now().Unix()
 	u.Profiles = append(u.Profiles, *p)
 }

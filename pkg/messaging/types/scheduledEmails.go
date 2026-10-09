@@ -2,11 +2,11 @@ package types
 
 import (
 	study "github.com/case-framework/case-backend/pkg/study/types"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 type ScheduledEmail struct {
-	ID        primitive.ObjectID   `bson:"_id" json:"id,omitempty"`
+	ID        bson.ObjectID        `bson:"_id" json:"id,omitempty"`
 	Template  EmailTemplate        `bson:"template" json:"template"`
 	Type      string               `bson:"type" json:"type"`
 	StudyKey  string               `bson:"studyKey" json:"studyKey"`

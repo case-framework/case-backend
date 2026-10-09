@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/v2/bson"
 
 	emailsending "github.com/case-framework/case-backend/pkg/messaging/email-sending"
 	emailTypes "github.com/case-framework/case-backend/pkg/messaging/types"

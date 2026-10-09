@@ -7,7 +7,7 @@ import (
 	studyService "github.com/case-framework/case-backend/pkg/study"
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 	umTypes "github.com/case-framework/case-backend/pkg/user-management/types"
-	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 func generateProfileIDLookup() {

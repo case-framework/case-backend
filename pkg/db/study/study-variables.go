@@ -1,18 +1,22 @@
 package study
 
 import (
-	"fmt"
 	"log/slog"
 
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	studytypes "github.com/case-framework/case-backend/pkg/study/types"
 )
+
+const idxStudyVariablesStudyKeyKey = "studyKey_1_key_1"
+
+var defaultStudyVariableIndexNames = []string{
+	idxStudyVariablesStudyKeyKey,
+}
 
 var indexesForStudyVariablesCollection = []mongo.IndexModel{
 	{
@@ -20,7 +24,7 @@ var indexesForStudyVariablesCollection = []mongo.IndexModel{
 			{Key: "studyKey", Value: 1},
 			{Key: "key", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("studyKey_1_key_1"),
+		Options: options.Index().SetUnique(true).SetName(idxStudyVariablesStudyKeyKey),
 	},
 }
 
@@ -40,18 +44,17 @@ func (dbService *StudyDBService) DropIndexForStudyVariablesCollection(instanceID
 
 	collection := dbService.collectionStudyVariables(instanceID)
 	if dropAll {
-		_, err := collection.Indexes().DropAll(ctx)
+		err := collection.Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for studyVariables", slog.String("error", err.Error()), slog.String("instanceID", instanceID))
 		}
 	} else {
-		for _, index := range indexesForStudyVariablesCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for studyVariables collection", slog.String("index", fmt.Sprintf("%+v", index)), slog.String("instanceID", instanceID))
+		for _, indexName := range defaultStudyVariableIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for studyVariables collection", slog.String("instanceID", instanceID))
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := collection.Indexes().DropOne(ctx, indexName)
+			err := collection.Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for studyVariables", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("indexName", indexName))
 			}
@@ -90,7 +93,7 @@ func (dbService *StudyDBService) CreateStudyVariable(instanceID string, variable
 	if err != nil {
 		return "", err
 	}
-	id := res.InsertedID.(primitive.ObjectID)
+	id := res.InsertedID.(bson.ObjectID)
 	return id.Hex(), nil
 }
 
@@ -183,7 +186,7 @@ func (dbService *StudyDBService) GetStudyVariableByID(instanceID string, id stri
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(id)
+	_id, err := bson.ObjectIDFromHex(id)
 	if err != nil {
 		return studytypes.StudyVariables{}, err
 	}
@@ -216,7 +219,7 @@ func (dbService *StudyDBService) DeleteStudyVariableByID(instanceID string, id s
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
-	_id, err := primitive.ObjectIDFromHex(id)
+	_id, err := bson.ObjectIDFromHex(id)
 	if err != nil {
 		return err
 	}

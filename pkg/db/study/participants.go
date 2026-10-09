@@ -3,49 +3,63 @@ package study
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 )
+
+const (
+	idxParticipantsParticipantID              = "participantID_1"
+	idxParticipantsStudyStatus                = "studyStatus_1"
+	idxParticipantsEnteredAt                  = "enteredAt_1"
+	idxParticipantsMessagesScheduledForStatus = "messages.scheduledFor_1_studyStatus_1"
+	idxParticipantsMessagesScheduledFor       = "messages.scheduledFor_1"
+)
+
+var defaultParticipantIndexNames = []string{
+	idxParticipantsParticipantID,
+	idxParticipantsStudyStatus,
+	idxParticipantsEnteredAt,
+	idxParticipantsMessagesScheduledForStatus,
+	idxParticipantsMessagesScheduledFor,
+}
 
 var indexesForParticipantsCollection = []mongo.IndexModel{
 	{
 		Keys: bson.D{
 			{Key: "participantID", Value: 1},
 		},
-		Options: options.Index().SetUnique(true).SetName("participantID_1"),
+		Options: options.Index().SetUnique(true).SetName(idxParticipantsParticipantID),
 	},
 	{
 		Keys: bson.D{
 			{Key: "studyStatus", Value: 1},
 		},
-		Options: options.Index().SetName("studyStatus_1"),
+		Options: options.Index().SetName(idxParticipantsStudyStatus),
 	},
 	{
 		Keys: bson.D{
 			{Key: "enteredAt", Value: 1},
 		},
-		Options: options.Index().SetName("enteredAt_1"),
+		Options: options.Index().SetName(idxParticipantsEnteredAt),
 	},
 	{
 		Keys: bson.D{
 			{Key: "messages.scheduledFor", Value: 1},
 			{Key: "studyStatus", Value: 1},
 		},
-		Options: options.Index().SetName("messages.scheduledFor_1_studyStatus_1"),
+		Options: options.Index().SetName(idxParticipantsMessagesScheduledForStatus),
 	},
 	{
 		Keys: bson.D{
 			{Key: "messages.scheduledFor", Value: 1},
 		},
-		Options: options.Index().SetName("messages.scheduledFor_1"),
+		Options: options.Index().SetName(idxParticipantsMessagesScheduledFor),
 	},
 }
 
@@ -56,18 +70,17 @@ func (dbService *StudyDBService) DropIndexForParticipantsCollection(instanceID s
 	collection := dbService.collectionParticipants(instanceID, studyKey)
 
 	if dropAll {
-		_, err := collection.Indexes().DropAll(ctx)
+		err := collection.Indexes().DropAll(ctx)
 		if err != nil {
 			slog.Error("Error dropping all indexes for participants", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey))
 		}
 	} else {
-		for _, index := range indexesForParticipantsCollection {
-			if index.Options == nil || index.Options.Name == nil {
-				slog.Error("Index name is nil for participants collection", slog.String("index", fmt.Sprintf("%+v", index)))
+		for _, indexName := range defaultParticipantIndexNames {
+			if indexName == "" {
+				slog.Error("Index name is empty for participants collection")
 				continue
 			}
-			indexName := *index.Options.Name
-			_, err := collection.Indexes().DropOne(ctx, indexName)
+			err := collection.Indexes().DropOne(ctx, indexName)
 			if err != nil {
 				slog.Error("Error dropping index for participants", slog.String("error", err.Error()), slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("indexName", indexName))
 			}
@@ -95,13 +108,12 @@ func (dbService *StudyDBService) SaveParticipantState(instanceID string, studyKe
 
 	upsert := true
 	rd := options.After
-	qOpts := options.FindOneAndReplaceOptions{
-		Upsert:         &upsert,
-		ReturnDocument: &rd,
-	}
+	qOpts := options.FindOneAndReplace().
+		SetUpsert(upsert).
+		SetReturnDocument(rd)
 	elem := studyTypes.Participant{}
 	err := dbService.collectionParticipants(instanceID, studyKey).FindOneAndReplace(
-		ctx, filter, pState, &qOpts,
+		ctx, filter, pState, qOpts,
 	).Decode(&elem)
 	return elem, err
 }
@@ -117,7 +129,7 @@ func (dbService *StudyDBService) UpdateParticipantIfNotModified(instanceID strin
 		filter["modifiedAt"] = bson.M{"$lte": pState.ModifiedAt}
 	}
 
-	pState.ID = primitive.NilObjectID
+	pState.ID = bson.NilObjectID
 	pState.ModifiedAt = time.Now().Unix()
 
 	update := bson.M{"$set": pState}
