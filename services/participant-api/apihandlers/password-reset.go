@@ -17,7 +17,7 @@ import (
 
 const (
 	passwordResetAttemptWindow   = 60 * 60 // seconds
-	PASSWWORD_RESET_MAX_ATTEMPTS = 5
+	PASSWORD_RESET_MAX_ATTEMPTS = 5
 
 	PASSWORD_RESET_TOKEN_TTL = 24 * time.Hour
 )
@@ -57,7 +57,7 @@ func (h *HttpEndpoints) initiatePasswordReset(c *gin.Context) {
 		return
 	}
 
-	if umUtils.HasMoreAttemptsRecently(user.Account.PasswordResetTriggers, PASSWWORD_RESET_MAX_ATTEMPTS, passwordResetAttemptWindow) {
+	if umUtils.HasMoreAttemptsRecently(user.Account.PasswordResetTriggers, PASSWORD_RESET_MAX_ATTEMPTS, passwordResetAttemptWindow) {
 		slog.Warn("password reset rate limited", slog.String("email", req.Email), slog.String("instanceID", req.InstanceID))
 		randomWait(5, 10)
 		c.JSON(http.StatusTooManyRequests, gin.H{"error": "rate limited"})
