@@ -68,6 +68,20 @@ func (dbService *StudyDBService) AddConfidentialIDMapEntry(instanceID, confident
 	return err
 }
 
+// EnsureConfidentialIDMapEntry repairs a missing mapping without changing an existing one.
+func (dbService *StudyDBService) EnsureConfidentialIDMapEntry(instanceID, confidentialID, profileID, studyKey string) error {
+	ctx, cancel := dbService.getContext()
+	defer cancel()
+
+	filter := bson.M{
+		"confidentialID": confidentialID,
+		"studyKey":       studyKey,
+	}
+	update := bson.M{"$setOnInsert": bson.M{"profileID": profileID}}
+	_, err := dbService.collectionConfidentialIDMap(instanceID).UpdateOne(ctx, filter, update, options.Update().SetUpsert(true))
+	return err
+}
+
 func (dbService *StudyDBService) GetProfileIDFromConfidentialID(instanceID, confidentialID, studyKey string) (string, error) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
