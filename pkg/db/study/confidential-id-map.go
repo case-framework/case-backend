@@ -55,25 +55,6 @@ func (dbService *StudyDBService) CreateDefaultIndexesForConfidentialIDMapCollect
 	}
 }
 
-func (dbService *StudyDBService) AddConfidentialIDMapEntry(instanceID, confidentialID, profileID, userID, studyKey string) error {
-	if userID == "" {
-		return errors.New("user ID must not be empty")
-	}
-
-	ctx, cancel := dbService.getContext()
-	defer cancel()
-
-	entry := bson.M{
-		"confidentialID": confidentialID,
-		"profileID":      profileID,
-		"userID":         userID,
-		"studyKey":       studyKey,
-	}
-
-	_, err := dbService.collectionConfidentialIDMap(instanceID).InsertOne(ctx, entry)
-	return err
-}
-
 // EnsureConfidentialIDMapEntry repairs missing mappings and records the verified owner.
 // The profile ID in an existing mapping must match before its user ID can be updated.
 func (dbService *StudyDBService) EnsureConfidentialIDMapEntry(instanceID, confidentialID, profileID, userID, studyKey string) error {
@@ -105,7 +86,12 @@ func (dbService *StudyDBService) EnsureConfidentialIDMapEntry(instanceID, confid
 	return err
 }
 
-func (dbService *StudyDBService) GetProfileIDFromConfidentialID(instanceID, confidentialID, studyKey string) (string, error) {
+type ConfidentialIDMapEntry struct {
+	ProfileID string `bson:"profileID"`
+	UserID    string `bson:"userID"`
+}
+
+func (dbService *StudyDBService) GetConfidentialIDMapEntry(instanceID, confidentialID, studyKey string) (ConfidentialIDMapEntry, error) {
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
@@ -114,11 +100,14 @@ func (dbService *StudyDBService) GetProfileIDFromConfidentialID(instanceID, conf
 		"studyKey":       studyKey,
 	}
 
-	var result struct {
-		ProfileID string `bson:"profileID"`
-	}
+	var result ConfidentialIDMapEntry
 	err := dbService.collectionConfidentialIDMap(instanceID).FindOne(ctx, filter).Decode(&result)
-	return result.ProfileID, err
+	return result, err
+}
+
+func (dbService *StudyDBService) GetProfileIDFromConfidentialID(instanceID, confidentialID, studyKey string) (string, error) {
+	entry, err := dbService.GetConfidentialIDMapEntry(instanceID, confidentialID, studyKey)
+	return entry.ProfileID, err
 }
 
 func (dbService *StudyDBService) RemoveConfidentialIDMapEntriesForStudy(instanceID, studyKey string) error {

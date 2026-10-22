@@ -105,12 +105,7 @@ func (f *profileLookupFixture) saveParticipant(t *testing.T, participantID, stat
 
 func (f *profileLookupFixture) assertLookupUser(t *testing.T) {
 	t.Helper()
-	var entry struct {
-		UserID string `bson:"userID"`
-	}
-	err := f.database.Collection(studydb.COLLECTION_NAME_CONFIDENTIAL_ID_MAP).FindOne(context.Background(), bson.M{
-		"confidentialID": f.confidentialID, "studyKey": f.study.Key,
-	}).Decode(&entry)
+	entry, err := f.db.GetConfidentialIDMapEntry(profileLookupInstance, f.confidentialID, f.study.Key)
 	if err != nil || entry.UserID != f.userID {
 		t.Fatalf("lookup user ID = %q, %v; want %q", entry.UserID, err, f.userID)
 	}
@@ -211,6 +206,10 @@ func TestRegisteredProfileEventsAddUserIDToExistingLookup(t *testing.T) {
 			})
 			if err != nil {
 				t.Fatal(err)
+			}
+			entry, err := f.db.GetConfidentialIDMapEntry(profileLookupInstance, f.confidentialID, f.study.Key)
+			if err != nil || entry.ProfileID != f.profileID || entry.UserID != "" {
+				t.Fatalf("could not read legacy mapping: %+v, %v", entry, err)
 			}
 			if err := event.run(t, f); err != nil {
 				t.Fatal(err)
@@ -341,7 +340,7 @@ func TestEventsWithoutRegisteredProfileDoNotCreateLookup(t *testing.T) {
 					t.Fatalf("timer rule did not run: %v, %v", participant.Flags, getErr)
 				}
 			case "profile deletion":
-				if err := f.db.AddConfidentialIDMapEntry(profileLookupInstance, f.confidentialID, f.profileID, f.userID, f.study.Key); err != nil {
+				if err := f.db.EnsureConfidentialIDMapEntry(profileLookupInstance, f.confidentialID, f.profileID, f.userID, f.study.Key); err != nil {
 					t.Fatal(err)
 				}
 				OnProfileDeleted(profileLookupInstance, f.profileID, nil)
