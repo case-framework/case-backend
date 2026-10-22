@@ -84,15 +84,14 @@ func OnEnterStudy(instanceID string, studyKey string, profileID string, userID s
 		}
 	}
 
-	if isNewParticipant {
-		if study.Configs.TrackAccount && userID != "" {
-			hashedAccountID, hashErr := ComputeHashedAccountID(study, userID)
-			if hashErr != nil {
-				slog.Error("Error hashing account ID", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("error", hashErr.Error()))
-			} else {
-				pState.HashedAccountID = &hashedAccountID
-				pState.IsMainProfile = &isMainProfile
-			}
+	if isNewParticipant && study.Configs.TrackAccount {
+		// Account tracking is best effort: log invalid IDs but allow enrollment to continue.
+		hashedAccountID, hashErr := ComputeHashedAccountID(study, userID)
+		if hashErr != nil {
+			slog.Error("Error hashing account ID", slog.String("instanceID", instanceID), slog.String("studyKey", studyKey), slog.String("error", hashErr.Error()))
+		} else {
+			pState.HashedAccountID = &hashedAccountID
+			pState.IsMainProfile = &isMainProfile
 		}
 	}
 
