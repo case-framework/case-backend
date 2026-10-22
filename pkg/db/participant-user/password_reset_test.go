@@ -217,6 +217,38 @@ func TestPasswordResetReservation(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
+	for _, withLimit := range []bool{false, true} {
+		name := "delete user without reset history"
+		if withLimit {
+			name = "delete user with reset history"
+		}
+		t.Run(name, func(t *testing.T) {
+			user := seed(nil, true)
+			if withLimit {
+				if _, err := service.reservePasswordResetAt("test", user.Account.AccountID, now); err != nil {
+					t.Fatal(err)
+				}
+			}
+			// The same ID in another instance must not be affected.
+			if _, err := service.collectionPasswordResetLimits("other").InsertOne(ctx, passwordResetLimit{
+				UserID: user.ID, Timestamps: []int64{now}, ExpiresAt: time.Unix(now+PasswordResetWindow, 0),
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if err := service.DeleteUser("test", user.ID.Hex()); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := service.GetUser("test", user.ID.Hex()); !errors.Is(err, mongo.ErrNoDocuments) {
+				t.Fatalf("user was not deleted: %v", err)
+			}
+			if err := service.collectionPasswordResetLimits("test").FindOne(ctx, bson.M{"_id": user.ID}).Err(); !errors.Is(err, mongo.ErrNoDocuments) {
+				t.Fatalf("reset history was not deleted: %v", err)
+			}
+			if err := service.collectionPasswordResetLimits("other").FindOne(ctx, bson.M{"_id": user.ID}).Err(); err != nil {
+				t.Fatalf("other instance affected: %v", err)
+			}
+		})
+	}
 	t.Run("TTL and unique indexes", func(t *testing.T) {
 		cursor, err := service.collectionPasswordResetLimits("test").Indexes().List(ctx)
 		if err != nil {

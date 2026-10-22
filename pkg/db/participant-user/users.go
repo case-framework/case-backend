@@ -232,6 +232,11 @@ func (dbService *ParticipantUserDBService) DeleteUser(instanceID, userID string)
 		return errors.New("no user found with the given id")
 	}
 
+	// The limit document uses the same user ID. An absent document is fine.
+	if _, err = dbService.collectionPasswordResetLimits(instanceID).DeleteOne(ctx, filter); err != nil {
+		return err
+	}
+
 	if err = dbService.DeleteAllUserAttributes(ctx, instanceID, userID); err != nil {
 		return err
 	}
