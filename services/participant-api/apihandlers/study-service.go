@@ -383,7 +383,7 @@ func (h *HttpEndpoints) enterStudy(c *gin.Context) {
 
 	isMainProfile := profile.MainProfile
 
-	result, err := studyService.OnEnterStudy(token.InstanceID, studyKey, req.ProfileID, user.Account.AccountID, isMainProfile)
+	result, err := studyService.OnEnterStudy(token.InstanceID, studyKey, req.ProfileID, user.ID.Hex(), isMainProfile)
 	if err != nil {
 		slog.Error("error entering study", slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error entering study"})
