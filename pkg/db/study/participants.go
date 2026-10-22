@@ -109,6 +109,10 @@ func (dbService *StudyDBService) SaveParticipantState(instanceID string, studyKe
 // UpdateParticipantAccountInfo migrates account grouping without replacing participant state.
 // Missing and deleted participants are left untouched, and repeated runs make no changes.
 func (dbService *StudyDBService) UpdateParticipantAccountInfo(instanceID, studyKey, participantID, hashedAccountID string, isMainProfile bool) (bool, error) {
+	if hashedAccountID == "" {
+		return false, errors.New("hashed account ID must not be empty")
+	}
+
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
