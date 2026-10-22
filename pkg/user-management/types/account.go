@@ -10,7 +10,8 @@ type Account struct {
 	PreferredLanguage  string           `bson:"preferredLanguage" json:"preferredLanguage"`
 
 	// Rate limiting
-	FailedLoginAttempts   []int64 `bson:"failedLoginAttempts" json:"failedLoginAttempts"`
+	FailedLoginAttempts []int64 `bson:"failedLoginAttempts" json:"failedLoginAttempts"`
+	// Legacy history, read only when seeding passwordResetLimits during upgrade.
 	PasswordResetTriggers []int64 `bson:"passwordResetTriggers" json:"passwordResetTriggers"`
 }
 
