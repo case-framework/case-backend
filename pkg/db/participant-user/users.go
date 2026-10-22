@@ -297,5 +297,5 @@ func (dbService *ParticipantUserDBService) FindAndExecuteOnUsers(
 			continue
 		}
 	}
-	return nil
+	return cursor.Err()
 }
