@@ -1,6 +1,7 @@
 package study
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -54,13 +55,18 @@ func (dbService *StudyDBService) CreateDefaultIndexesForConfidentialIDMapCollect
 	}
 }
 
-func (dbService *StudyDBService) AddConfidentialIDMapEntry(instanceID, confidentialID, profileID, studyKey string) error {
+func (dbService *StudyDBService) AddConfidentialIDMapEntry(instanceID, confidentialID, profileID, userID, studyKey string) error {
+	if userID == "" {
+		return errors.New("user ID must not be empty")
+	}
+
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
 	entry := bson.M{
 		"confidentialID": confidentialID,
 		"profileID":      profileID,
+		"userID":         userID,
 		"studyKey":       studyKey,
 	}
 
@@ -68,17 +74,34 @@ func (dbService *StudyDBService) AddConfidentialIDMapEntry(instanceID, confident
 	return err
 }
 
-// EnsureConfidentialIDMapEntry repairs a missing mapping without changing an existing one.
-func (dbService *StudyDBService) EnsureConfidentialIDMapEntry(instanceID, confidentialID, profileID, studyKey string) error {
+// EnsureConfidentialIDMapEntry repairs missing mappings and records the verified owner.
+// The profile ID in an existing mapping must match before its user ID can be updated.
+func (dbService *StudyDBService) EnsureConfidentialIDMapEntry(instanceID, confidentialID, profileID, userID, studyKey string) error {
+	if userID == "" {
+		return errors.New("user ID must not be empty")
+	}
+
 	ctx, cancel := dbService.getContext()
 	defer cancel()
 
 	filter := bson.M{
 		"confidentialID": confidentialID,
 		"studyKey":       studyKey,
+		"profileID":      profileID,
 	}
-	update := bson.M{"$setOnInsert": bson.M{"profileID": profileID}}
-	_, err := dbService.collectionConfidentialIDMap(instanceID).UpdateOne(ctx, filter, update, options.Update().SetUpsert(true))
+	update := bson.M{"$set": bson.M{"userID": userID}}
+	collection := dbService.collectionConfidentialIDMap(instanceID)
+	_, err := collection.UpdateOne(ctx, filter, update, options.Update().SetUpsert(true))
+	if mongo.IsDuplicateKeyError(err) {
+		// A concurrent insert of the same mapping is safe; a different profile is not.
+		result, retryErr := collection.UpdateOne(ctx, filter, update)
+		if retryErr != nil {
+			return retryErr
+		}
+		if result.MatchedCount > 0 {
+			return nil
+		}
+	}
 	return err
 }
 

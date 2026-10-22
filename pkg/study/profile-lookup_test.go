@@ -28,6 +28,7 @@ type profileLookupFixture struct {
 	database       *mongo.Database
 	study          studyTypes.Study
 	profileID      string
+	userID         string
 	participantID  string
 	confidentialID string
 	sends          int
@@ -53,6 +54,7 @@ func newProfileLookupFixture(t *testing.T, rules []studyTypes.Expression) *profi
 		db:        service,
 		database:  service.DBClient.Database(service.DBNamePrefix + profileLookupInstance + "_studyDB"),
 		profileID: primitive.NewObjectID().Hex(),
+		userID:    primitive.NewObjectID().Hex(),
 		study: studyTypes.Study{
 			Key: "study", Status: studyTypes.STUDY_STATUS_ACTIVE, SecretKey: "test-study-secret",
 			Configs: studyTypes.StudyConfigs{IdMappingMethod: "sha256-b64"},
@@ -101,6 +103,19 @@ func (f *profileLookupFixture) saveParticipant(t *testing.T, participantID, stat
 	}
 }
 
+func (f *profileLookupFixture) assertLookupUser(t *testing.T) {
+	t.Helper()
+	var entry struct {
+		UserID string `bson:"userID"`
+	}
+	err := f.database.Collection(studydb.COLLECTION_NAME_CONFIDENTIAL_ID_MAP).FindOne(context.Background(), bson.M{
+		"confidentialID": f.confidentialID, "studyKey": f.study.Key,
+	}).Decode(&entry)
+	if err != nil || entry.UserID != f.userID {
+		t.Fatalf("lookup user ID = %q, %v; want %q", entry.UserID, err, f.userID)
+	}
+}
+
 func (f *profileLookupFixture) SendInstantStudyEmail(instanceID, studyKey, confidentialID, messageType string, payload map[string]string, opts studyengine.SendOptions) error {
 	f.sends++
 	profileID, err := f.db.GetProfileIDFromConfidentialID(instanceID, confidentialID, studyKey)
@@ -121,41 +136,41 @@ type registeredProfileEvent struct {
 func registeredProfileEvents() []registeredProfileEvent {
 	return []registeredProfileEvent{
 		{"enter existing active participant", func(t *testing.T, f *profileLookupFixture) error {
-			_, err := OnEnterStudy(profileLookupInstance, f.study.Key, f.profileID, "", true)
+			_, err := OnEnterStudy(profileLookupInstance, f.study.Key, f.profileID, f.userID, true)
 			return err
 		}},
 		{"enter new participant", func(t *testing.T, f *profileLookupFixture) error {
 			if err := f.db.DeleteParticipantByID(profileLookupInstance, f.study.Key, f.participantID); err != nil {
 				t.Fatal(err)
 			}
-			_, err := OnEnterStudy(profileLookupInstance, f.study.Key, f.profileID, "", true)
+			_, err := OnEnterStudy(profileLookupInstance, f.study.Key, f.profileID, f.userID, true)
 			return err
 		}},
 		{"reenter exited participant", func(t *testing.T, f *profileLookupFixture) error {
 			f.saveParticipant(t, f.participantID, studyTypes.PARTICIPANT_STUDY_STATUS_EXITED)
-			_, err := OnEnterStudy(profileLookupInstance, f.study.Key, f.profileID, "", true)
+			_, err := OnEnterStudy(profileLookupInstance, f.study.Key, f.profileID, f.userID, true)
 			return err
 		}},
 		{"custom event", func(t *testing.T, f *profileLookupFixture) error {
-			_, err := OnCustomStudyEvent(profileLookupInstance, f.study.Key, f.profileID, "test-event", nil)
+			_, err := OnCustomStudyEvent(profileLookupInstance, f.study.Key, f.profileID, f.userID, "test-event", nil)
 			return err
 		}},
 		{"submission", func(t *testing.T, f *profileLookupFixture) error {
-			_, err := OnSubmitResponse(profileLookupInstance, f.study.Key, f.profileID, studyTypes.SurveyResponse{Key: "survey"})
+			_, err := OnSubmitResponse(profileLookupInstance, f.study.Key, f.profileID, f.userID, studyTypes.SurveyResponse{Key: "survey"})
 			return err
 		}},
 		{"leave", func(t *testing.T, f *profileLookupFixture) error {
-			_, err := OnLeaveStudy(profileLookupInstance, f.study.Key, f.profileID)
+			_, err := OnLeaveStudy(profileLookupInstance, f.study.Key, f.profileID, f.userID)
 			return err
 		}},
 		{"merge temporary into existing participant", func(t *testing.T, f *profileLookupFixture) error {
 			f.saveParticipant(t, "temporary", studyTypes.PARTICIPANT_STUDY_STATUS_TEMPORARY)
-			_, err := OnMergeTempParticipant(profileLookupInstance, f.study.Key, f.profileID, "temporary")
+			_, err := OnMergeTempParticipant(profileLookupInstance, f.study.Key, f.profileID, f.userID, "temporary")
 			return err
 		}},
 		{"merge virtual into existing participant", func(t *testing.T, f *profileLookupFixture) error {
 			f.saveParticipant(t, "virtual", studyTypes.PARTICIPANT_STUDY_STATUS_VIRTUAL)
-			_, err := OnMergeVirtualParticipant(profileLookupInstance, f.study.Key, f.profileID, "virtual", "code", "test-code")
+			_, err := OnMergeVirtualParticipant(profileLookupInstance, f.study.Key, f.profileID, f.userID, "virtual", "code", "test-code")
 			return err
 		}},
 	}
@@ -174,6 +189,7 @@ func TestRegisteredProfileEventsRecoverLookupBeforeRules(t *testing.T) {
 			if err != nil || profileID != f.profileID {
 				t.Fatalf("recovered mapping = %q, %v; want %q", profileID, err, f.profileID)
 			}
+			f.assertLookupUser(t)
 			wantSends := 1
 			if event.name == "enter existing active participant" {
 				wantSends = 0 // Recovery must happen even before the existing-participant early return.
@@ -181,6 +197,25 @@ func TestRegisteredProfileEventsRecoverLookupBeforeRules(t *testing.T) {
 			if f.sends != wantSends {
 				t.Fatalf("message rule calls = %d, want %d", f.sends, wantSends)
 			}
+		})
+	}
+}
+
+func TestRegisteredProfileEventsAddUserIDToExistingLookup(t *testing.T) {
+	for _, event := range registeredProfileEvents() {
+		t.Run(event.name, func(t *testing.T) {
+			f := newProfileLookupFixture(t, nil)
+			// Existing entries from earlier versions contain no userID.
+			_, err := f.database.Collection(studydb.COLLECTION_NAME_CONFIDENTIAL_ID_MAP).InsertOne(context.Background(), bson.M{
+				"confidentialID": f.confidentialID, "profileID": f.profileID, "studyKey": f.study.Key,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := event.run(t, f); err != nil {
+				t.Fatal(err)
+			}
+			f.assertLookupUser(t)
 		})
 	}
 }
@@ -240,18 +275,20 @@ func TestRegisteredProfileEventsContinueAfterLookupWriteFailure(t *testing.T) {
 func TestEnsureProfileLookupPreservesExistingMappingAndIsConcurrent(t *testing.T) {
 	f := newProfileLookupFixture(t, nil)
 	ensure := func(confidentialID, profileID, studyKey string) error {
-		return f.db.EnsureConfidentialIDMapEntry(profileLookupInstance, confidentialID, profileID, studyKey)
+		return f.db.EnsureConfidentialIDMapEntry(profileLookupInstance, confidentialID, profileID, f.userID, studyKey)
 	}
 	if err := ensure(f.confidentialID, f.profileID, f.study.Key); err != nil {
 		t.Fatal(err)
 	}
-	if err := ensure(f.confidentialID, "different-profile", f.study.Key); err != nil {
-		t.Fatal(err)
+	f.assertLookupUser(t)
+	if err := ensure(f.confidentialID, "different-profile", f.study.Key); !mongo.IsDuplicateKeyError(err) {
+		t.Fatalf("expected a conflicting profile mapping to be rejected, got %v", err)
 	}
 	profileID, err := f.db.GetProfileIDFromConfidentialID(profileLookupInstance, f.confidentialID, f.study.Key)
 	if err != nil || profileID != f.profileID {
 		t.Fatalf("existing mapping was changed: %q, %v", profileID, err)
 	}
+	f.assertLookupUser(t)
 	if err := ensure(f.confidentialID, "other-study-profile", "other-study"); err != nil {
 		t.Fatal(err)
 	}
@@ -304,7 +341,7 @@ func TestEventsWithoutRegisteredProfileDoNotCreateLookup(t *testing.T) {
 					t.Fatalf("timer rule did not run: %v, %v", participant.Flags, getErr)
 				}
 			case "profile deletion":
-				if err := f.db.AddConfidentialIDMapEntry(profileLookupInstance, f.confidentialID, f.profileID, f.study.Key); err != nil {
+				if err := f.db.AddConfidentialIDMapEntry(profileLookupInstance, f.confidentialID, f.profileID, f.userID, f.study.Key); err != nil {
 					t.Fatal(err)
 				}
 				OnProfileDeleted(profileLookupInstance, f.profileID, nil)
