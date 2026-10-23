@@ -1,24 +1,26 @@
 package apihandlers
 
 import (
+	"errors"
 	"log/slog"
+	"math/rand"
 	"net/http"
+	"strconv"
 	"time"
 
 	mw "github.com/case-framework/case-backend/pkg/apihelpers/middlewares"
+	userDB "github.com/case-framework/case-backend/pkg/db/participant-user"
 	"github.com/case-framework/case-backend/pkg/user-management/pwhash"
 	userTypes "github.com/case-framework/case-backend/pkg/user-management/types"
 	umUtils "github.com/case-framework/case-backend/pkg/user-management/utils"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 
 	emailTypes "github.com/case-framework/case-backend/pkg/messaging/types"
 )
 
 const (
-	passwordResetAttemptWindow   = 60 * 60 // seconds
-	PASSWWORD_RESET_MAX_ATTEMPTS = 5
-
 	PASSWORD_RESET_TOKEN_TTL = 24 * time.Hour
 )
 
@@ -32,6 +34,7 @@ func (h *HttpEndpoints) AddPasswordResetAPI(rg *gin.RouterGroup) {
 }
 
 func (h *HttpEndpoints) initiatePasswordReset(c *gin.Context) {
+	responseAt := time.Now().Add(time.Duration(1+rand.Intn(3)) * time.Second)
 	var req struct {
 		Email      string `json:"email"`
 		InstanceID string `json:"instanceID"`
@@ -49,44 +52,46 @@ func (h *HttpEndpoints) initiatePasswordReset(c *gin.Context) {
 
 	req.Email = umUtils.SanitizeEmail(req.Email)
 
-	user, err := h.userDBConn.GetUserByAccountID(req.InstanceID, req.Email)
+	// All account-dependent outcomes have the same response and target duration.
+	// Waiting until a shared deadline also absorbs normal DB processing time.
+	defer func() {
+		time.Sleep(time.Until(responseAt))
+		c.JSON(http.StatusOK, gin.H{"message": "If an eligible account exists, a password reset email will be sent. Please check your inbox and wait before trying again."})
+	}()
+
+	user, err := h.userDBConn.ReservePasswordReset(req.InstanceID, req.Email)
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		slog.Info("password reset not accepted: account missing", slog.String("email", req.Email), slog.String("instanceID", req.InstanceID))
+		return
+	}
+	if errors.Is(err, userDB.ErrPasswordResetRateLimited) {
+		slog.Info("password reset rate limited", slog.String("email", req.Email), slog.String("instanceID", req.InstanceID))
+		return
+	}
 	if err != nil {
-		slog.Warn("password reset for non-existing user", slog.String("email", req.Email), slog.String("instanceID", req.InstanceID), slog.String("error", err.Error()))
-		randomWait(5, 10)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		// Fail closed without exposing account-dependent DB failures to callers.
+		slog.Error("password reset reservation failed", slog.String("instanceID", req.InstanceID), slog.String("error", err.Error()))
 		return
 	}
 
-	if umUtils.HasMoreAttemptsRecently(user.Account.PasswordResetTriggers, PASSWWORD_RESET_MAX_ATTEMPTS, passwordResetAttemptWindow) {
-		slog.Warn("password reset rate limited", slog.String("email", req.Email), slog.String("instanceID", req.InstanceID))
-		randomWait(5, 10)
-		c.JSON(http.StatusTooManyRequests, gin.H{"error": "rate limited"})
-		return
-	}
+	h.sendPasswordResetEmail(req.InstanceID, user)
 
+	slog.Info("password reset accepted", slog.String("userID", user.ID.Hex()), slog.String("instanceID", req.InstanceID))
+}
+
+func (h *HttpEndpoints) sendPasswordResetEmail(instanceID string, user userTypes.User) {
 	go h.prepTokenAndSendEmail(
 		user.ID.Hex(),
-		req.InstanceID,
+		instanceID,
 		user.Account.AccountID,
 		user.Account.PreferredLanguage,
 		userTypes.TOKEN_PURPOSE_PASSWORD_RESET,
 		PASSWORD_RESET_TOKEN_TTL,
 		emailTypes.EMAIL_TYPE_PASSWORD_RESET,
 		map[string]string{
-			"validUntil": "24",
+			"validUntil": strconv.FormatInt(int64(PASSWORD_RESET_TOKEN_TTL/time.Hour), 10),
 		},
 	)
-
-	if err := h.userDBConn.SavePasswordResetTrigger(
-		req.InstanceID,
-		user.ID.Hex(),
-	); err != nil {
-		slog.Error("failed to save password reset trigger", slog.String("error", err.Error()))
-	}
-
-	slog.Info("password reset initiated", slog.String("email", req.Email), slog.String("instanceID", req.InstanceID))
-	randomWait(1, 4) // to discourage click-flooding
-	c.JSON(http.StatusOK, gin.H{"message": "password reset initiated"})
 }
 
 func (h *HttpEndpoints) getPasswordResetInfos(c *gin.Context) {

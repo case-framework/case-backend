@@ -10,8 +10,7 @@ type Account struct {
 	PreferredLanguage  string           `bson:"preferredLanguage" json:"preferredLanguage"`
 
 	// Rate limiting
-	FailedLoginAttempts   []int64 `bson:"failedLoginAttempts" json:"failedLoginAttempts"`
-	PasswordResetTriggers []int64 `bson:"passwordResetTriggers" json:"passwordResetTriggers"`
+	FailedLoginAttempts []int64 `bson:"failedLoginAttempts" json:"failedLoginAttempts"`
 }
 
 type VerificationCode struct {

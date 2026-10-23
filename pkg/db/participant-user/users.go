@@ -213,20 +213,6 @@ func (dbService *ParticipantUserDBService) SaveFailedLoginAttempt(instanceID str
 	return err
 }
 
-func (dbService *ParticipantUserDBService) SavePasswordResetTrigger(instanceID string, userID string) error {
-	ctx, cancel := dbService.getContext()
-	defer cancel()
-
-	_id, _ := primitive.ObjectIDFromHex(userID)
-	filter := bson.M{"_id": _id}
-	update := bson.M{"$push": bson.M{"account.passwordResetTriggers": time.Now().Unix()}}
-	_, err := dbService.collectionParticipantUsers(instanceID).UpdateOne(ctx, filter, update)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 // low level find and replace
 func (dbService *ParticipantUserDBService) _updateUserInDB(orgID string, user umTypes.User) (umTypes.User, error) {
 	ctx, cancel := dbService.getContext()
@@ -273,6 +259,11 @@ func (dbService *ParticipantUserDBService) DeleteUser(instanceID, userID string)
 	}
 	if res.DeletedCount < 1 {
 		return errors.New("no user found with the given id")
+	}
+
+	// The limit document uses the same user ID. An absent document is fine.
+	if _, err = dbService.collectionPasswordResetLimits(instanceID).DeleteOne(ctx, filter); err != nil {
+		return err
 	}
 
 	if err = dbService.DeleteAllUserAttributes(ctx, instanceID, userID); err != nil {
