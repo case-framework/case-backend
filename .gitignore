@@ -14,3 +14,13 @@ study-daily-data-export.yaml
 smtp-bridge-emulator.yaml
 run-smtp-bridge-emulator.sh
 build-info.yaml
+
+# Compiled binaries
+services/*/management-api
+services/*/participant-api
+services/*/smtp-bridge
+jobs/*/user-management
+jobs/*/messaging
+jobs/*/study-timer
+jobs/*/study-daily-data-export
+jobs/*/db-migration
