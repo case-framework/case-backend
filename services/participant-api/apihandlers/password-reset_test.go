@@ -45,13 +45,21 @@ func TestPasswordResetResponses(t *testing.T) {
 	}
 	h := &HttpEndpoints{userDBConn: service, allowedInstanceIDs: []string{"test"}, globalInfosDBConn: &globalinfos.GlobalInfosDBService{DBClient: disconnected}}
 	now := time.Now().Unix()
-	for _, u := range []bson.M{
-		{"account": bson.M{"accountID": "accepted@example.com"}},
-		{"account": bson.M{"accountID": "cooldown@example.com", "passwordResetTriggers": bson.A{now}}},
-		{"account": bson.M{"accountID": "hourly@example.com", "passwordResetTriggers": bson.A{now - 300, now - 240, now - 180, now - 120, now - 60}}},
+	for email, history := range map[string][]int64{
+		"accepted@example.com": nil,
+		"cooldown@example.com": {now},
+		"hourly@example.com":   {now - 300, now - 240, now - 180, now - 120, now - 60},
 	} {
-		if _, err = database.Collection("users").InsertOne(ctx, u); err != nil {
+		id := primitive.NewObjectID()
+		if _, err = database.Collection("users").InsertOne(ctx, bson.M{"_id": id, "account": bson.M{"accountID": email}}); err != nil {
 			t.Fatal(err)
+		}
+		if history != nil {
+			if _, err = database.Collection("passwordResetLimits").InsertOne(ctx, bson.M{
+				"_id": id, "timestamps": history, "expiresAt": time.Unix(history[len(history)-1]+participantuser.PasswordResetWindow, 0),
+			}); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 	var expected string

@@ -3,7 +3,6 @@ package participantuser
 import (
 	"errors"
 	"log/slog"
-	"sort"
 	"time"
 
 	userTypes "github.com/case-framework/case-backend/pkg/user-management/types"
@@ -71,24 +70,10 @@ func (dbService *ParticipantUserDBService) reservePasswordResetAt(instanceID, ac
 	defer cancel()
 	collection := dbService.collectionPasswordResetLimits(instanceID)
 
-	// Seed only a missing document. Import recent legacy timestamps once so an
-	// upgrade does not reset quota. Existing reservations always take precedence.
-	history := make([]int64, 0, len(user.Account.PasswordResetTriggers))
-	for _, ts := range user.Account.PasswordResetTriggers {
-		if ts > now-PasswordResetWindow {
-			history = append(history, ts)
-		}
-	}
-	sort.Slice(history, func(i, j int) bool { return history[i] < history[j] })
-	if len(history) > PasswordResetMaxRequests {
-		history = history[len(history)-PasswordResetMaxRequests:]
-	}
-	expiresAt := now + PasswordResetWindow
-	if len(history) > 0 {
-		expiresAt = history[len(history)-1] + PasswordResetWindow
-	}
+	// Initialize only a missing document. Existing collection history is retained;
+	// obsolete reset timestamps in user records are intentionally ignored.
 	_, err = collection.UpdateOne(ctx, bson.M{"_id": user.ID}, bson.M{"$setOnInsert": passwordResetLimit{
-		UserID: user.ID, Timestamps: history, ExpiresAt: time.Unix(expiresAt, 0),
+		UserID: user.ID, Timestamps: []int64{}, ExpiresAt: time.Unix(now+PasswordResetWindow, 0),
 	}}, options.Update().SetUpsert(true))
 	// Concurrent first requests can race to create the same _id. The winner's
 	// document is authoritative; losers still have to pass the atomic check below.

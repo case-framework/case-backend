@@ -43,11 +43,19 @@ func TestPasswordResetReservation(t *testing.T) {
 		t.Helper()
 		id := primitive.NewObjectID()
 		account := bson.M{"accountID": id.Hex() + "@example.com"}
-		if !missing {
-			account["passwordResetTriggers"] = history
-		}
 		if _, err := service.collectionParticipantUsers("test").InsertOne(ctx, bson.M{"_id": id, "account": account}); err != nil {
 			t.Fatal(err)
+		}
+		if !missing {
+			expiresAt := now + PasswordResetWindow
+			if timestamps, ok := history.([]int64); ok && len(timestamps) > 0 {
+				expiresAt = timestamps[len(timestamps)-1] + PasswordResetWindow
+			}
+			if _, err := service.collectionPasswordResetLimits("test").InsertOne(ctx, bson.M{
+				"_id": id, "timestamps": history, "expiresAt": time.Unix(expiresAt, 0),
+			}); err != nil {
+				t.Fatal(err)
+			}
 		}
 		user, err := service.GetUser("test", id.Hex())
 		if err != nil {
@@ -75,7 +83,6 @@ func TestPasswordResetReservation(t *testing.T) {
 		{"sixth request", []int64{now - 360, now - 300, now - 240, now - 180, now - 120}, false, false},
 		{"hour boundary", []int64{now - 3600, now - 300, now - 240, now - 180, now - 120}, false, true},
 		{"old history", []int64{now - 90000, now - 89900, now - 89800, now - 89700, now - 89600, now - 89500}, false, true},
-		{"unsorted legacy history over limit", []int64{now - 120, now - 480, now - 360, now - 180, now - 300, now - 240}, false, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			user := seed(tc.history, tc.missing)
@@ -101,8 +108,8 @@ func TestPasswordResetReservation(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !reflect.DeepEqual(saved.Account.PasswordResetTriggers, user.Account.PasswordResetTriggers) {
-				t.Fatal("reservation modified user history")
+			if !reflect.DeepEqual(saved, user) {
+				t.Fatal("reservation modified user")
 			}
 			// Rejection must not change history or push expiration into the future.
 			// Retry an already rejected request at the same instant: one second
@@ -119,6 +126,20 @@ func TestPasswordResetReservation(t *testing.T) {
 			}
 		})
 	}
+	t.Run("obsolete user history is ignored", func(t *testing.T) {
+		user := seed(nil, true)
+		if _, err := service.collectionParticipantUsers("test").UpdateOne(ctx, bson.M{"_id": user.ID}, bson.M{
+			"$set": bson.M{"account.passwordResetTriggers": bson.A{now, now, now, now, now}},
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := service.reservePasswordResetAt("test", user.Account.AccountID, now); err != nil {
+			t.Fatal(err)
+		}
+		if got := readLimit(user.ID); !reflect.DeepEqual(got.Timestamps, []int64{now}) {
+			t.Fatalf("obsolete history was imported: %v", got.Timestamps)
+		}
+	})
 	t.Run("unknown account creates no limit", func(t *testing.T) {
 		before, _ := service.collectionPasswordResetLimits("test").CountDocuments(ctx, bson.M{})
 		_, err := service.reservePasswordResetAt("test", "unknown@example.com", now)
@@ -136,7 +157,7 @@ func TestPasswordResetReservation(t *testing.T) {
 			if populated {
 				history = []int64{now - 300, now - 240, now - 180, now - 120}
 			}
-			user := seed(history, false)
+			user := seed(history, !populated)
 			var accepted atomic.Int32
 			var wg sync.WaitGroup
 			start := make(chan struct{})
@@ -170,8 +191,8 @@ func TestPasswordResetReservation(t *testing.T) {
 			if len(limit.Timestamps) != len(history)+1 {
 				t.Fatalf("wrong history: %v", limit.Timestamps)
 			}
-			// A stale or empty user copy cannot erase live collection history.
-			user.Account.PasswordResetTriggers = nil
+			// A user update cannot erase live collection history.
+			user.Account.PreferredLanguage = "de"
 			if _, err := service.ReplaceUser("test", user); err != nil {
 				t.Fatal(err)
 			}

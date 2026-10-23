@@ -11,8 +11,6 @@ type Account struct {
 
 	// Rate limiting
 	FailedLoginAttempts []int64 `bson:"failedLoginAttempts" json:"failedLoginAttempts"`
-	// Legacy history, read only when seeding passwordResetLimits during upgrade.
-	PasswordResetTriggers []int64 `bson:"passwordResetTriggers" json:"passwordResetTriggers"`
 }
 
 type VerificationCode struct {
