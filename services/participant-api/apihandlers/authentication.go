@@ -179,7 +179,6 @@ func (h *HttpEndpoints) loginWithEmail(c *gin.Context) {
 	user.Timestamps.MarkedForDeletion = 0
 	user.Account.VerificationCode = userTypes.VerificationCode{}
 	user.Account.FailedLoginAttempts = umUtils.RemoveAttemptsOlderThan(user.Account.FailedLoginAttempts, 3600)
-	user.Account.PasswordResetTriggers = umUtils.RemoveAttemptsOlderThan(user.Account.PasswordResetTriggers, 7200)
 
 	user, err = h.userDBConn.ReplaceUser(req.InstanceID, user)
 	if err != nil {
@@ -553,7 +552,6 @@ func (h *HttpEndpoints) loginWithTempToken(c *gin.Context) {
 	user.Timestamps.MarkedForDeletion = 0
 	user.Account.VerificationCode = userTypes.VerificationCode{}
 	user.Account.FailedLoginAttempts = umUtils.RemoveAttemptsOlderThan(user.Account.FailedLoginAttempts, 3600)
-	user.Account.PasswordResetTriggers = umUtils.RemoveAttemptsOlderThan(user.Account.PasswordResetTriggers, 7200)
 
 	user, err = h.userDBConn.ReplaceUser(tokenInfos.InstanceID, user)
 	if err != nil {
