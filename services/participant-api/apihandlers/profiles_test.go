@@ -56,3 +56,37 @@ func TestProfileHandlersRejectInvalidAlias(t *testing.T) {
 		}
 	}
 }
+
+func TestProfileRequestsIgnoreServerOwnedFields(t *testing.T) {
+	for _, req := range []any{&createProfileRequest{}, &updateProfileRequest{}} {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/user/profiles", strings.NewReader(`{"id":"507f1f77bcf86cd799439011","alias":"Test","avatarID":"default","consentConfirmedAt":1700000000000,"mainProfile":"not a boolean","createdAt":"not a timestamp"}`))
+		if err := c.ShouldBindJSON(req); err != nil {
+			t.Fatalf("legacy extra fields rejected: %v", err)
+		}
+		switch v := req.(type) {
+		case *createProfileRequest:
+			if v.Alias != "Test" || v.AvatarID != "default" || v.ConsentConfirmedAt != 1700000000000 {
+				t.Fatalf("wrong input: %+v", v)
+			}
+		case *updateProfileRequest:
+			if v.ID.Hex() != "507f1f77bcf86cd799439011" || v.Alias != "Test" || v.AvatarID != "default" || v.ConsentConfirmedAt != 1700000000000 {
+				t.Fatalf("wrong input: %+v", v)
+			}
+		}
+	}
+}
+
+func TestCreateProfileRequiresConsent(t *testing.T) {
+	for _, payload := range []string{`{"alias":"Test"}`, `{"alias":"Test","consentConfirmedAt":0}`, `{"alias":"Test","consentConfirmedAt":-1}`} {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Set("validatedToken", &jwthandling.ParticipantUserClaims{})
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/user/profiles", strings.NewReader(payload))
+		(&HttpEndpoints{}).addNewProfileHandl(c)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400, got %d", w.Code)
+		}
+	}
+}

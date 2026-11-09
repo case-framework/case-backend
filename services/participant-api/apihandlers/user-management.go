@@ -14,6 +14,7 @@ import (
 	studyTypes "github.com/case-framework/case-backend/pkg/study/types"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	studyService "github.com/case-framework/case-backend/pkg/study"
 	"github.com/case-framework/case-backend/pkg/user-management/pwhash"
@@ -98,17 +99,43 @@ func (h *HttpEndpoints) updatePreferredLanguageHandl(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "preferred language updated"})
 }
 
+// Profile requests deliberately exclude server-owned fields. Extra JSON fields
+// are ignored so existing clients can continue sending complete profiles.
+type createProfileRequest struct {
+	Alias              string `json:"alias"`
+	AvatarID           string `json:"avatarID"`
+	ConsentConfirmedAt int64  `json:"consentConfirmedAt"`
+}
+
+type updateProfileRequest struct {
+	ID                 primitive.ObjectID `json:"id"`
+	Alias              string             `json:"alias"`
+	AvatarID           string             `json:"avatarID"`
+	ConsentConfirmedAt int64              `json:"consentConfirmedAt"`
+}
+
 func (h *HttpEndpoints) addNewProfileHandl(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
 
-	var profile userTypes.Profile
-	if err := c.ShouldBindJSON(&profile); err != nil {
+	var req createProfileRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot bind profile"})
 		return
 	}
-	if err := umUtils.ValidateProfileAlias(profile.Alias); err != nil {
+	if err := umUtils.ValidateProfileAlias(req.Alias); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+
+	if req.ConsentConfirmedAt <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "consent is required"})
+		return
+	}
+
+	profile := userTypes.Profile{
+		Alias:              req.Alias,
+		AvatarID:           req.AvatarID,
+		ConsentConfirmedAt: req.ConsentConfirmedAt,
 	}
 
 	user, err := h.userDBConn.GetUser(token.InstanceID, token.Subject)
@@ -139,14 +166,21 @@ func (h *HttpEndpoints) addNewProfileHandl(c *gin.Context) {
 func (h *HttpEndpoints) updateProfileHandl(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
 
-	var profile userTypes.Profile
-	if err := c.ShouldBindJSON(&profile); err != nil {
+	var req updateProfileRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot bind profile"})
 		return
 	}
-	if err := umUtils.ValidateProfileAlias(profile.Alias); err != nil {
+	if err := umUtils.ValidateProfileAlias(req.Alias); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+
+	profile := userTypes.Profile{
+		Alias:              req.Alias,
+		AvatarID:           req.AvatarID,
+		ConsentConfirmedAt: req.ConsentConfirmedAt,
+		ID:                 req.ID,
 	}
 
 	user, err := h.userDBConn.GetUser(token.InstanceID, token.Subject)
@@ -160,6 +194,13 @@ func (h *HttpEndpoints) updateProfileHandl(c *gin.Context) {
 	if err != nil {
 		slog.Error("cannot update profile", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot update profile"})
+		return
+	}
+
+	// Return the persisted values, including protected fields and server time.
+	profile, err = user.FindProfile(req.ID.Hex())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot find updated profile"})
 		return
 	}
 
