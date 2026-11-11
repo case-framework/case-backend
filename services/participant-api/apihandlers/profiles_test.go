@@ -10,10 +10,11 @@ import (
 	"testing"
 
 	jwthandling "github.com/case-framework/case-backend/pkg/jwt-handling"
+	userTypes "github.com/case-framework/case-backend/pkg/user-management/types"
 	"github.com/gin-gonic/gin"
 )
 
-func TestProfileHandlersRejectInvalidAlias(t *testing.T) {
+func TestCreateProfileRejectsInvalidAlias(t *testing.T) {
 	// No database is configured: invalid aliases must be rejected before DB access.
 	h := &HttpEndpoints{}
 	for _, endpoint := range []struct {
@@ -21,7 +22,6 @@ func TestProfileHandlersRejectInvalidAlias(t *testing.T) {
 		handler gin.HandlerFunc
 	}{
 		{http.MethodPost, h.addNewProfileHandl},
-		{http.MethodPut, h.updateProfileHandl},
 	} {
 		for _, tc := range []struct{ name, payload, message string }{
 			{"long ASCII", `{"alias":"` + strings.Repeat("a", umUtils.ProfileAliasMaxUTF16Length+1) + `"}`, fmt.Sprintf("profile alias must not exceed %d UTF-16 code units", umUtils.ProfileAliasMaxUTF16Length)},
@@ -88,5 +88,35 @@ func TestCreateProfileRequiresConsent(t *testing.T) {
 		if w.Code != http.StatusBadRequest {
 			t.Fatalf("expected 400, got %d", w.Code)
 		}
+	}
+}
+
+func TestUpdateProfileAliasValidation(t *testing.T) {
+	legacy := umUtils.InitNewEmailUser("user@organisation.example", "unused", "en").Profiles[0]
+	if err := umUtils.ValidateProfileAlias(legacy.Alias); err == nil {
+		t.Fatal("fixture must have a legacy alias exceeding the current limit")
+	}
+	for _, tc := range []struct {
+		name, stored, sent string
+		valid              bool
+	}{
+		{"unchanged generated long alias", legacy.Alias, legacy.Alias, true},
+		{"unchanged long Unicode alias", strings.Repeat("😀", 11), strings.Repeat("😀", 11), true},
+		{"unchanged valid alias", "Original", "Original", true},
+		{"rename legacy alias", legacy.Alias, "Updated", true},
+		{"rename to limit", legacy.Alias, strings.Repeat("a", 20), true},
+		{"changed long alias", legacy.Alias, legacy.Alias + "x", false},
+		{"new long alias", "Original", legacy.Alias, false},
+		{"long Unicode alias", "Original", strings.Repeat("😀", 11), false},
+		{"empty replacement", legacy.Alias, "", false},
+		{"blank replacement", legacy.Alias, "   ", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := updateProfileRequest{Alias: tc.sent}
+			err := req.validateAlias(userTypes.Profile{Alias: tc.stored})
+			if (err == nil) != tc.valid {
+				t.Fatalf("valid = %v, want %v; error: %v", err == nil, tc.valid, err)
+			}
+		})
 	}
 }

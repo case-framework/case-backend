@@ -114,6 +114,15 @@ type updateProfileRequest struct {
 	ConsentConfirmedAt int64              `json:"consentConfirmedAt"`
 }
 
+// validateAlias preserves unchanged legacy aliases; renamed profiles must
+// satisfy the current rules.
+func (req updateProfileRequest) validateAlias(existing userTypes.Profile) error {
+	if req.Alias == existing.Alias {
+		return nil
+	}
+	return umUtils.ValidateProfileAlias(req.Alias)
+}
+
 func (h *HttpEndpoints) addNewProfileHandl(c *gin.Context) {
 	token := c.MustGet("validatedToken").(*jwthandling.ParticipantUserClaims)
 
@@ -171,10 +180,6 @@ func (h *HttpEndpoints) updateProfileHandl(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot bind profile"})
 		return
 	}
-	if err := umUtils.ValidateProfileAlias(req.Alias); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
 
 	profile := userTypes.Profile{
 		Alias:              req.Alias,
@@ -187,6 +192,16 @@ func (h *HttpEndpoints) updateProfileHandl(c *gin.Context) {
 	if err != nil {
 		slog.Error("user not found", slog.String("instanceId", token.InstanceID), slog.String("userId", token.Subject), slog.String("error", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "user not found"})
+		return
+	}
+
+	existingProfile, err := user.FindProfile(req.ID.Hex())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot update profile"})
+		return
+	}
+	if err := req.validateAlias(existingProfile); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
