@@ -183,15 +183,20 @@ func (u *User) ReplaceContactInfoInContactPreferences(oldId string, newId string
 func (u *User) AddProfile(p *Profile) {
 	p.ID = primitive.NewObjectID()
 	p.CreatedAt = time.Now().Unix()
+	p.MainProfile = false
+	p.ConsentConfirmedAt = time.Now().Unix()
 	u.Profiles = append(u.Profiles, *p)
 }
 
-// UpdateProfile finds and replaces profile in the user's array
+// UpdateProfile updates only client-editable fields of an existing profile.
 func (u *User) UpdateProfile(p Profile) error {
 	for i, cP := range u.Profiles {
 		if cP.ID == p.ID {
-			p.MainProfile = cP.MainProfile
-			u.Profiles[i] = p
+			u.Profiles[i].Alias = p.Alias
+			u.Profiles[i].AvatarID = p.AvatarID
+			if consentTimeSeconds(p.ConsentConfirmedAt) > consentTimeSeconds(cP.ConsentConfirmedAt) {
+				u.Profiles[i].ConsentConfirmedAt = time.Now().Unix()
+			}
 			return nil
 		}
 	}
@@ -230,4 +235,15 @@ type Timestamps struct {
 	LastPasswordChange      int64 `bson:"lastPasswordChange" json:"lastPasswordChange"`
 	ReminderToConfirmSentAt int64 `bson:"reminderToConfirmSentAt" json:"reminderToConfirmSentAt"`
 	MarkedForDeletion       int64 `bson:"markedForDeletion" json:"markedForDeletion"`
+}
+
+// consentTimeSeconds accepts existing Unix seconds and browser Date.now()
+// milliseconds. Values from 10^11 onward are treated as milliseconds.
+// This compatibility heuristic covers contemporary timestamps; the original
+// stored value is retained unless a later consent is submitted.
+func consentTimeSeconds(value int64) int64 {
+	if value >= 100_000_000_000 {
+		return value / 1000
+	}
+	return value
 }
