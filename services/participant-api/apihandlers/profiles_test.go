@@ -92,7 +92,8 @@ func TestCreateProfileRequiresConsent(t *testing.T) {
 }
 
 func TestUpdateProfileAliasValidation(t *testing.T) {
-	legacy := umUtils.InitNewEmailUser("user@organisation.example", "unused", "en").Profiles[0]
+	// Keep a literal pre-masking alias so this tests existing stored profiles.
+	legacy := userTypes.Profile{Alias: "u****@organisation.example"}
 	if err := umUtils.ValidateProfileAlias(legacy.Alias); err == nil {
 		t.Fatal("fixture must have a legacy alias exceeding the current limit")
 	}

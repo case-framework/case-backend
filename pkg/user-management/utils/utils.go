@@ -71,15 +71,28 @@ func CheckEmailFormat(email string) bool {
 	return emailRule.MatchString(email)
 }
 
-// BlurEmailAddress transforms an email address to reduce exposed personal info
+// BlurEmailAddress generates a short profile alias masking both parts of the
+// address. With one rune per part, it uses at most 13 UTF-16 code units.
 func BlurEmailAddress(email string) string {
-	items := strings.Split(email, "@")
-	if len(items) < 1 || len(items[0]) < 1 {
-		return "****@**"
+	local, domain, ok := strings.Cut(email, "@")
+	if !ok || local == "" || domain == "" || strings.Contains(domain, "@") {
+		return "****@****"
 	}
+	return string([]rune(local)[0]) + "****@" + string([]rune(domain)[0]) + "****"
+}
 
-	blurredEmail := string([]rune(items[0])[0]) + "****@" + strings.Join(items[1:], "")
-	return blurredEmail
+// IsEmailDerivedProfileAlias recognizes both current and legacy defaults when
+// an account email changes. Custom aliases should remain unchanged.
+func IsEmailDerivedProfileAlias(alias, email string) bool {
+	if alias == BlurEmailAddress(email) {
+		return true
+	}
+	local, domain, ok := strings.Cut(email, "@")
+	if !ok || local == "" || domain == "" || strings.Contains(domain, "@") {
+		return false
+	}
+	legacy := string([]rune(local)[0]) + "****@" + domain
+	return alias == legacy
 }
 
 // CheckPasswordFormat to check if password fulfills password rules

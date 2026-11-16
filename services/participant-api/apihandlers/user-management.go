@@ -425,7 +425,7 @@ func (h *HttpEndpoints) changeAccountEmailHandl(c *gin.Context) {
 	}
 
 	// update user
-	if user.Profiles[0].Alias == umUtils.BlurEmailAddress(user.Account.AccountID) {
+	if umUtils.IsEmailDerivedProfileAlias(user.Profiles[0].Alias, user.Account.AccountID) {
 		user.Profiles[0].Alias = umUtils.BlurEmailAddress(req.Email)
 	}
 	user.Account.AccountID = req.Email

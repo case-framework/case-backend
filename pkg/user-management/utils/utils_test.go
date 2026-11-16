@@ -25,22 +25,61 @@ func TestSanitizeEmail(t *testing.T) {
 }
 
 func TestBlurEmailAddress(t *testing.T) {
-	t.Run("with different formats", func(t *testing.T) {
-		email := BlurEmailAddress("a@test.de")
-		if email != "a****@test.de" {
-			t.Errorf("unexpected email: %s", email)
-		}
+	for _, tc := range []struct{ email, want string }{
+		{"a@test.de", "a****@t****"},
+		{"a1234@test.de", "a****@t****"},
+		{"user@organisation.example", "u****@o****"},
+		{"user@" + strings.Repeat("long", 30) + ".example", "u****@l****"},
+		{"😀@😀.example", "😀****@😀****"},
+		{"", "****@****"},
+		{"missing-at", "****@****"},
+		{"@example.com", "****@****"},
+		{"user@", "****@****"},
+		{"user@@example.com", "****@****"},
+	} {
+		t.Run(tc.email, func(t *testing.T) {
+			got := BlurEmailAddress(tc.email)
+			if got != tc.want {
+				t.Fatalf("got %q, want %q", got, tc.want)
+			}
+			if err := ValidateProfileAlias(got); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
 
-		email = BlurEmailAddress("a1234@test.de")
-		if email != "a****@test.de" {
-			t.Errorf("unexpected email: %s", email)
+func TestEmailDerivedProfileAlias(t *testing.T) {
+	for _, tc := range []struct {
+		alias string
+		want  bool
+	}{
+		{"u****@o****", true},
+		{"u****@organisation.example", true},
+		{"My custom alias", false},
+		{"u****@different.example", false},
+	} {
+		if got := IsEmailDerivedProfileAlias(tc.alias, "user@organisation.example"); got != tc.want {
+			t.Errorf("alias %q: got %v, want %v", tc.alias, got, tc.want)
 		}
+	}
+}
 
-		email = BlurEmailAddress("a123sdfsdfsdfa34@test.de")
-		if email != "a****@test.de" {
-			t.Errorf("unexpected email: %s", email)
-		}
-	})
+func TestNewEmailUserMasksAliasOnly(t *testing.T) {
+	email := "user@organisation.example"
+	user := InitNewEmailUser(email, "unused", "en")
+	if len(user.Profiles) != 1 || !user.Profiles[0].MainProfile {
+		t.Fatal("expected one main profile")
+	}
+	if got := user.Profiles[0].Alias; got != "u****@o****" {
+		t.Fatalf("unexpected alias %q", got)
+	}
+	if err := ValidateProfileAlias(user.Profiles[0].Alias); err != nil {
+		t.Fatal(err)
+	}
+	if user.Account.AccountID != email || len(user.ContactInfos) != 1 || user.ContactInfos[0].Email != email {
+		t.Fatal("real account or contact email was changed")
+	}
 }
 
 func TestCheckPasswordFormat(t *testing.T) {
