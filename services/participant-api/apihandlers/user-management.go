@@ -154,8 +154,8 @@ func (h *HttpEndpoints) addNewProfileHandl(c *gin.Context) {
 		return
 	}
 
-	if len(user.Profiles) > MAX_PROFILES_ALLOWED {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "reached profile limit"})
+	if len(user.Profiles) >= MAX_PROFILES_ALLOWED {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "reached profile limit"})
 		return
 	}
 	user.AddProfile(&profile)
