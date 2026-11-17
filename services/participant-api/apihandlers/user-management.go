@@ -197,7 +197,7 @@ func (h *HttpEndpoints) updateProfileHandl(c *gin.Context) {
 
 	existingProfile, err := user.FindProfile(req.ID.Hex())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot update profile"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "cannot update profile"})
 		return
 	}
 	if err := req.validateAlias(existingProfile); err != nil {
