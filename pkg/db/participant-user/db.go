@@ -18,6 +18,7 @@ const (
 	COLLECTION_NAME_RENEW_TOKENS                = "renewTokens"
 	COLLECTION_NAME_OTPS                        = "otps"
 	COLLECTION_NAME_FAILED_OTP_ATTEMPTS         = "failedOtpAttempts"
+	COLLECTION_NAME_PASSWORD_RESET_LIMITS       = "passwordResetLimits"
 )
 
 type ParticipantUserDBService struct {
@@ -89,6 +90,10 @@ func (dbService *ParticipantUserDBService) collectionFailedOtpAttempts(instanceI
 	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_FAILED_OTP_ATTEMPTS)
 }
 
+func (dbService *ParticipantUserDBService) collectionPasswordResetLimits(instanceID string) *mongo.Collection {
+	return dbService.DBClient.Database(dbService.getDBName(instanceID)).Collection(COLLECTION_NAME_PASSWORD_RESET_LIMITS)
+}
+
 func (dbService *ParticipantUserDBService) CreateDefaultIndexes() {
 	for _, instanceID := range dbService.InstanceIDs {
 		start := time.Now()
@@ -98,6 +103,9 @@ func (dbService *ParticipantUserDBService) CreateDefaultIndexes() {
 		dbService.CreateDefaultIndexesForRenewTokensCollection(instanceID)
 		dbService.CreateDefaultIndexesForOTPsCollection(instanceID)
 		dbService.CreateDefaultIndexesForFailedOtpAttemptsCollection(instanceID)
+		if err := dbService.CreatePasswordResetLimitIndexes(instanceID); err != nil {
+			slog.Error("Error creating password reset TTL index", slog.String("error", err.Error()))
+		}
 		slog.Info("Default indexes created for participant user DB", slog.String("instanceID", instanceID), slog.String("duration", time.Since(start).String()))
 	}
 }
@@ -111,6 +119,7 @@ func (dbService *ParticipantUserDBService) DropIndexes(dropAll bool) {
 		dbService.DropIndexForRenewTokensCollection(instanceID, dropAll)
 		dbService.DropIndexForOTPsCollection(instanceID, dropAll)
 		dbService.DropIndexForFailedOtpAttemptsCollection(instanceID, dropAll)
+		dbService.DropIndexForPasswordResetLimitsCollection(instanceID, dropAll)
 		slog.Info("Indexes dropped for participant user DB", slog.String("instanceID", instanceID), slog.String("duration", time.Since(start).String()))
 	}
 }
@@ -138,6 +147,9 @@ func (dbService *ParticipantUserDBService) GetIndexes() (map[string]map[string][
 			return nil, err
 		}
 		if collectionIndexes[COLLECTION_NAME_FAILED_OTP_ATTEMPTS], err = db.ListCollectionIndexes(ctx, dbService.collectionFailedOtpAttempts(instanceID)); err != nil {
+			return nil, err
+		}
+		if collectionIndexes[COLLECTION_NAME_PASSWORD_RESET_LIMITS], err = db.ListCollectionIndexes(ctx, dbService.collectionPasswordResetLimits(instanceID)); err != nil {
 			return nil, err
 		}
 

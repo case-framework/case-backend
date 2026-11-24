@@ -213,20 +213,6 @@ func (dbService *ParticipantUserDBService) SaveFailedLoginAttempt(instanceID str
 	return err
 }
 
-func (dbService *ParticipantUserDBService) SavePasswordResetTrigger(instanceID string, userID string) error {
-	ctx, cancel := dbService.getContext()
-	defer cancel()
-
-	_id, _ := primitive.ObjectIDFromHex(userID)
-	filter := bson.M{"_id": _id}
-	update := bson.M{"$push": bson.M{"account.passwordResetTriggers": time.Now().Unix()}}
-	_, err := dbService.collectionParticipantUsers(instanceID).UpdateOne(ctx, filter, update)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 // low level find and replace
 func (dbService *ParticipantUserDBService) _updateUserInDB(orgID string, user umTypes.User) (umTypes.User, error) {
 	ctx, cancel := dbService.getContext()
@@ -277,6 +263,13 @@ func (dbService *ParticipantUserDBService) DeleteUser(instanceID, userID string)
 
 	if err = dbService.DeleteAllUserAttributes(ctx, instanceID, userID); err != nil {
 		return err
+	}
+
+	// Clean up temporary rate-limit state last. An absent document is fine;
+	// on failure, the TTL index will eventually remove the remaining document.
+	if _, err = dbService.collectionPasswordResetLimits(instanceID).DeleteOne(ctx, filter); err != nil {
+		slog.Error("failed to delete password reset limits after user deletion",
+			slog.String("instanceID", instanceID), slog.String("userID", userID), slog.String("error", err.Error()))
 	}
 	return nil
 }
