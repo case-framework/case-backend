@@ -2,6 +2,10 @@
 
 The Management API service provides administrative functionality for the CASE framework. This document describes the configuration options and environment variables.
 
+## Documentation
+
+- [Logged Events Reference](LOGGED_EVENTS.md) - Comprehensive list of all logged events in the Management API for monitoring and debugging
+
 ## Configuration File
 
 The service reads configuration from a YAML file specified by the `CONFIG_FILE_PATH` environment variable.
